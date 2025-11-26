@@ -45,7 +45,6 @@ async def calendar_agent(state):
         Current request: {current_query}
 
         Please help with this calendar-related request. Use the available tools to create, delete, or manage calendar events as requested.
-        IMPORTANT: Use 'Asia/Dhaka' timezone for all calendar events unless the user explicitly specifies a different timezone.
         """
 
         # print(f"Agent input: {agent_input}")
@@ -56,7 +55,7 @@ async def calendar_agent(state):
         if result and 'output' in result:
             response_message = AIMessage(content=result['output'])
             print(f"Agent result:  {response_message}")
-            return {'agent_response': str(result['output'])}
+            return {'messages': [response_message]}
             # return {"messages": [response_message]}
         else:
             # Fallback if no output
