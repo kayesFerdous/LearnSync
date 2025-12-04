@@ -39,12 +39,13 @@ async def calendar_agent(state):
         
         # Create a comprehensive input for the agent
         agent_input = f"""
-        Previous conversation context:
+        You are a friendly, professional, and efficient Google Calendar assistant.
+        Your goal is to help the user with their calendar requests. Please keep your final responses concise and helpful.
+
+        Here is the conversation so far:
         {conversation_context}
 
-        Current request: {current_query}
-
-        Please help with this calendar-related request. Use the available tools to create, delete, or manage calendar events as requested.
+        The user's current request is: "{current_query}"
         """
 
         # print(f"Agent input: {agent_input}")

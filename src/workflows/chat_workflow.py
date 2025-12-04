@@ -1,7 +1,7 @@
+import json
+from langchain_core.language_models import BaseChatModel
 from langchain_core.prompts import PromptTemplate
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage
-# from langchain_google_genai import GoogleGenerativeAIEmbeddings
-# from langchain_groq import ChatGroq
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from typing import Literal, TypedDict, Annotated
 import aiosqlite
@@ -31,7 +31,7 @@ class ChatState(TypedDict):
 class ChatBot():
     def __init__(
         self, 
-        llm_model,
+        llm_model: BaseChatModel,
         prompt_template:PromptTemplate, 
         checkpointer: AsyncSqliteSaver,
         max_history: int = 6
@@ -105,8 +105,13 @@ class ChatBot():
     async def chat_node(self, state:ChatState):
         try:
             messages = state['messages']
-            print(messages[-6:])
-            response = await self.llm_model.ainvoke(f"system: answers should be short\n\nhistory:\n{messages[-6:]}")
+            
+            system_prompt = """You are LearnSync's AI, here for engaging and concise chats. LearnSync helps manage schedules with Google Calendar; always mention this when asked about capabilities."""
+
+            prompt_messages = [SystemMessage(content=system_prompt)] + messages
+
+            response = await self.llm_model.ainvoke(prompt_messages)
+            
             print(f"\n\n\nLLM response: \n{response.content}\n\n\n")
             return {'messages': [AIMessage(content=response.content)]}
         except Exception as e:
@@ -140,49 +145,82 @@ class ChatBot():
 
 
     async def run(self, query: str):
-        try: 
 
-            async for event in self.workflow.astream_events({"messages": [HumanMessage(query)]}, config=config, version="v2"):
-                kind = event['event']
+        # Send immediate feedback
+        yield {"type": "status", "message": "Thinking..."}
         
-                if kind == "on_chat_model_stream":
-                    chunk: AIMessageChunk = event['data']['chunk']
-                    yield {"type": "chunk", "content": chunk.content}
+        current_node = None
 
-                # tool name
-                # if kind == "on_chat_model_end":
-                #     msg = event["data"]["output"]  # Full AIMessage after stream
-                #     if hasattr(msg, "tool_calls") and msg.tool_calls:
-                #         for tc in msg.tool_calls:
-                #             yield {"type": "chunk", "content": f"Tool Use: {tc['name']}"}
+        try:
+            async for event in self.workflow.astream_events(
+                {"messages": [HumanMessage(query)]},
+                config=config,
+                version="v2"
+            ):
+                kind = event["event"]
+                name = event.get("name", "")
 
+                # --- Chain start ---
+                if kind == "on_chain_start":
+                    if name in self.graph.nodes:
+                        current_node = name
+                        if name not in ['chat_node', 'tool_selection']:
+                            yield {
+                                "type": "step",
+                                "name": name,
+                                "message": "Processing your request…"
+                            }
 
-            # full_content = ""
-            # final_node = None
-            
-            # async for chunk, metadata in self.workflow.astream(
-            #     {"messages": [HumanMessage(query)],"message":"" ,"tool": "", "agent_response": ""}, 
-            #     stream_mode='messages', 
-            #     config=config
-            # ):
-            #     if chunk.content:
-            #         full_content += chunk.content
-            #         yield {"type": "chunk", "content": chunk.content}
-            #     
-            #     # Track which node we're in
-            #     if metadata:
-            #         final_node = metadata.get('langgraph_node')
-            # 
-            # print(f"\n\nfull content: \n{full_content}\n")
-            # 
-            # # After streaming completes, update the state with the AI message
-            # if full_content:
-            #     await self.workflow.aupdate_state(
-            #         config=config,
-            #         values={"messages": [AIMessage(content=full_content)]},
-            #         as_node=final_node  # Update as the node that generated the response
-            #     )
-            #     print("✓ State updated with AI message")
+                # --- Chain end ---
+                elif kind == "on_chain_end":
+                    if name in self.graph.nodes:
+                        if name not in ['chat_node', 'tool_selection']:
+                            yield {
+                                "type": "step",
+                                "name": name,
+                                "message": "Stpe completed"
+                            }
+                        if name == current_node:
+                            current_node = None
+
+                # --- Tool start ---
+                elif kind == "on_tool_start":
+                    yield {
+                        "type": "step",
+                        "name": name,
+                        "message": f"Gathering information…"
+                    }
+
+                # --- Tool end ---
+                elif kind == "on_tool_end":
+                    yield {
+                        "type": "step",
+                        "name": name,
+                        "message": "Done with that."
+                    }
+
+                # --- Model tokens ---
+                elif kind == "on_chat_model_stream":
+                    chunk = event["data"].get("chunk")
+                    if not isinstance(chunk, BaseMessage):
+                        continue
+                    
+                    if current_node == 'calendar_agent':
+                        if hasattr(chunk, "tool_call_chunks") and chunk.tool_call_chunks:
+                            yield {
+                                "type": "thought",
+                                "preview": "Thinking...",
+                                "full": json.dumps(chunk.tool_call_chunks, indent=2),
+                            }
+                        if chunk.content:
+                            yield {"type": "chunk", "content": chunk.content}
+                            
+                    elif current_node == 'chat_node':
+                        if chunk.content:
+                            yield {"type": "chunk", "content": chunk.content}
+
+            # --- Completed ---
+            yield {"type": "done"}
 
         except Exception as e:
-            print(f"\nError while streaming the response: {e}")
+            yield {"type": "error", "message": str(e)}

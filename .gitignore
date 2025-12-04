@@ -3,6 +3,13 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+token.json
+chat.*
+test*
+credentials.json
+chroma_langchain_db/
+test*
+
 
 # C extensions
 *.so

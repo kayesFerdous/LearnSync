@@ -8,6 +8,14 @@ class Settings(BaseSettings):
     PINECONE_API_KEY: str
     PDF_PATH:str
     FRONTEND_LINK:str
+<<<<<<< HEAD
+=======
+    SUPABASE_URL: str
+    SUPABASE_ANON_KEY: str
+    SUPABASE_BUCKET: str
+    SUPABASE_FOLDER: str
+    
+>>>>>>> origin/main
 
     model_config = SettingsConfigDict(env_file=".env")
 
