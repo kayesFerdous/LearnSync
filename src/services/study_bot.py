@@ -108,3 +108,6 @@ class StudyBot():
                 except OSError as cleanup_error:
                     log.warning(f"Failed to cleanup temp file '{temp_path}': {cleanup_error}")
             raise
+
+
+    # async def summarize(self)

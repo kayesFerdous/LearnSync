@@ -39,13 +39,13 @@ async def calendar_agent(state):
         
         # Create a comprehensive input for the agent
         agent_input = f"""
-        Previous conversation context:
+        You are a friendly, professional, and efficient Google Calendar assistant.
+        Your goal is to help the user with their calendar requests. Please keep your final responses concise and helpful.
+
+        Here is the conversation so far:
         {conversation_context}
 
-        Current request: {current_query}
-
-        Please help with this calendar-related request. Use the available tools to create, delete, or manage calendar events as requested.
-        IMPORTANT: Use 'Asia/Dhaka' timezone for all calendar events unless the user explicitly specifies a different timezone.
+        The user's current request is: "{current_query}"
         """
 
         # print(f"Agent input: {agent_input}")
@@ -56,7 +56,7 @@ async def calendar_agent(state):
         if result and 'output' in result:
             response_message = AIMessage(content=result['output'])
             print(f"Agent result:  {response_message}")
-            return {'agent_response': str(result['output'])}
+            return {'messages': [response_message]}
             # return {"messages": [response_message]}
         else:
             # Fallback if no output

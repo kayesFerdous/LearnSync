@@ -1,8 +1,6 @@
 from langchain_google_community import CalendarToolkit
-from langchain_google_community.calendar.utils import (
-    build_resouce_service,
-    get_google_credentials,
-)
+from langchain_google_community.calendar.toolkit import build_calendar_service
+from langchain_google_community.calendar.utils import get_google_credentials
 
 # Scopes: full access (review at https://developers.google.com/calendar/api/auth)
 credentials = get_google_credentials(
@@ -11,7 +9,7 @@ credentials = get_google_credentials(
     client_secrets_file="credentials.json",
 )
 
-api_resource = build_resouce_service(credentials=credentials)
+api_resource = build_calendar_service(credentials=credentials)
 
 
 def get_tools():
