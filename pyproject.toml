@@ -9,7 +9,7 @@ dependencies = [
     "colorlog>=6.10.1",
     "fastapi>=0.118.0",
     "langchain-chroma>=0.2.6",
-    "langchain-docling>=1.1.0",
+    "langchain-core>=0.3.78",
     "langchain-google-community[calendar]>=2.0.10",
     "langchain-google-genai>=2.1.12",
     "langchain-groq>=0.3.8",
@@ -21,4 +21,5 @@ dependencies = [
     "python-multipart>=0.0.20",
     "supabase>=2.24.0",
     "uvicorn>=0.37.0",
+    "python-pptx>=0.6.23",
 ]

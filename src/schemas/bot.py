@@ -3,7 +3,8 @@ from typing import Literal
 
 
 class QuestionRequest(BaseModel):
-    question: str
+    message: str
+    tag: str
 
 class ToolSelection(BaseModel):
     tool: Literal["chat_node", "calendar_agent"]
