@@ -12,7 +12,7 @@ def make_tool_selection_node():
         print(f"in tool_selection: {tag}")
 
         if tag in nodes:
-            return {'tool': nodes['tag']}
+            return {'tool': nodes[tag]}
 
         else: 
             return {'tool': 'chat_node'}
