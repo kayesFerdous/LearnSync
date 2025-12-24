@@ -77,7 +77,7 @@ def setup_groq_llm_not_async(
 
 
 async def setup_gemini_llm(
-    model:str="gemini-2.5-flash",
+    model:str="gemini-3-flash-preview",
     temperature:float=0.4,
     max_tokens:int=250
 ) -> ChatGoogleGenerativeAI:

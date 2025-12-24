@@ -3,7 +3,8 @@ from src.agents.model import AgentState
 
 nodes = {
     'chatter': 'chat_node',
-    'schedular': 'calendar_node'
+    'schedular': 'calendar_node',
+    'routine_generator': 'routine_node'
 }
 
 def make_tool_selection_node():

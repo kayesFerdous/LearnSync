@@ -12,13 +12,11 @@ router = APIRouter(
 
 @router.post("/chat_bot")
 async def chat_bot_response(request: Request, payload: QuestionRequest):
-    print(f"\npayload: {payload}\n\n")
     try:
         async def generate_response():
             async for chunk in runner(
                 workflow=request.app.state.chat_workflow,
-                query=payload.message,
-                tag=payload.tag
+                payload=payload
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
 
@@ -32,5 +30,5 @@ async def chat_bot_response(request: Request, payload: QuestionRequest):
                 }
             )
 
-    except:
-        print("Error while prcessing the user request")
+    except Exception as e:
+        print("Error while prcessing the user request", str(e))
