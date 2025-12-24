@@ -5,6 +5,23 @@ import { Send, Paperclip, Sparkles, Bot, X, File as FileIcon, ImageIcon, AlertCi
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
+import RoutineApprovalWidget from '@/components/routine-approval-widget';
+
+interface ClassSchedule {
+  day: string;
+  time: string;
+  course_name: string;
+}
+
+interface RoutineData {
+  title: string;
+  classes: ClassSchedule[];
+}
+
+interface InterruptPayload {
+  type: 'routine_approval_required';
+  extracted_data: RoutineData;
+}
 
 interface Message {
   id: string;
@@ -14,13 +31,19 @@ interface Message {
     status?: string;
   };
   isStreaming?: boolean;
+  // For interrupt widgets
+  interrupt?: {
+    payload: InterruptPayload;
+    status: 'pending' | 'approved' | 'rejected' | 'processing';
+  };
 }
 
 type BackendStreamEvent =
   | { type: 'status'; message?: string }
   | { type: 'chunk'; content?: string }
   | { type: 'done' }
-  | { type: 'error'; message?: string };
+  | { type: 'error'; message?: string }
+  | { type: 'interrupt'; payload: InterruptPayload };
 
 const BACKEND_URL = 'http://localhost:8000/chat_bot';
 
@@ -59,6 +82,7 @@ export default function ChatPage() {
   const abortRef = useRef<AbortController | null>(null);
   const pendingChunkRef = useRef('');
   const flushRafRef = useRef<number | null>(null);
+  const currentAssistantIdRef = useRef<string | null>(null);
 
   const isImageOnlyMode = selectedTag === 'routine_generator';
 
@@ -151,6 +175,21 @@ export default function ChatPage() {
     updateMessage(assistantId, m => ({ ...m, isStreaming }));
   };
 
+  const setInterruptStatus = (messageId: string, status: 'pending' | 'approved' | 'rejected' | 'processing') => {
+    updateMessage(messageId, m => {
+      if (!m.interrupt) return m;
+      return { ...m, interrupt: { ...m.interrupt, status } };
+    });
+  };
+
+  const addInterruptToMessage = (messageId: string, payload: InterruptPayload) => {
+    updateMessage(messageId, m => ({
+      ...m,
+      interrupt: { payload, status: 'pending' },
+      isStreaming: false,
+    }));
+  };
+
   const enqueueAssistantChunk = (assistantId: string, chunk: string) => {
     if (!chunk) return;
     pendingChunkRef.current += chunk;
@@ -240,6 +279,9 @@ export default function ChatPage() {
     setSelectedFile(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
+    // Store current assistant ID for potential resume operations
+    currentAssistantIdRef.current = assistantId;
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -306,6 +348,12 @@ export default function ChatPage() {
             // Once text starts streaming, hide the thinking indicator.
             setThinkingStatus(assistantId, undefined);
             enqueueAssistantChunk(assistantId, event.content ?? '');
+          } else if (event.type === 'interrupt') {
+            // Handle interrupt event - show approval widget
+            setThinkingStatus(assistantId, undefined);
+            addInterruptToMessage(assistantId, event.payload);
+            // Don't mark as finished - keep connection alive for potential resume
+            finished = true;
           } else if (event.type === 'error') {
             setThinkingStatus(assistantId, undefined);
             appendAssistantContent(assistantId, `\n\n${event.message ?? 'Error'}`);
@@ -337,6 +385,199 @@ export default function ChatPage() {
       }
       setAssistantStreaming(assistantId, false);
       if (abortRef.current === controller) abortRef.current = null;
+    }
+  };
+
+  // Handle routine approval from the widget
+  const handleRoutineApprove = async (messageId: string, editedData: RoutineData) => {
+    setInterruptStatus(messageId, 'processing');
+
+    // Create a new assistant message for the resume response
+    const now = Date.now();
+    const resumeAssistantId = `${now}-resume`;
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: resumeAssistantId,
+        role: 'ai',
+        content: '',
+        thinking: { status: 'Saving your routine...' },
+        isStreaming: true,
+      },
+    ]);
+
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify({
+          tag: 'routine_generator',
+          user_input: {
+            approved: true,
+            data: editedData,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error (${response.status})`);
+      }
+
+      if (!response.body) {
+        throw new Error('Backend did not provide a streaming response');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finished = false;
+
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() ?? '';
+
+        for (const block of blocks) {
+          const event = parseSseBlock(block);
+          if (!event) continue;
+
+          if (event.type === 'status') {
+            setThinkingStatus(resumeAssistantId, event.message ?? 'Processing...');
+          } else if (event.type === 'chunk') {
+            setThinkingStatus(resumeAssistantId, undefined);
+            enqueueAssistantChunk(resumeAssistantId, event.content ?? '');
+          } else if (event.type === 'error') {
+            setThinkingStatus(resumeAssistantId, undefined);
+            appendAssistantContent(resumeAssistantId, `\n\n${event.message ?? 'Error'}`);
+            finished = true;
+          } else if (event.type === 'done') {
+            setThinkingStatus(resumeAssistantId, undefined);
+            finished = true;
+          }
+
+          if (finished) {
+            try { await reader.cancel(); } catch { /* ignore */ }
+            break;
+          }
+        }
+      }
+
+      // Mark the original widget as approved
+      setInterruptStatus(messageId, 'approved');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Resume error:', error);
+      setThinkingStatus(resumeAssistantId, undefined);
+      appendAssistantContent(resumeAssistantId, `\n\nSorry, there was an error saving the routine. (${message})`);
+      setInterruptStatus(messageId, 'pending'); // Allow retry
+    } finally {
+      if (pendingChunkRef.current) {
+        appendAssistantContent(resumeAssistantId, pendingChunkRef.current);
+        pendingChunkRef.current = '';
+      }
+      setAssistantStreaming(resumeAssistantId, false);
+    }
+  };
+
+  // Handle routine rejection from the widget
+  const handleRoutineReject = async (messageId: string) => {
+    setInterruptStatus(messageId, 'processing');
+
+    // Create a new assistant message for the rejection response
+    const now = Date.now();
+    const rejectAssistantId = `${now}-reject`;
+
+    setMessages(prev => [
+      ...prev,
+      {
+        id: rejectAssistantId,
+        role: 'ai',
+        content: '',
+        thinking: { status: 'Discarding routine...' },
+        isStreaming: true,
+      },
+    ]);
+
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify({
+          tag: 'routine_generator',
+          user_input: 'CANCEL',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error (${response.status})`);
+      }
+
+      if (!response.body) {
+        throw new Error('Backend did not provide a streaming response');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finished = false;
+
+      while (!finished) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const blocks = buffer.split('\n\n');
+        buffer = blocks.pop() ?? '';
+
+        for (const block of blocks) {
+          const event = parseSseBlock(block);
+          if (!event) continue;
+
+          if (event.type === 'status') {
+            setThinkingStatus(rejectAssistantId, event.message ?? 'Processing...');
+          } else if (event.type === 'chunk') {
+            setThinkingStatus(rejectAssistantId, undefined);
+            enqueueAssistantChunk(rejectAssistantId, event.content ?? '');
+          } else if (event.type === 'error') {
+            setThinkingStatus(rejectAssistantId, undefined);
+            appendAssistantContent(rejectAssistantId, `\n\n${event.message ?? 'Error'}`);
+            finished = true;
+          } else if (event.type === 'done') {
+            setThinkingStatus(rejectAssistantId, undefined);
+            finished = true;
+          }
+
+          if (finished) {
+            try { await reader.cancel(); } catch { /* ignore */ }
+            break;
+          }
+        }
+      }
+
+      // Mark the original widget as rejected
+      setInterruptStatus(messageId, 'rejected');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Reject error:', error);
+      setThinkingStatus(rejectAssistantId, undefined);
+      appendAssistantContent(rejectAssistantId, `\n\nSorry, there was an error. (${message})`);
+      setInterruptStatus(messageId, 'pending'); // Allow retry
+    } finally {
+      if (pendingChunkRef.current) {
+        appendAssistantContent(rejectAssistantId, pendingChunkRef.current);
+        pendingChunkRef.current = '';
+      }
+      setAssistantStreaming(rejectAssistantId, false);
     }
   };
 
@@ -402,12 +643,14 @@ export default function ChatPage() {
             )}
 
             <div className={cn(
-              "max-w-[78%] md:max-w-[62%] p-4 relative group text-sm leading-relaxed",
+              "max-w-[78%] md:max-w-[62%] relative group text-sm leading-relaxed",
               msg.role === 'user'
-                ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm"
-                : "bg-muted text-foreground rounded-2xl rounded-tl-sm"
+                ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm p-4"
+                : msg.interrupt 
+                  ? "" // No background for interrupt messages - widget has its own styling
+                  : "bg-muted text-foreground rounded-2xl rounded-tl-sm p-4"
             )}>
-              {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' ? (
+              {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' && !msg.interrupt ? (
                 <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse" />
@@ -417,7 +660,21 @@ export default function ChatPage() {
                   <span className="leading-relaxed">{msg.thinking?.status ?? 'Thinking...'} </span>
                 </div>
               ) : null}
-              <ReactMarkdown
+
+              {/* Render interrupt widget if present */}
+              {msg.interrupt && msg.interrupt.payload.type === 'routine_approval_required' && (
+                <RoutineApprovalWidget
+                  data={msg.interrupt.payload.extracted_data}
+                  onApprove={(editedData) => handleRoutineApprove(msg.id, editedData)}
+                  onReject={() => handleRoutineReject(msg.id)}
+                  isLocked={msg.interrupt.status !== 'pending'}
+                  status={msg.interrupt.status}
+                />
+              )}
+
+              {/* Only render markdown content if there's no interrupt or if there is additional content */}
+              {(!msg.interrupt || msg.content.trim()) && (
+                <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
@@ -453,14 +710,17 @@ export default function ChatPage() {
               >
                 {msg.content}
               </ReactMarkdown>
+              )}
 
               {/* Timestamp or Status (Hidden by default, shown on hover) */}
-              <div className={cn(
-                "absolute -bottom-5 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap",
-                msg.role === 'user' ? "right-2" : "left-2"
-              )}>
-                Just now
-              </div>
+              {!msg.interrupt && (
+                <div className={cn(
+                  "absolute -bottom-5 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap",
+                  msg.role === 'user' ? "right-2" : "left-2"
+                )}>
+                  Just now
+                </div>
+              )}
             </div>
 
             {msg.role === 'user' && (
