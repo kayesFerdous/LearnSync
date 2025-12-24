@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Sparkles, Bot, X, File as FileIcon } from 'lucide-react';
+import { Send, Paperclip, Sparkles, Bot, X, File as FileIcon, ImageIcon, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -51,6 +51,7 @@ export default function ChatPage() {
   const [showTags, setShowTags] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [focusedTagIndex, setFocusedTagIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -58,6 +59,8 @@ export default function ChatPage() {
   const abortRef = useRef<AbortController | null>(null);
   const pendingChunkRef = useRef('');
   const flushRafRef = useRef<number | null>(null);
+
+  const isImageOnlyMode = selectedTag === 'routine_generator';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -115,7 +118,11 @@ export default function ChatPage() {
     setSelectedTag(tagId);
     setInput('');
     setShowTags(false);
-    textareaRef.current?.focus();
+    setImageError(null);
+    // Don't auto-focus textarea for image-only mode
+    if (tagId !== 'routine_generator') {
+      textareaRef.current?.focus();
+    }
   };
 
   const updateMessage = (messageId: string, updater: (m: Message) => Message) => {
@@ -156,23 +163,68 @@ export default function ChatPage() {
     });
   };
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Keep the full data URL (e.g., "data:image/png;base64,...")
+        resolve(reader.result as string);
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
 
-    const userMessage = input;
+  const validateImageFile = (file: File): string | null => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      return 'Please select a valid image file (JPEG, PNG, GIF, or WebP)';
+    }
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return 'Image size must be less than 10MB';
+    }
+    return null;
+  };
+
+  const handleSend = async () => {
+    // Validation based on mode
+    if (isImageOnlyMode) {
+      if (!selectedFile) {
+        setImageError('Please select an image to upload');
+        return;
+      }
+      const validationError = validateImageFile(selectedFile);
+      if (validationError) {
+        setImageError(validationError);
+        return;
+      }
+    } else {
+      if (!input.trim() && !selectedFile) return;
+    }
+
+    setImageError(null);
+
+    const userMessage = input.trim();
     const tag = selectedTag;
     const tagForRequest = tag ?? 'chatter';
+    const fileToSend = selectedFile;
 
     const now = Date.now();
     const userMessageId = `${now}`;
     const assistantId = `${now}-ai`;
+
+    // Build user message content for display
+    const displayContent = isImageOnlyMode
+      ? `📷 Image uploaded${fileToSend ? `: ${fileToSend.name}` : ''}`
+      : userMessage || (fileToSend ? `📎 ${fileToSend.name}` : '');
 
     setMessages(prev => [
       ...prev,
       {
         id: userMessageId,
         role: 'user',
-        content: userMessage,
+        content: displayContent,
       },
       {
         id: assistantId,
@@ -193,15 +245,35 @@ export default function ChatPage() {
     abortRef.current = controller;
 
     try {
+      // Build payload with optional fields
+      const payload: { message?: string; tag: string; image?: string } = {
+        tag: tagForRequest,
+      };
+
+      if (userMessage) {
+        payload.message = userMessage;
+      }
+
+      // Convert image to base64 if present
+      if (fileToSend) {
+        try {
+          payload.image = await fileToBase64(fileToSend);
+        } catch {
+          throw new Error('Failed to process the image. Please try again.');
+        }
+      }
+
       const response = await fetch(BACKEND_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
         },
-        body: JSON.stringify({ message: userMessage, tag: tagForRequest }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
+
+      console.log(response)
 
       if (!response.ok) {
         throw new Error(`Backend error (${response.status})`);
@@ -434,56 +506,111 @@ export default function ChatPage() {
           </div>
         )}
 
-        <div className="bg-card shadow-2xl rounded-[2rem] p-2 flex items-end gap-2 border border-border transition-all">
+        {/* Error Message */}
+        {imageError && (
+          <div className="mb-2 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center gap-2 text-sm text-destructive animate-in fade-in slide-in-from-bottom-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{imageError}</span>
+            <button onClick={() => setImageError(null)} className="ml-auto hover:opacity-70">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        <div className={cn(
+          "bg-card shadow-2xl rounded-[2rem] p-2 flex items-end gap-2 border transition-all",
+          isImageOnlyMode ? "border-primary/30" : "border-border"
+        )}>
           <input
             type="file"
             ref={fileInputRef}
             className="hidden"
+            accept={isImageOnlyMode ? "image/jpeg,image/png,image/gif,image/webp" : undefined}
             onChange={(e) => {
-              if (e.target.files?.[0]) setSelectedFile(e.target.files[0]);
+              const file = e.target.files?.[0];
+              if (file) {
+                setSelectedFile(file);
+                setImageError(null);
+              }
+              // Reset input so same file can be selected again
+              e.target.value = '';
             }}
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-3 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
-            title="Attach file"
+            className={cn(
+              "p-3 rounded-full transition-colors shrink-0",
+              isImageOnlyMode
+                ? "bg-primary/10 text-primary hover:bg-primary/20"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
+            )}
+            title={isImageOnlyMode ? "Upload image (required)" : "Attach file"}
           >
-            <Paperclip className="h-5 w-5" />
+            {isImageOnlyMode ? <ImageIcon className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
           </button>
 
           <div className="flex-1 py-3 min-h-[3rem] max-h-[12rem] overflow-y-auto flex flex-col justify-center">
             <div className="flex flex-wrap gap-2 mb-1 empty:hidden">
               {selectedTag && (
-                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-3 py-0.5 rounded-full text-xs font-medium animate-in zoom-in duration-200 border border-primary/20">
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-medium animate-in zoom-in duration-200 border",
+                  isImageOnlyMode
+                    ? "bg-primary/15 text-primary border-primary/25"
+                    : "bg-primary/10 text-primary border-primary/20"
+                )}>
                   @{TAGS.find(t => t.id === selectedTag)?.label}
-                  <button onClick={() => setSelectedTag(null)} className="hover:text-primary/70 ml-1"><X className="h-3 w-3" /></button>
+                  <button onClick={() => { setSelectedTag(null); setSelectedFile(null); setImageError(null); }} className="hover:text-primary/70 ml-1"><X className="h-3 w-3" /></button>
                 </span>
               )}
               {selectedFile && (
-                <span className="inline-flex items-center gap-1 bg-secondary text-foreground px-3 py-0.5 rounded-full text-xs font-medium animate-in zoom-in duration-200 border border-border">
-                  <FileIcon className="h-3 w-3 mr-1" />
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-medium animate-in zoom-in duration-200 border",
+                  isImageOnlyMode
+                    ? "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
+                    : "bg-secondary text-foreground border-border"
+                )}>
+                  {isImageOnlyMode ? <ImageIcon className="h-3 w-3 mr-1" /> : <FileIcon className="h-3 w-3 mr-1" />}
                   <span className="max-w-[100px] truncate">{selectedFile.name}</span>
-                  <button onClick={() => setSelectedFile(null)} className="hover:text-muted-foreground ml-1"><X className="h-3 w-3" /></button>
+                  <button onClick={() => { setSelectedFile(null); setImageError(null); }} className="hover:opacity-70 ml-1"><X className="h-3 w-3" /></button>
                 </span>
               )}
             </div>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder={selectedTag ? "Type your message..." : "Type a message or @ for tags..."}
-              className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 resize-none h-6 max-h-[10rem] py-0 font-sans"
-              rows={1}
-            />
+            {isImageOnlyMode ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "flex items-center gap-2 text-sm cursor-pointer py-1",
+                  selectedFile ? "text-muted-foreground" : "text-muted-foreground/60"
+                )}
+              >
+                {selectedFile ? (
+                  <span>Image ready to send</span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Click to upload an image for routine generation...
+                  </span>
+                )}
+              </div>
+            ) : (
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder={selectedTag ? "Type your message..." : "Type a message or @ for tags..."}
+                className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 resize-none h-6 max-h-[10rem] py-0 font-sans"
+                rows={1}
+              />
+            )}
           </div>
 
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={isImageOnlyMode ? !selectedFile : (!input.trim() && !selectedFile)}
             className={cn(
               "p-3 rounded-full transition-all shadow-md shrink-0 mb-0.5",
-              input.trim()
+              (isImageOnlyMode ? selectedFile : (input.trim() || selectedFile))
                 ? "bg-primary text-primary-foreground hover:opacity-90"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
