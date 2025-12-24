@@ -1,0 +1,273 @@
+'use client';
+
+import { useState, useRef, useCallback } from 'react';
+import type { Message, InterruptPayload, InterruptStatus, RoutineData } from './types';
+import { BACKEND_URL, fileToBase64, processStream } from './api';
+import { INITIAL_MESSAGE } from './constants';
+
+export function useChat() {
+  const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
+  const abortRef = useRef<AbortController | null>(null);
+  const pendingChunkRef = useRef('');
+  const flushRafRef = useRef<number | null>(null);
+
+  // Message update helpers
+  const updateMessage = useCallback((messageId: string, updater: (m: Message) => Message) => {
+    setMessages(prev => {
+      const idx = prev.findIndex(m => m.id === messageId);
+      if (idx === -1) return prev;
+      const next = prev.slice();
+      next[idx] = updater(prev[idx]);
+      return next;
+    });
+  }, []);
+
+  const setThinkingStatus = useCallback((assistantId: string, status?: string) => {
+    updateMessage(assistantId, m => ({
+      ...m,
+      thinking: { status },
+    }));
+  }, [updateMessage]);
+
+  const appendAssistantContent = useCallback((assistantId: string, chunk: string) => {
+    if (!chunk) return;
+    updateMessage(assistantId, m => ({ ...m, content: m.content + chunk }));
+  }, [updateMessage]);
+
+  const setAssistantStreaming = useCallback((assistantId: string, isStreaming: boolean) => {
+    updateMessage(assistantId, m => ({ ...m, isStreaming }));
+  }, [updateMessage]);
+
+  const setInterruptStatus = useCallback((messageId: string, status: InterruptStatus) => {
+    updateMessage(messageId, m => {
+      if (!m.interrupt) return m;
+      return { ...m, interrupt: { ...m.interrupt, status } };
+    });
+  }, [updateMessage]);
+
+  const addInterruptToMessage = useCallback((messageId: string, payload: InterruptPayload) => {
+    updateMessage(messageId, m => ({
+      ...m,
+      interrupt: { payload, status: 'pending' },
+      isStreaming: false,
+    }));
+  }, [updateMessage]);
+
+  // Batched chunk updates for performance
+  const enqueueAssistantChunk = useCallback((assistantId: string, chunk: string) => {
+    if (!chunk) return;
+    pendingChunkRef.current += chunk;
+    if (flushRafRef.current != null) return;
+    flushRafRef.current = window.requestAnimationFrame(() => {
+      const toFlush = pendingChunkRef.current;
+      pendingChunkRef.current = '';
+      flushRafRef.current = null;
+      appendAssistantContent(assistantId, toFlush);
+    });
+  }, [appendAssistantContent]);
+
+  const flushPendingChunks = useCallback((assistantId: string) => {
+    if (flushRafRef.current != null) {
+      window.cancelAnimationFrame(flushRafRef.current);
+      flushRafRef.current = null;
+    }
+    if (pendingChunkRef.current) {
+      appendAssistantContent(assistantId, pendingChunkRef.current);
+      pendingChunkRef.current = '';
+    }
+  }, [appendAssistantContent]);
+
+  // Send a chat message
+  const sendMessage = useCallback(async (
+    userMessage: string,
+    tag: string | null,
+    file: File | null
+  ) => {
+    const tagForRequest = tag ?? 'chatter';
+    const now = Date.now();
+    const userMessageId = `${now}`;
+    const assistantId = `${now}-ai`;
+
+    // Build display content
+    const isImageOnly = tag === 'routine_generator';
+    const displayContent = isImageOnly
+      ? `📷 Image uploaded${file ? `: ${file.name}` : ''}`
+      : userMessage || (file ? `📎 ${file.name}` : '');
+
+    // Add messages
+    setMessages(prev => [
+      ...prev,
+      { id: userMessageId, role: 'user', content: displayContent },
+      { id: assistantId, role: 'ai', content: '', thinking: { status: undefined }, isStreaming: true },
+    ]);
+
+    // Abort any previous request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      // Build payload
+      const payload: { message?: string; tag: string; image?: string } = { tag: tagForRequest };
+      if (userMessage) payload.message = userMessage;
+      if (file) {
+        payload.image = await fileToBase64(file);
+      }
+
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error (${response.status})`);
+      }
+
+      await processStream(response, {
+        onStatus: (message) => setThinkingStatus(assistantId, message),
+        onChunk: (content) => {
+          setThinkingStatus(assistantId, undefined);
+          enqueueAssistantChunk(assistantId, content);
+        },
+        onInterrupt: (event) => {
+          setThinkingStatus(assistantId, undefined);
+          addInterruptToMessage(assistantId, event.payload);
+        },
+        onError: (message) => {
+          setThinkingStatus(assistantId, undefined);
+          appendAssistantContent(assistantId, `\n\n${message}`);
+        },
+        onDone: () => setThinkingStatus(assistantId, undefined),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Chat backend error:', error);
+      setThinkingStatus(assistantId, undefined);
+      appendAssistantContent(assistantId, `\n\nSorry, there was an error connecting to the server. (${message})`);
+    } finally {
+      flushPendingChunks(assistantId);
+      setAssistantStreaming(assistantId, false);
+      if (abortRef.current === controller) abortRef.current = null;
+    }
+  }, [setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
+
+  // Handle routine approval
+  const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData) => {
+    setInterruptStatus(messageId, 'processing');
+
+    const now = Date.now();
+    const resumeAssistantId = `${now}-resume`;
+
+    setMessages(prev => [
+      ...prev,
+      { id: resumeAssistantId, role: 'ai', content: '', thinking: { status: 'Saving your routine...' }, isStreaming: true },
+    ]);
+
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify({
+          tag: 'routine_generator',
+          user_input: { approved: true, data: editedData },
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Backend error (${response.status})`);
+
+      await processStream(response, {
+        onStatus: (message) => setThinkingStatus(resumeAssistantId, message),
+        onChunk: (content) => {
+          setThinkingStatus(resumeAssistantId, undefined);
+          enqueueAssistantChunk(resumeAssistantId, content);
+        },
+        onInterrupt: () => {},
+        onError: (message) => {
+          setThinkingStatus(resumeAssistantId, undefined);
+          appendAssistantContent(resumeAssistantId, `\n\n${message}`);
+        },
+        onDone: () => setThinkingStatus(resumeAssistantId, undefined),
+      });
+
+      setInterruptStatus(messageId, 'approved');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Resume error:', error);
+      setThinkingStatus(resumeAssistantId, undefined);
+      appendAssistantContent(resumeAssistantId, `\n\nSorry, there was an error saving the routine. (${message})`);
+      setInterruptStatus(messageId, 'pending');
+    } finally {
+      flushPendingChunks(resumeAssistantId);
+      setAssistantStreaming(resumeAssistantId, false);
+    }
+  }, [setInterruptStatus, setThinkingStatus, enqueueAssistantChunk, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
+
+  // Handle routine rejection
+  const rejectRoutine = useCallback(async (messageId: string) => {
+    setInterruptStatus(messageId, 'processing');
+
+    const now = Date.now();
+    const rejectAssistantId = `${now}-reject`;
+
+    setMessages(prev => [
+      ...prev,
+      { id: rejectAssistantId, role: 'ai', content: '', thinking: { status: 'Discarding routine...' }, isStreaming: true },
+    ]);
+
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify({
+          tag: 'routine_generator',
+          user_input: 'CANCEL',
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Backend error (${response.status})`);
+
+      await processStream(response, {
+        onStatus: (message) => setThinkingStatus(rejectAssistantId, message),
+        onChunk: (content) => {
+          setThinkingStatus(rejectAssistantId, undefined);
+          enqueueAssistantChunk(rejectAssistantId, content);
+        },
+        onInterrupt: () => {},
+        onError: (message) => {
+          setThinkingStatus(rejectAssistantId, undefined);
+          appendAssistantContent(rejectAssistantId, `\n\n${message}`);
+        },
+        onDone: () => setThinkingStatus(rejectAssistantId, undefined),
+      });
+
+      setInterruptStatus(messageId, 'rejected');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Reject error:', error);
+      setThinkingStatus(rejectAssistantId, undefined);
+      appendAssistantContent(rejectAssistantId, `\n\nSorry, there was an error. (${message})`);
+      setInterruptStatus(messageId, 'pending');
+    } finally {
+      flushPendingChunks(rejectAssistantId);
+      setAssistantStreaming(rejectAssistantId, false);
+    }
+  }, [setInterruptStatus, setThinkingStatus, enqueueAssistantChunk, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
+
+  return {
+    messages,
+    sendMessage,
+    approveRoutine,
+    rejectRoutine,
+  };
+}
