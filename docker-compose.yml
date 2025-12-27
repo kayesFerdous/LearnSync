@@ -1,0 +1,24 @@
+services:
+  api:
+    build: .
+    container_name: fastapi_api
+    ports:
+      - "8000:8000"
+    env_file:
+        - .env
+    depends_on:
+      - db
+  db:
+    image: postgres:16-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: kayes
+      POSTGRES_PASSWORD: bolbona
+      POSTGRES_DB: dome
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # optional, for local access
+
+volumes:
+  postgres_data:

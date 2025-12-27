@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# dev
+TODOS.py
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+# token.json
+chat.*
+test*
+# credentials.json
+chroma_langchain_db/
+test*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+.python-version
+
+# Node/Frontend (if applicable)
+node_modules/
+npm-debug.log*
+
+# Environment and Secrets
+.env
+.env.*
+!.env.example
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Misc
+.DS_Store
+README.md
