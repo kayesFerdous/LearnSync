@@ -7,8 +7,9 @@ import interactionPlugin from '@fullcalendar/interaction';
 
 export default function CalendarPage() {
   return (
-    <div className="h-[calc(100vh-6rem)] bg-surface rounded-3xl p-6 shadow-sm border border-surface-highlight overflow-hidden">
-      <style jsx global>{`
+    <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+      <div className="h-[calc(100vh-6rem)] bg-surface rounded-3xl p-6 shadow-sm border border-surface-highlight overflow-hidden">
+        <style jsx global>{`
         .fc {
           --fc-border-color: hsl(var(--surface-highlight));
           --fc-button-bg-color: hsl(var(--primary));
@@ -73,6 +74,7 @@ export default function CalendarPage() {
           { title: 'Project Review', date: new Date().toISOString().split('T')[0] }
         ]}
       />
+    </div>
     </div>
   );
 }

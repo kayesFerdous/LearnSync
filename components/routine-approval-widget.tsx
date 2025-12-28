@@ -87,11 +87,11 @@ export default function RoutineApprovalWidget({
 
   return (
     <div className={cn(
-      "w-full max-w-lg rounded-2xl border-2 overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-4",
-      status === 'pending' && "border-primary/30 bg-card shadow-xl",
-      status === 'approved' && "border-green-500/50 bg-green-50/50 dark:bg-green-950/20",
-      status === 'rejected' && "border-red-500/50 bg-red-50/50 dark:bg-red-950/20",
-      status === 'processing' && "border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20"
+      "w-full max-w-lg rounded-2xl border overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 theme-shadow-lg",
+      status === 'pending' && "border-primary/30 bg-card",
+      status === 'approved' && "border-green-500/50 bg-green-50/50",
+      status === 'rejected' && "border-red-500/50 bg-red-50/50",
+      status === 'processing' && "border-yellow-500/50 bg-yellow-50/50"
     )}>
       {/* Header */}
       <div className={cn(
@@ -104,9 +104,9 @@ export default function RoutineApprovalWidget({
         <div className={cn(
           "p-2 rounded-lg",
           status === 'pending' && "bg-primary/10 text-primary",
-          status === 'approved' && "bg-green-500/10 text-green-600 dark:text-green-400",
-          status === 'rejected' && "bg-red-500/10 text-red-600 dark:text-red-400",
-          status === 'processing' && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+          status === 'approved' && "bg-green-500/10 text-green-600",
+          status === 'rejected' && "bg-red-500/10 text-red-600",
+          status === 'processing' && "bg-yellow-500/10 text-yellow-600"
         )}>
           <Calendar className="h-5 w-5" />
         </div>
@@ -130,16 +130,16 @@ export default function RoutineApprovalWidget({
           </p>
         </div>
         {status === 'processing' && (
-          <Loader2 className="h-5 w-5 animate-spin text-yellow-600 dark:text-yellow-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
         )}
         {status === 'approved' && (
           <div className="p-1.5 rounded-full bg-green-500/20">
-            <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <Check className="h-4 w-4 text-green-600" />
           </div>
         )}
         {status === 'rejected' && (
           <div className="p-1.5 rounded-full bg-red-500/20">
-            <X className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <X className="h-4 w-4 text-red-600" />
           </div>
         )}
       </div>
@@ -165,7 +165,7 @@ export default function RoutineApprovalWidget({
                   className={cn(
                     "group relative p-3 rounded-xl border transition-all",
                     editingIndex === originalIndex
-                      ? "bg-primary/5 border-primary/30 shadow-sm"
+                      ? "bg-primary/5 border-primary/30 theme-shadow"
                       : "bg-muted/30 border-border hover:border-primary/20"
                   )}
                 >
@@ -209,7 +209,7 @@ export default function RoutineApprovalWidget({
                       <div className="flex justify-end gap-2 pt-1">
                         <button
                           onClick={() => handleRemoveClass(originalIndex)}
-                          className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                          className="px-2 py-1 text-xs text-red-600 hover:bg-red-500/10 rounded-md transition-colors"
                         >
                           Delete
                         </button>
@@ -244,7 +244,7 @@ export default function RoutineApprovalWidget({
                           </button>
                           <button
                             onClick={() => handleRemoveClass(originalIndex)}
-                            className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors"
                             title="Remove"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -276,7 +276,7 @@ export default function RoutineApprovalWidget({
         <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center gap-3">
           <button
             onClick={onReject}
-            className="flex-1 py-2.5 px-4 rounded-xl border-2 border-red-500/30 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-500/10 hover:border-red-500/50 transition-all flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 px-4 rounded-xl border border-red-500/30 text-red-600 font-medium text-sm hover:bg-red-500/10 hover:border-red-500/50 transition-all flex items-center justify-center gap-2"
           >
             <X className="h-4 w-4" />
             Discard
@@ -287,7 +287,7 @@ export default function RoutineApprovalWidget({
             className={cn(
               "flex-1 py-2.5 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2",
               editedData.classes.length > 0
-                ? "bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg"
+                ? "bg-green-600 hover:bg-green-700 text-white theme-shadow"
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >

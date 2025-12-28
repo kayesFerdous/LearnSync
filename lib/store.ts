@@ -1,11 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-export type Theme = 'default' | 'forest' | 'dark';
+import type { ThemeId } from './themes';
 
 interface ThemeState {
-  currentTheme: Theme;
-  setTheme: (theme: Theme) => void;
+  currentTheme: ThemeId;
+  setTheme: (theme: ThemeId) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(

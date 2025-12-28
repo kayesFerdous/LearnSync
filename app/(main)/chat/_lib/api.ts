@@ -49,6 +49,20 @@ export const validateImageFile = (file: File): string | null => {
 };
 
 /**
+ * Validate a PDF file for type and size
+ */
+export const validatePdfFile = (file: File): string | null => {
+  if (file.type !== 'application/pdf') {
+    return 'Please select a valid PDF file';
+  }
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    return `PDF size must be less than 5MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB`;
+  }
+  return null;
+};
+
+/**
  * Process SSE stream and call appropriate handlers
  */
 export interface StreamHandlers {

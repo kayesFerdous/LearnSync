@@ -1,22 +1,39 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Bell, Calendar as CalendarIcon, User } from 'lucide-react';
+import { Bell, Calendar as CalendarIcon, User, Palette } from 'lucide-react';
+import { ThemeSelector } from '@/components/theme-selector';
 
 export default function SettingsPage() {
   return (
+    <div className="container mx-auto p-4 md:p-6 max-w-7xl">
     <div className="max-w-2xl mx-auto space-y-8">
       <header>
         <h1 className="text-3xl font-bold text-foreground tracking-tight">Settings</h1>
         <p className="text-muted-foreground mt-1">Manage your preferences and account settings.</p>
       </header>
 
+      {/* Theme Section */}
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <Palette className="h-5 w-5 text-primary" />
+          Appearance
+        </h2>
+        <div className="bg-card rounded-xl p-6 theme-shadow border border-border space-y-4">
+          <div>
+            <h3 className="font-medium text-foreground mb-1">Theme</h3>
+            <p className="text-sm text-muted-foreground mb-4">Choose your preferred visual style</p>
+          </div>
+          <ThemeSelector />
+        </div>
+      </section>
+
       <section className="space-y-4">
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
           <User className="h-5 w-5 text-primary" />
           Account
         </h2>
-        <div className="bg-card rounded-xl p-6 shadow-sm border border-border space-y-6">
+        <div className="bg-card rounded-xl p-6 theme-shadow border border-border space-y-6">
             <div className="flex items-center justify-between group cursor-pointer">
                 <div className="flex items-center gap-4">
                     <div className="p-2 rounded-lg bg-secondary text-muted-foreground group-hover:text-foreground transition-colors">
@@ -50,6 +67,7 @@ export default function SettingsPage() {
             </div>
         </div>
       </section>
+    </div>
     </div>
   );
 }
