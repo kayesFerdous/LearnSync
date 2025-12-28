@@ -1,16 +1,18 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { Send, Paperclip, X, File as FileIcon, ImageIcon, AlertCircle } from 'lucide-react';
+import { Send, Paperclip, X, File as FileIcon, ImageIcon, AlertCircle, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { validateImageFile } from '../_lib/api';
+import { validateImageFile, validatePdfFile } from '../_lib/api';
 import { CHAT_TAGS, isImageOnlyTag } from '../_lib/constants';
 
 interface ChatInputProps {
   onSend: (message: string, tag: string | null, file: File | null) => void;
+  onPdfSelect: (file: File | null) => void;
+  selectedPdf: File | null;
 }
 
-export function ChatInput({ onSend }: ChatInputProps) {
+export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showTags, setShowTags] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -134,10 +136,10 @@ export function ChatInput({ onSend }: ChatInputProps) {
   };
 
   return (
-    <div className="absolute bottom-6 left-4 right-4 md:left-10 md:right-10 z-10">
+    <div className="absolute bottom-6 left-4 right-4 md:left-10 md:right-10 z-10 px-12">
       {/* Tags Dropdown */}
       {showTags && (
-        <div className="absolute bottom-full mb-4 left-0 bg-card shadow-xl rounded-xl border border-border p-2 min-w-[240px] animate-in fade-in slide-in-from-bottom-2 overflow-hidden">
+        <div className="absolute bottom-full mb-4 left-0 bg-card border border-border theme-shadow-lg rounded-xl p-2 min-w-[240px] animate-in fade-in slide-in-from-bottom-2 overflow-hidden">
           <div className="px-3 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
             <span>Suggested Actions</span>
             <span className="text-[10px] font-normal opacity-50">Use ↑↓ to navigate</span>
@@ -180,8 +182,8 @@ export function ChatInput({ onSend }: ChatInputProps) {
 
       {/* Input Container */}
       <div className={cn(
-        "bg-card shadow-2xl rounded-[2rem] p-2 flex items-end gap-2 border transition-all",
-        isImageOnlyMode ? "border-primary/30" : "border-border"
+        "bg-card rounded-4xl p-2 flex items-end gap-2 border transition-all theme-shadow-lg",
+        isImageOnlyMode ? "border-primary" : "border-border"
       )}>
         {/* File Input */}
         <input
@@ -192,8 +194,19 @@ export function ChatInput({ onSend }: ChatInputProps) {
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) {
-              setSelectedFile(file);
-              setImageError(null);
+              // Check if it's a PDF file
+              if (file.type === 'application/pdf') {
+                const error = validatePdfFile(file);
+                if (error) {
+                  setImageError(error);
+                } else {
+                  onPdfSelect(file);
+                  setImageError(null);
+                }
+              } else {
+                setSelectedFile(file);
+                setImageError(null);
+              }
             }
             e.target.value = '';
           }}
@@ -206,9 +219,11 @@ export function ChatInput({ onSend }: ChatInputProps) {
             "p-3 rounded-full transition-colors shrink-0",
             isImageOnlyMode
               ? "bg-primary/10 text-primary hover:bg-primary/20"
-              : "hover:bg-accent text-muted-foreground hover:text-foreground"
+              : selectedPdf
+                ? "bg-primary/10 text-primary hover:bg-primary/20"
+                : "hover:bg-accent text-muted-foreground hover:text-foreground"
           )}
-          title={isImageOnlyMode ? "Upload image (required)" : "Attach file"}
+          title={isImageOnlyMode ? "Upload image (required)" : "Attach file (PDF max 5MB)"}
         >
           {isImageOnlyMode ? <ImageIcon className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
         </button>
@@ -250,6 +265,18 @@ export function ChatInput({ onSend }: ChatInputProps) {
                 </button>
               </span>
             )}
+            {selectedPdf && (
+              <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-medium animate-in zoom-in duration-200 border bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                <FileText className="h-3 w-3 mr-1" />
+                <span className="max-w-[100px] truncate">{selectedPdf.name}</span>
+                <button 
+                  onClick={() => onPdfSelect(null)} 
+                  className="hover:opacity-70 ml-1"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
           </div>
 
           {/* Text Input or Image Upload Prompt */}
@@ -277,7 +304,7 @@ export function ChatInput({ onSend }: ChatInputProps) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={selectedTag ? "Type your message..." : "Type a message or @ for tags..."}
-              className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 resize-none h-6 max-h-[10rem] py-0 font-sans"
+              className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/50 resize-none h-6 max-h-[10rem] py-0"
               rows={1}
             />
           )}
@@ -288,9 +315,9 @@ export function ChatInput({ onSend }: ChatInputProps) {
           onClick={handleSend}
           disabled={isImageOnlyMode ? !selectedFile : (!input.trim() && !selectedFile)}
           className={cn(
-            "p-3 rounded-full transition-all shadow-md shrink-0 mb-0.5",
+            "p-3 rounded-full transition-all shrink-0 mb-0.5",
             (isImageOnlyMode ? selectedFile : (input.trim() || selectedFile))
-              ? "bg-primary text-primary-foreground hover:opacity-90"
+              ? "bg-primary text-primary-foreground hover:opacity-90 theme-shadow"
               : "bg-muted text-muted-foreground cursor-not-allowed"
           )}
         >
@@ -300,7 +327,7 @@ export function ChatInput({ onSend }: ChatInputProps) {
 
       {/* Disclaimer */}
       <div className="text-center mt-3">
-        <p className="text-[10px] text-muted-foreground/40">AI can make mistakes. Check important info.</p>
+        <p className="text-[10px] text-muted-foreground/60">AI can make mistakes. Check important info.</p>
       </div>
     </div>
   );

@@ -22,18 +22,18 @@ export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }:
       )}
     >
       {msg.role === 'ai' && (
-        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-1">
+        <div className="h-8 w-8 rounded-xl bg-primary/10 border border-border theme-shadow flex items-center justify-center shrink-0">
           <Bot className="h-5 w-5 text-primary" />
         </div>
       )}
 
       <div className={cn(
-        "max-w-[78%] md:max-w-[62%] relative group text-sm leading-relaxed",
+        "max-w-[85%] md:max-w-[80%] relative group text-sm leading-relaxed",
         msg.role === 'user'
-          ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm p-4"
+          ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm p-4 theme-shadow"
           : msg.interrupt 
             ? "" // No background for interrupt messages - widget has its own styling
-            : "bg-muted text-foreground rounded-2xl rounded-tl-sm p-4"
+            : "text-foreground px-1 py-1"
       )}>
         {/* Thinking indicator */}
         {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' && !msg.interrupt ? (
@@ -74,9 +74,9 @@ function ThinkingIndicator({ status }: { status?: string }) {
   return (
     <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
       <div className="flex items-center gap-1">
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse" />
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse [animation-delay:150ms]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-pulse [animation-delay:300ms]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse [animation-delay:150ms]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse [animation-delay:300ms]" />
       </div>
       <span className="leading-relaxed">{status ?? 'Thinking...'}</span>
     </div>
@@ -101,12 +101,12 @@ function MarkdownContent({ content }: { content: string }) {
           const match = /language-(\w+)/.exec(className || '');
           const isInline = !match && !String(children).includes('\n');
           return isInline ? (
-            <code className="bg-muted-foreground/20 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
+            <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
               {children}
             </code>
           ) : (
-            <div className="relative my-3 rounded-lg overflow-hidden bg-muted border border-border text-foreground last:mb-0">
-              <div className="flex items-center justify-between px-4 py-1.5 bg-muted-foreground/10 text-xs text-muted-foreground border-b border-border">
+            <div className="relative my-3 rounded-xl overflow-hidden bg-muted border border-border theme-shadow text-foreground last:mb-0">
+              <div className="flex items-center justify-between px-4 py-2 bg-muted/80 text-xs text-muted-foreground border-b border-border">
                 <span>{match?.[1] || 'code'}</span>
               </div>
               <div className="p-4 overflow-x-auto">

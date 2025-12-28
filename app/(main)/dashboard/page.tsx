@@ -3,8 +3,9 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+      <div className="space-y-8">
+        {/* Header */}
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Good morning, Kayes</h1>
@@ -106,6 +107,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
