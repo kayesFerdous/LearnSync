@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import type { Message, InterruptPayload, InterruptStatus, RoutineData } from './types';
-import { BACKEND_URL, fileToBase64, processStream } from './api';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
@@ -108,10 +108,19 @@ export function useChat() {
 
     try {
       // Build payload
-      const payload: { message?: string; tag: string; image?: string } = { tag: tagForRequest };
+      const payload: { message?: string; tag: string; image?: string; file_upload?: { object_key: string; original_filename: string } } = { tag: tagForRequest };
       if (userMessage) payload.message = userMessage;
       if (file) {
-        payload.image = await fileToBase64(file);
+        if (file.type === 'application/pdf') {
+          setThinkingStatus(assistantId, 'Uploading file...');
+          const { upload_url, object_key } = await presignUpload(file.name, file.type);
+          await uploadToR2(upload_url, file);
+          await confirmUpload(object_key, file.name);
+          payload.file_upload = { object_key, original_filename: file.name };
+          setThinkingStatus(assistantId, 'Thinking...');
+        } else {
+          payload.image = await fileToBase64(file);
+        }
       }
 
       const response = await fetch(BACKEND_URL, {

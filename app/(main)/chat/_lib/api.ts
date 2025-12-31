@@ -1,6 +1,7 @@
-import type { BackendStreamEvent } from './types';
+import type { BackendStreamEvent, PresignResponse } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
+const API_BASE_URL = 'http://localhost:8000';
 
 /**
  * Parse a Server-Sent Events block into a BackendStreamEvent
@@ -60,6 +61,34 @@ export const validatePdfFile = (file: File): string | null => {
     return `PDF size must be less than 5MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB`;
   }
   return null;
+};
+
+export const presignUpload = async (filename: string, contentType: string): Promise<PresignResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/presign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, content_type: contentType }),
+  });
+  if (!response.ok) throw new Error('Failed to get presigned URL');
+  return response.json();
+};
+
+export const uploadToR2 = async (url: string, file: File): Promise<void> => {
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/pdf' },
+    body: file,
+  });
+  if (!response.ok) throw new Error('Failed to upload file to R2');
+};
+
+export const confirmUpload = async (objectKey: string, originalFilename: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ object_key: objectKey, original_filename: originalFilename }),
+  });
+  if (!response.ok) throw new Error('Failed to confirm upload');
 };
 
 /**

@@ -87,16 +87,19 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
         return;
       }
     } else {
-      if (!input.trim() && !selectedFile) return;
+      if (!input.trim() && !selectedFile && !selectedPdf) return;
     }
 
     setImageError(null);
-    onSend(input.trim(), selectedTag, selectedFile);
+    onSend(input.trim(), selectedTag, selectedFile || selectedPdf);
     
     // Reset state
     setInput('');
     setSelectedTag(null);
     setSelectedFile(null);
+    if (selectedPdf) {
+      onPdfSelect(null);
+    }
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
@@ -136,7 +139,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
   };
 
   return (
-    <div className="absolute bottom-6 left-4 right-4 md:left-10 md:right-10 z-10 px-12">
+    <div className="absolute bottom-6 left-4 right-4 md:left-10 md:right-10 z-10">
       {/* Tags Dropdown */}
       {showTags && (
         <div className="absolute bottom-full mb-4 left-0 bg-card border border-border theme-shadow-lg rounded-xl p-2 min-w-[240px] animate-in fade-in slide-in-from-bottom-2 overflow-hidden">
