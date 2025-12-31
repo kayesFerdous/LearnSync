@@ -43,3 +43,18 @@ export interface ChatTag {
   id: string;
   label: string;
 }
+
+export interface PresignRequest {
+  filename: string;
+  content_type: string;
+}
+
+export interface PresignResponse {
+  upload_url: string;
+  object_key: string;
+}
+
+export interface ConfirmUploadRequest {
+  object_key: string;
+  original_filename: string;
+}
