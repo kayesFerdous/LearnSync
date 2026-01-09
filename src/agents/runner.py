@@ -3,17 +3,13 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.types import Command
 
 
-async def runner(
-    workflow,
-    payload
-    # user_id: str
-) -> AsyncGenerator[dict, None]:
+async def runner( workflow, payload, user_id: str ) -> AsyncGenerator[dict, None]:
     query = payload.message
     tag = payload.tag
     image_data = payload.image
     user_input = payload.user_input
 
-    config = {"configurable": {"thread_id": "user_id-1"}}
+    config = {"configurable": {"thread_id": user_id}}
 
     input_data = None
     
@@ -44,7 +40,13 @@ async def runner(
             yield {"type": "error", "message": "there is no message and image"}
             return
             
-        input_data = {"messages": [message], "tag": tag, "scratchpad": {}, "metadata": {}}
+        input_data = {
+            "messages": [message], 
+            "tag": tag, 
+            "scratchpad": {}, 
+            "user_id": user_id,
+            "metadata": {}
+        }
 
     try:
         async for event in workflow.astream_events(

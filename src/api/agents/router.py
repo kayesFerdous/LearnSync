@@ -1,9 +1,10 @@
 import json
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 
 from src.agents.runner import runner
 from src.schemas.bot import QuestionRequest
+from src.auth.service import get_current_user
 
 
 router = APIRouter(
@@ -11,12 +12,17 @@ router = APIRouter(
 )
 
 @router.post("/chat_bot")
-async def chat_bot_response(request: Request, payload: QuestionRequest):
+async def chat_bot_response(
+    request: Request, 
+    payload: QuestionRequest,
+    user_id: str = Depends(get_current_user)
+):
     try:
         async def generate_response():
             async for chunk in runner(
                 workflow=request.app.state.chat_workflow,
-                payload=payload
+                payload=payload,
+                user_id=user_id
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
 

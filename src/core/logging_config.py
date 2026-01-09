@@ -2,7 +2,7 @@ import logging
 import colorlog
 
 
-async def setup():
+def setup():
     handler = logging.StreamHandler()
     formatter = colorlog.ColoredFormatter(
         "%(log_color)s%(levelname)s - %(name)s - %(message)s",

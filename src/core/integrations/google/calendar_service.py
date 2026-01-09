@@ -1,31 +1,35 @@
-import os.path
-
-from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build 
+from googleapiclient.discovery import build
+from langchain_google_community import CalendarToolkit
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+from src.users.crud import get_user_identity
+from src.db.session import AsyncSessionLocal
+from src.core.config import settings
 
-def get_calendar_service():
-  creds = None
 
-  if os.path.exists("token.json"):
-    creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+async def get_users_calendar_tools(user_id: str):
+    async with AsyncSessionLocal() as db:
+        identity = await get_user_identity(user_id, db)
+        
+    if not identity:
+        # Fallback or error. For now, let's log and return empty or raise.
+        print(f"No identity found for user {user_id}")
+        return []
 
-  # If there are no (valid) credentials available, let the user log in.
-  if not creds or not creds.valid:
-    if creds and creds.expired and creds.refresh_token:
-      creds.refresh(Request())
-    else:
-      flow = InstalledAppFlow.from_client_secrets_file(
-          "credentials.json", SCOPES
-      )
-      creds = flow.run_local_server(port=0)
+    try:
+        creds = Credentials(
+            token=identity.access_token,
+            refresh_token=identity.refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET,
+            scopes=["https://www.googleapis.com/auth/calendar"]
+        )
 
-    # Save the credentials for the next run
-    with open("token.json", "w") as token:
-      token.write(creds.to_json())
-
-  service = build("calendar", "v3", credentials=creds)
-  return service
+        service = build("calendar", "v3", credentials=creds)
+        toolkit = CalendarToolkit(api_resource=service)
+        return [tool for tool in toolkit.get_tools() if tool.name != "get_current_datetime"]
+        
+    except Exception as e:
+        print(f"Error creating user tools: {e}")
+        return []
