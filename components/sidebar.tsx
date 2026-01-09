@@ -26,12 +26,12 @@ export function Sidebar() {
       )}
     >
       {/* Header */}
-      <div className="flex items-center h-[72px] shrink-0 px-4 gap-3 overflow-hidden">
-        <div className="h-9 w-9 flex items-center justify-center text-primary-foreground bg-primary rounded-xl theme-shadow shrink-0">
-          <Sparkles className="h-5 w-5" />
+      <div className="flex items-center h-14 shrink-0 px-4 gap-3 overflow-hidden border-b border-border">
+        <div className="h-8 w-8 flex items-center justify-center text-primary-foreground bg-primary rounded-lg theme-shadow shrink-0">
+          <Sparkles className="h-4 w-4" />
         </div>
         <span className={cn(
-          "text-xl font-bold text-foreground whitespace-nowrap tracking-tight transition-opacity duration-300",
+          "text-lg font-bold text-foreground whitespace-nowrap tracking-tight transition-opacity duration-300",
           isCollapsed ? "opacity-0" : "opacity-100"
         )}>
           LearnSync
@@ -39,7 +39,7 @@ export function Sidebar() {
       </div>
       
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 mt-2 px-3 overflow-hidden">
+      <nav className="flex-1 space-y-1 mt-4 px-3 overflow-hidden">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           return (
