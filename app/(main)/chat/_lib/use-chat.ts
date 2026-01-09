@@ -131,6 +131,7 @@ export function useChat() {
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
+        credentials: 'include'
       });
 
       if (!response.ok) {
@@ -198,7 +199,7 @@ export function useChat() {
           setThinkingStatus(resumeAssistantId, undefined);
           enqueueAssistantChunk(resumeAssistantId, content);
         },
-        onInterrupt: () => {},
+        onInterrupt: () => { },
         onError: (message) => {
           setThinkingStatus(resumeAssistantId, undefined);
           appendAssistantContent(resumeAssistantId, `\n\n${message}`);
@@ -252,7 +253,7 @@ export function useChat() {
           setThinkingStatus(rejectAssistantId, undefined);
           enqueueAssistantChunk(rejectAssistantId, content);
         },
-        onInterrupt: () => {},
+        onInterrupt: () => { },
         onError: (message) => {
           setThinkingStatus(rejectAssistantId, undefined);
           appendAssistantContent(rejectAssistantId, `\n\n${message}`);
