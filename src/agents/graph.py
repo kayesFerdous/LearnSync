@@ -11,25 +11,20 @@ from src.agents.nodes.chat_node import make_chat_node
 from src.agents.nodes.routine_node import make_routine_node
 from src.agents.nodes.routine_approval_node import make_routine_approval_node
 
-from src.agents.registry import build_calendar_agent
-
-
-async def build_chat_graph(groq_llm: BaseChatModel, gemini_llm: BaseChatModel, gemini_llm_temp_0: BaseChatModel):
+async def build_graph(groq_llm: BaseChatModel, gemini_llm: BaseChatModel, gemini_llm_temp_0: BaseChatModel):
     graph = StateGraph(AgentState)
-
-    calendar_executor = build_calendar_agent(gemini_llm)
     
     chat_node = make_chat_node(groq_llm)
-    calendar_node = make_calendar_node(calendar_executor)
+    calendar_node = make_calendar_node(gemini_llm) 
     tool_selection_node = make_tool_selection_node()
     routine_node = make_routine_node(gemini_llm_temp_0)
     routine_approval_node = make_routine_approval_node()
 
     graph.add_node("chat_node", chat_node)
     graph.add_node("calendar_node", calendar_node)
+    graph.add_node("tool_selection", tool_selection_node)
     graph.add_node("routine_node", routine_node)
     graph.add_node("routine_approval_node", routine_approval_node)
-    graph.add_node("tool_selection", tool_selection_node)
 
     graph.add_edge(START, "tool_selection")
     graph.add_conditional_edges(

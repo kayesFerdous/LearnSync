@@ -1,12 +1,11 @@
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings,SettingsConfigDict
 
 class Settings(BaseSettings):
-    GOOGLE_CLIENT_ID: SecretStr
-    GOOGLE_CLIENT_SECRET: SecretStr
-    GOOGLE_API_KEY:SecretStr
-    GROQ_API_KEY:SecretStr
-    COHERE_API_KEY:SecretStr
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_API_KEY: str
+    GROQ_API_KEY: str
+    COHERE_API_KEY: str
     PINECONE_API_KEY: str
     PDF_PATH:str
 
@@ -16,7 +15,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY:str
     COOKIE_NAME:str
     COOKIE_SECURE: bool
-    ACCESS_TOKEN_EXPIRE_MINUTES:str
+    ACCESS_TOKEN_EXPIRE_MINUTES:float
 
     # #INFO: supabase credentials
     # SUPABASE_URL: str

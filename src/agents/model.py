@@ -7,6 +7,7 @@ def chat_reducer(old: list[BaseMessage], new: list[BaseMessage]) -> list[BaseMes
 AgentName = Literal["chat_node", "calendar_node", "routine_node"]
 
 class AgentState(TypedDict):
+    user_id: str
     conversation_id: str
     messages: Annotated[List[BaseMessage], chat_reducer]
     scratchpad: dict

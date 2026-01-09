@@ -1,25 +1,53 @@
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from langchain_google_community import CalendarToolkit
-from langchain_google_community.calendar.toolkit import build_calendar_service
-from langchain_google_community.calendar.utils import get_google_credentials
-import google.oauth2.service_account as _sa
 
-# Some langchain-google-community builds look for ServiceCredentials; provide an alias if missing.
-if not hasattr(_sa, "ServiceCredentials"):
-    _sa.ServiceCredentials = _sa.Credentials
-
-# Scopes: full access (review at https://developers.google.com/calendar/api/auth)
-credentials = get_google_credentials(
-    token_file="token.json",  # Will create if missing
-    scopes=["https://www.googleapis.com/auth/calendar"],  # Or .readonly for view-only
-    client_secrets_file="credentials.json",
-)
-
-api_resource = build_calendar_service(credentials=credentials)
+from src.users.crud import get_user_identity
+from src.db.session import AsyncSessionLocal
+from src.core.config import settings
 
 
-def get_tools():
+async def get_user_tools(user_id: str):
+    async with AsyncSessionLocal() as db:
+        identity = await get_user_identity(user_id, db)
+        
+    if not identity:
+        # Fallback or error. For now, let's log and return empty or raise.
+        print(f"No identity found for user {user_id}")
+        return []
+
     try:
-        toolkit = CalendarToolkit(api_resource=api_resource)
+        creds = Credentials(
+            token=identity.access_token,
+            refresh_token=identity.refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET,
+            scopes=["https://www.googleapis.com/auth/calendar"]
+        )
+
+        service = build("calendar", "v3", credentials=creds)
+        toolkit = CalendarToolkit(api_resource=service)
         return toolkit.get_tools()
-    except:
-        print("Error occured in src.core.calendar_toolkit.py: \n Error initializing the toolkit")
+    except Exception as e:
+        print(f"Error creating user tools: {e}")
+        return []
+
+
+
+
+async def get_current_time_context(timezone: str = "Asia/Dhaka"):
+    """Returns a clear time context string.""" 
+    try: 
+        tz = ZoneInfo(timezone)
+        now = datetime.now(tz)
+        date_time = now.strftime("%A, %Y-%m-%d %H:%M:%S")
+        return f"Time zone: {timezone}, Current Date and Time: {date_time}"
+    except Exception:
+        now = datetime.now(ZoneInfo("UTC"))
+        return f"Current Date: {now.strftime('%Y-%m-%d')} (UTC)"
+
+
