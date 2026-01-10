@@ -2,15 +2,11 @@ import json
 import re
 from typing import Optional, Type, Any
 from pydantic import BaseModel, Field
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.search_events import CalendarSearchEvents, SearchEventsSchema
 from langchain_google_community.calendar.get_calendars_info import GetCalendarsInfo
 
-from src.users.crud import get_user_identity
-from src.db.session import AsyncSessionLocal
-from src.core.config import settings
+from src.core.integrations.google.auth_utils import get_google_calendar_service
 
 def sanitize_json_string(s: str) -> str:
     """Removes or escapes control characters that break JSON parsing."""
@@ -71,24 +67,12 @@ class SafeCalendarSearchEvents(CalendarSearchEvents):
 
 
 async def get_users_calendar_tools(user_id: str):
-    async with AsyncSessionLocal() as db:
-        identity = await get_user_identity(user_id, db)
+    service = await get_google_calendar_service(user_id)
         
-    if not identity:
-        print(f"No identity found for user {user_id}")
+    if not service:
         return []
 
     try:
-        creds = Credentials(
-            token=identity.access_token.strip() if identity.access_token else None,
-            refresh_token=identity.refresh_token.strip() if identity.refresh_token else None,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=settings.GOOGLE_CLIENT_ID,
-            client_secret=settings.GOOGLE_CLIENT_SECRET,
-            scopes=["https://www.googleapis.com/auth/calendar"]
-        )
-
-        service = build("calendar", "v3", credentials=creds, cache_discovery=False)
         toolkit = CalendarToolkit(api_resource=service)
         
         raw_tools = toolkit.get_tools()
