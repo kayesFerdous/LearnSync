@@ -2,14 +2,18 @@
 
 import { useAuthStore } from "@/lib/store";
 import { User, LogIn, LogOut, ChevronRight, Home } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 export function TopBar() {
-  const { user, isAuthenticated, login, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, fetchUser } = useAuthStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
 
   // Generate breadcrumbs from pathname
   const segments = pathname.split('/').filter(Boolean);
@@ -22,16 +26,6 @@ export function TopBar() {
       isLast
     };
   });
-
-  // Mock login for demonstration
-  const handleLogin = () => {
-    login({
-      id: "1",
-      name: "Demo User",
-      email: "user@example.com",
-      avatarUrl: "https://github.com/shadcn.png", // Mock backend URL
-    });
-  };
 
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-14 flex items-center px-4 justify-between sticky top-0 z-50 w-full">
@@ -62,13 +56,13 @@ export function TopBar() {
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
               <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-sm font-medium">{user.name}</span>
+                <span className="text-sm font-medium">{user.username}</span>
               </div>
               <div className="h-8 w-8 rounded-full overflow-hidden border bg-muted flex items-center justify-center">
-                {user.avatarUrl ? (
+                {user.picture ? (
                   <img 
-                    src={user.avatarUrl} 
-                    alt={user.name} 
+                    src={user.picture} 
+                    alt={user.username} 
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -85,13 +79,13 @@ export function TopBar() {
                 </div>
                 <div className="h-px bg-muted my-1" />
                 <div className="px-2 py-1.5 text-sm">
-                  <p className="font-medium">{user.name}</p>
+                  <p className="font-medium">{user.username}</p>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
                 </div>
                 <div className="h-px bg-muted my-1" />
                 <button
-                  onClick={() => {
-                    logout();
+                  onClick={async () => {
+                    await logout();
                     setIsProfileOpen(false);
                   }}
                   className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
@@ -103,13 +97,13 @@ export function TopBar() {
             )}
           </div>
         ) : (
-          <button
-            onClick={handleLogin}
+          <Link
+            href="/auth"
             className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors px-4 py-2 rounded-md hover:bg-accent"
           >
             <LogIn className="h-4 w-4" />
             Login
-          </button>
+          </Link>
         )}
       </div>
     </header>
