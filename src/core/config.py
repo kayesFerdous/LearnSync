@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     COOKIE_NAME:str
     COOKIE_SECURE: bool
     ACCESS_TOKEN_EXPIRE_MINUTES:float
+    ALGORITHM:str
 
     # #INFO: supabase credentials
     # SUPABASE_URL: str

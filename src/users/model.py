@@ -19,7 +19,6 @@ class User(Base):
     user_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
     username: Mapped[str] = mapped_column(String(150), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True,)
-    given_name: Mapped[str] = mapped_column(String(150), nullable=False,)
     picture: Mapped[str] = mapped_column(String(150), nullable=True,)
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False,)
     subscribed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False,)

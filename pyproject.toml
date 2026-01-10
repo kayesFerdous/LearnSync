@@ -29,4 +29,6 @@ dependencies = [
     "asyncpg>=0.31.0",
     "sqlalchemy[asyncio]>=2.0.43",
     "itsdangerous>=2.2.0",
+    "passlib[bcrypt]>=1.7.4",
+    "pydantic[email]>=2.11.10",
 ]

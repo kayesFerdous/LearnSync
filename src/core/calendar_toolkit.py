@@ -21,15 +21,15 @@ async def get_user_tools(user_id: str):
 
     try:
         creds = Credentials(
-            token=identity.access_token,
-            refresh_token=identity.refresh_token,
+            token=identity.access_token.strip() if identity.access_token else None,
+            refresh_token=identity.refresh_token.strip() if identity.refresh_token else None,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=settings.GOOGLE_CLIENT_ID,
             client_secret=settings.GOOGLE_CLIENT_SECRET,
             scopes=["https://www.googleapis.com/auth/calendar"]
         )
 
-        service = build("calendar", "v3", credentials=creds)
+        service = build("calendar", "v3", credentials=creds, cache_discovery=False)
         toolkit = CalendarToolkit(api_resource=service)
         return toolkit.get_tools()
     except Exception as e:

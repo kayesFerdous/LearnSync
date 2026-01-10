@@ -1,14 +1,16 @@
 import logging
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Request, Response, status, HTTPException
 from authlib.integrations.base_client.errors import OAuthError
 
 from src.db.session import get_db
+from src.api.auth.schemas import AuthResponse, SignupRequest, LoginRequest
 from src.core.config import settings
 from src.services.google_auth import oauth
-from src.users.service import get_or_create_user
-from src.auth.service import create_access_token, get_current_user
+from src.users.service import create_user_by_email, get_or_create_user, authenticate_user, InvalidCredentialsException, UserAlreadyExistsException
+from src.auth.service import create_access_token
+from src.api.dependencies import get_current_user
 
 # Use a standard logger for logging events and errors.
 log = logging.getLogger(__name__)
@@ -21,7 +23,98 @@ SERVER_URL = settings.SERVER_LINK
 COOKIE_SECURE = settings.COOKIE_SECURE
 
 
-@router.get("/login", summary="Initiate Google OAuth login")
+@router.post(
+    "/signup", 
+    response_model=AuthResponse,
+    summary="Initiate email SignUp"
+)
+async def signup(
+    user_info: SignupRequest, 
+    response: Response,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        # Note: create_user_by_email returns a User object. 
+        new_user = await create_user_by_email(user_info, db)
+
+        if new_user:
+            user_id = new_user.user_id
+            
+            # Generate token for immediate login after signup
+            jwt_token = await create_access_token(str(user_id))
+            
+            response.set_cookie(
+                key=settings.COOKIE_NAME,
+                value=jwt_token,
+                httponly=True,
+                samesite="lax",
+                max_age=60 * 60 * 24 * 7,
+                secure=COOKIE_SECURE,
+            )
+            
+            return AuthResponse(
+                user_id=user_id,
+                message="Login successful",
+            )
+    except UserAlreadyExistsException as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        log.error(f"Signup error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal signup error"
+        )
+
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    summary="Email/Password Login"
+)
+async def login_email(
+    login_data: LoginRequest, 
+    response: Response, 
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        user = await authenticate_user(login_data, db)
+        
+        user_id = user.user_id
+        jwt_token = await create_access_token(str(user_id))
+        
+        response.set_cookie(
+            key=settings.COOKIE_NAME,
+            value=jwt_token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7,
+            secure=COOKIE_SECURE,
+        )
+        
+        # We need to fetch the user again to return details, or just return basic info.
+        # authenticate_user only returned ID. Let's trust the input email.
+        return AuthResponse(
+            user_id=user_id,
+            message="Login successful",
+        )
+        
+    except InvalidCredentialsException as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        log.error(f"Login error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal login error"
+        )
+
+
+@router.get("/login/google", summary="Initiate Google OAuth login")
 async def login(request: Request):
     """
     Redirects the user to Google's authentication page to begin the OAuth2 flow.
@@ -40,14 +133,15 @@ async def login(request: Request):
 
 @router.get("/callback", summary="Handle Google OAuth callback")
 async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
-    """
-    Handles the server-side part of the OAuth flow. It:
-    1. Exchanges the authorization code from Google for an access token.
-    2. Retrieves or creates a user in the database based on the token info.
-    3. Creates a session JWT.
-    4. Sets the JWT in a secure, HTTP-only cookie.
-    5. Redirects the user back to the client application.
-    """
+
+    #INFO:
+    # Handles the server-side part of the OAuth flow. It:
+    # 1. Exchanges the authorization code from Google for an access token.
+    # 2. Retrieves or creates a user in the database based on the token info.
+    # 3. Creates a session JWT.
+    # 4. Sets the JWT in a secure, HTTP-only cookie.
+    # 5. Redirects the user back to the client application.
+
     # Define a generic failure URL to avoid leaking implementation details.
     failure_redirect_url = f"{FRONTEND_LINK}?error=authentication_failed"
 
@@ -61,15 +155,11 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url=failure_redirect_url)
 
     try:
-        print(token)
         user_id = await get_or_create_user(token=token, db=db)
         if not user_id:
-            # This case suggests a logic error where a user could not be found or created
-            # from a valid token. It should be logged as a server-side issue.
             log.error("get_or_create_user unexpectedly returned no user_id.")
             return RedirectResponse(url=failure_redirect_url)
     except Exception as e:
-        # This catches potential database errors or other issues during user lookup/creation.
         log.error(f"Failed to get or create user: {e}", exc_info=True)
         return RedirectResponse(url=failure_redirect_url)
 
@@ -79,10 +169,10 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         response.set_cookie(
             key=settings.COOKIE_NAME,
             value=jwt_token,
-            httponly=True,  # Mitigates XSS by preventing client-side script access.
-            samesite="lax",  # Provides a balance of security (CSRF) and usability.
-            max_age=60 * 60 * 24 * 7,  # 7 days
-            secure=COOKIE_SECURE,  # Should be True in production to enforce HTTPS.
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7,  #INFO: 7 days
+            secure=COOKIE_SECURE,  #NOTE: Should be True in production to enforce HTTPS.
         )
         return response
     except Exception as e:
@@ -90,21 +180,12 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url=failure_redirect_url)
 
 
-@router.get("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Log out user")
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, summary="Log out user")
 async def logout(response: Response):
-    """
-    Deletes the session cookie to terminate the user's session.
-    """
     response.delete_cookie(settings.COOKIE_NAME)
-    # By returning nothing (None), FastAPI sends a response with the status code
-    # from the decorator (204 No Content) while applying the cookie modification.
     return
 
 
 @router.get("/protected", summary="Example of a protected route")
-async def protected_route_example(user_id: str = Depends(get_current_user)):
-    """
-    An example endpoint that requires authentication. The `get_current_user`
-    dependency handles the verification of the session cookie.
-    """
-    return {"message": f"Hello, user {user_id}!"}
+async def protected_route_example(user = Depends(get_current_user)):
+    return {"message": f"Hello, user {user}!"}
