@@ -59,6 +59,8 @@ def make_calendar_node(llm: BaseChatModel):
                 return {'messages': [response_message]}
                 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             print(f"Error in calendar_agent: {str(e)}")
             error_message = AIMessage(content="Sorry, I encountered an error while processing your calendar request.")
             return {'messages': [error_message]}

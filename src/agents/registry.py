@@ -17,5 +17,5 @@ async def build_calendar_agent(user_id: str, llm: BaseChatModel):
     
     agent = create_tool_calling_agent(llm,tools, prompt)
 
-    return AgentExecutor(agent=agent, tools=tools)
+    return AgentExecutor(agent=agent, tools=tools, verbose=True)
 

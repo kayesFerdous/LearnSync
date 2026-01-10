@@ -5,20 +5,38 @@ This module provides functions for JSON Web Token (JWT) creation, decoding,
 and a FastAPI dependency for securing routes.
 """
 import logging
+import bcrypt
 from datetime import datetime, timedelta, timezone
-
 from authlib.jose import JoseError, jwt
-from fastapi import HTTPException, Request, status
 
 from src.core.config import settings
 
 log = logging.getLogger(__name__)
 
+# --- Password Hashing ---
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifies a plain text password against a bcrypt hash."""
+    if not plain_password or not hashed_password:
+        return False
+    # bcrypt.checkpw expects bytes
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'), 
+        hashed_password.encode('utf-8')
+    )
+
+def get_password_hash(password: str) -> str:
+    """Generates a bcrypt hash from a plain text password."""
+    # bcrypt.hashpw expects bytes and returns bytes
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed.decode('utf-8')
+
+
 # --- Constants ---
-# JWT settings should be centralized in the main config.
-# Using `getattr` provides a sensible fallback if they are not defined.
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-ALGORITHM = "HS256"
+ALGORITHM = settings.ALGORITHM
 JWT_HEADER = {"alg": ALGORITHM}
 
 
@@ -57,18 +75,9 @@ async def create_access_token(user_id: str) -> str:
         raise AuthError("Could not create access token due to an internal error.")
 
 
-def decode_access_token(token: str) -> str:
+async def decode_access_token(token: str) -> str:
     """
     Verifies and decodes a JWT, returning the user ID from its payload.
-
-    Args:
-        token: The JWT string to decode.
-
-    Raises:
-        AuthError: If the token is invalid, expired, malformed, or missing the user ID.
-
-    Returns:
-        The user ID (`sub` claim) extracted from the token.
     """
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY)
@@ -88,37 +97,3 @@ def decode_access_token(token: str) -> str:
     except Exception as e:
         log.error(f"An unexpected error occurred during token decoding: {e}", exc_info=True)
         raise AuthError("Could not process token due to an internal error.")
-
-
-async def get_current_user(request: Request) -> str:
-    """
-    FastAPI dependency to secure a route by verifying the JWT from a cookie.
-
-    It extracts the token, decodes it, and returns the user ID. If any step
-    fails, it raises a 401 Unauthorized HTTP exception.
-
-    Raises:
-        HTTPException(401): If the token is missing, invalid, or expired.
-
-    Returns:
-        The authenticated user's ID, which can be used in the endpoint.
-    """
-    token = request.cookies.get(settings.COOKIE_NAME)
-
-    if token is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication cookie not found.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    try:
-        user_id = decode_access_token(token)
-        return user_id
-    except AuthError as e:
-        # Translate the internal AuthError into a standard HTTP 401 response.
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
