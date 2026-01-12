@@ -397,3 +397,15 @@
   height: 0;
 }
 
+/* ===========================================
+   FullCalendar - Uses theme-aware border
+   =========================================== */
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: var(--border);
+}
+
+.fc-scrollgrid {
+  border-color: var(--border) !important;
+}
+
