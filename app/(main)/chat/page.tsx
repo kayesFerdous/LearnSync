@@ -23,9 +23,9 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="absolute inset-0 flex w-full overflow-hidden">
       {/* Chat Area */}
-      <div className={`flex flex-col min-w-0 relative transition-all duration-300 ${
+      <div className={`flex flex-col h-full min-w-0 relative transition-all duration-300 ${
         selectedPdf 
           ? 'flex-1' 
           : 'w-full max-w-4xl mx-auto'
@@ -40,7 +40,7 @@ export default function ChatPage() {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto py-2 space-y-4 pb-24 scroll-smooth scrollbar-hide px-5 pr-6">
+          <div className="flex-1 overflow-y-auto py-2 space-y-4 pb-24 scroll-smooth scrollbar-hide px-5 pr-6 min-h-0">
             {messages.map((msg) => (
               <ChatMessage
                 key={msg.id}
@@ -63,7 +63,7 @@ export default function ChatPage() {
 
       {/* PDF Viewer Panel */}
       {selectedPdf && (
-        <div className="w-[50%] shrink-0 border-l border-border bg-background animate-in slide-in-from-right duration-300">
+        <div className="w-[50%] h-full shrink-0 border-l border-border bg-background animate-in slide-in-from-right duration-300">
           <PdfViewerPanel 
             file={selectedPdf} 
             onClose={() => setSelectedPdf(null)} 
