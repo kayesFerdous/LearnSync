@@ -6,21 +6,11 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core';
-import { Plus, Trash2, X, Calendar as CalendarIcon, Clock, User, MapPin, Link as LinkIcon } from 'lucide-react';
+import { Plus, Trash2, X, Calendar as CalendarIcon, Clock, User, MapPin, Link as LinkIcon, Edit, Bell } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
+import { useCalendar, type CalendarEvent } from './_lib';
 
 // --- Interfaces ---
-
-interface GoogleCalendarEvent {
-  id: string;
-  htmlLink: string;
-  summary: string;
-  creator: string;
-  organizer: string;
-  start: string; // ISO datetime
-  end: string;   // ISO datetime
-  calendar_id?: string;
-}
 
 interface FullCalendarEvent {
   id: string;
@@ -31,28 +21,19 @@ interface FullCalendarEvent {
   backgroundColor: string;
   borderColor: string;
   extendedProps: {
-    creator: string;
-    organizer: string;
-    htmlLink: string;
-    calendar_id?: string;
+    creator?: string;
+    organizer?: string;
+    htmlLink?: string;
+    description?: string;
+    location?: string;
+    reminders?: {
+      useDefault: boolean;
+      overrides?: Array<{ method: string; minutes: number }>;
+    };
   };
 }
 
-interface CreateEventPayload {
-  summary: string;
-  start: string; // datetime-local format
-  end: string;   // datetime-local format
-  creator: string;
-  organizer: string;
-}
-
 // --- Helper Functions ---
-
-const formatDateTimeForApi = (date: Date): string => {
-  // Format: YYYY-MM-DD HH:MM:SS
-  const pad = (n: number) => (n < 10 ? '0' + n : n);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-};
 
 const formatDateTimeLocal = (date: Date): string => {
   // Format: YYYY-MM-DDTHH:MM
@@ -60,12 +41,37 @@ const formatDateTimeLocal = (date: Date): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+const convertToISOString = (dateTimeLocal: string, timeZone: string = 'Asia/Dhaka'): string => {
+  // Convert datetime-local to ISO 8601 format
+  return new Date(dateTimeLocal).toISOString();
+};
+
+const convertCalendarEventToFullCalendarEvent = (event: CalendarEvent): FullCalendarEvent => {
+  return {
+    id: event.id,
+    title: event.summary || '(No Title)',
+    start: event.start?.dateTime || event.start?.date || '',
+    end: event.end?.dateTime || event.end?.date || '',
+    backgroundColor: 'hsl(var(--primary))',
+    borderColor: 'hsl(var(--primary))',
+    extendedProps: {
+      creator: event.creator?.email || event.creator?.displayName || '',
+      organizer: event.organizer?.email || event.organizer?.displayName || '',
+      htmlLink: event.htmlLink || '',
+      description: event.description || '',
+      location: event.location || '',
+      reminders: event.reminders,
+    }
+  };
+};
+
 // --- Components ---
 
 export default function CalendarPage() {
   const { user } = useAuthStore();
-  const [events, setEvents] = useState<FullCalendarEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const calendar = useCalendar();
+  
+  const [fullCalendarEvents, setFullCalendarEvents] = useState<FullCalendarEvent[]>([]);
   const [currentRange, setCurrentRange] = useState<{ start: Date; end: Date } | null>(null);
   
   const calendarRef = useRef<FullCalendar>(null);
@@ -73,6 +79,7 @@ export default function CalendarPage() {
 
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedDateRange, setSelectedDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<FullCalendarEvent | null>(null);
@@ -80,11 +87,19 @@ export default function CalendarPage() {
   // Form State
   const [formData, setFormData] = useState({
     summary: '',
+    description: '',
+    location: '',
     start: '',
     end: '',
-    creator: '',
-    organizer: ''
+    useDefaultReminders: true,
+    customReminders: [{ method: 'popup' as 'email' | 'popup', minutes: 10 }],
   });
+
+  // Convert calendar events to FullCalendar format
+  useEffect(() => {
+    const converted = calendar.events.map(convertCalendarEventToFullCalendarEvent);
+    setFullCalendarEvents(converted);
+  }, [calendar.events]);
 
   // --- Resize Observer for Responsiveness ---
   useEffect(() => {
@@ -103,149 +118,139 @@ export default function CalendarPage() {
 
   // --- API Interactions ---
 
-  const fetchEvents = useCallback(async (start: Date, end: Date) => {
-    setIsLoading(true);
-    try {
-      const min_datetime = formatDateTimeForApi(start);
-      const max_datetime = formatDateTimeForApi(end);
-      
-      const params = new URLSearchParams({
-        min_datetime,
-        max_datetime,
-      });
+  const handleDatesSet = (arg: { start: Date; end: Date }) => {
+    setCurrentRange({ start: arg.start, end: arg.end });
+    calendar.fetchEvents({
+      min_datetime: arg.start.toISOString(),
+      max_datetime: arg.end.toISOString(),
+      max_results: 100,
+      single_events: true,
+    });
+  };
 
-      const response = await fetch(`http://localhost:8000/api/calendar/events?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch events');
-      }
-
-      const data = await response.json();
-      const googleEvents: GoogleCalendarEvent[] = data.event_list || [];
-
-      const formattedEvents: FullCalendarEvent[] = googleEvents.map(event => ({
-        id: event.id,
-        title: event.summary || '(No Title)',
-        start: event.start,
-        end: event.end,
-        backgroundColor: 'hsl(var(--primary))',
-        borderColor: 'hsl(var(--primary))',
-        extendedProps: {
-          creator: event.creator,
-          organizer: event.organizer,
-          htmlLink: event.htmlLink,
-          calendar_id: event.calendar_id
-        }
-      }));
-
-      setEvents(formattedEvents);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-      // In a real app, show a toast notification here
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const createEvent = async (e: React.FormEvent) => {
+  const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
 
     try {
-      const payload: CreateEventPayload = {
-        summary: formData.summary,
-        start: formData.start,
-        end: formData.end,
-        creator: formData.creator || user?.email || 'user@example.com',
-        organizer: formData.organizer || user?.email || 'user@example.com',
-      };
+      const startDateTime = convertToISOString(formData.start);
+      const endDateTime = convertToISOString(formData.end);
 
-      const response = await fetch('http://localhost:8000/api/calendar/events', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const success = await calendar.createEvent({
+        summary: formData.summary,
+        description: formData.description,
+        location: formData.location,
+        start: {
+          dateTime: startDateTime,
+          timeZone: 'Asia/Dhaka',
         },
-        body: JSON.stringify(payload),
+        end: {
+          dateTime: endDateTime,
+          timeZone: 'Asia/Dhaka',
+        },
+        reminders: {
+          useDefault: formData.useDefaultReminders,
+          overrides: formData.useDefaultReminders ? undefined : formData.customReminders,
+        },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create event');
+      if (success) {
+        setIsCreateModalOpen(false);
+        resetForm();
       }
-
-      // Refresh events
-      if (currentRange) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      }
-      
-      setIsCreateModalOpen(false);
-      resetForm();
     } catch (error) {
       console.error('Error creating event:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const deleteEvent = async () => {
+  const handleUpdateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEvent) return;
+
+    try {
+      const startDateTime = convertToISOString(formData.start);
+      const endDateTime = convertToISOString(formData.end);
+
+      const success = await calendar.updateEvent(selectedEvent.id, {
+        summary: formData.summary,
+        description: formData.description,
+        location: formData.location,
+        start: {
+          dateTime: startDateTime,
+          timeZone: 'Asia/Dhaka',
+        },
+        end: {
+          dateTime: endDateTime,
+          timeZone: 'Asia/Dhaka',
+        },
+        reminders: {
+          useDefault: formData.useDefaultReminders,
+          overrides: formData.useDefaultReminders ? undefined : formData.customReminders,
+        },
+      });
+
+      if (success) {
+        setIsEditModalOpen(false);
+        setIsDetailModalOpen(false);
+        setSelectedEvent(null);
+        resetForm();
+      }
+    } catch (error) {
+      console.error('Error updating event:', error);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
     
     if (!confirm('Are you sure you want to delete this event?')) return;
 
-    setIsLoading(true);
-    try {
-      const calendarId = selectedEvent.extendedProps.calendar_id || 'primary';
-      const eventId = selectedEvent.id;
+    const success = await calendar.deleteEvent(selectedEvent.id);
 
-      const response = await fetch(`http://localhost:8000/api/calendar/events/${calendarId}/${eventId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          calendarId,
-          eventId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete event');
-      }
-
-      // Refresh events
-      if (currentRange) {
-        await fetchEvents(currentRange.start, currentRange.end);
-      }
-      
+    if (success) {
       setIsDetailModalOpen(false);
       setSelectedEvent(null);
-    } catch (error) {
-      console.error('Error deleting event:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   // --- Event Handlers ---
 
-  const handleDatesSet = (arg: { start: Date; end: Date }) => {
-    setCurrentRange({ start: arg.start, end: arg.end });
-    fetchEvents(arg.start, arg.end);
-  };
-
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     setSelectedDateRange({ start: selectInfo.start, end: selectInfo.end });
     setFormData({
       summary: '',
+      description: '',
+      location: '',
       start: formatDateTimeLocal(selectInfo.start),
       end: formatDateTimeLocal(selectInfo.end),
-      creator: user?.email || '',
-      organizer: user?.email || ''
+      useDefaultReminders: true,
+      customReminders: [{ method: 'popup' as 'email' | 'popup', minutes: 10 }],
     });
     setIsCreateModalOpen(true);
   };
 
+  const handleEditClick = () => {
+    if (!selectedEvent) return;
+    
+    const reminders = selectedEvent.extendedProps.reminders?.overrides?.map(r => ({
+      method: r.method as 'email' | 'popup',
+      minutes: r.minutes
+    })) || [{ method: 'popup' as 'email' | 'popup', minutes: 10 }];
+    
+    setFormData({
+      summary: selectedEvent.title,
+      description: selectedEvent.extendedProps.description || '',
+      location: selectedEvent.extendedProps.location || '',
+      start: formatDateTimeLocal(new Date(selectedEvent.start)),
+      end: formatDateTimeLocal(new Date(selectedEvent.end)),
+      useDefaultReminders: selectedEvent.extendedProps.reminders?.useDefault ?? true,
+      customReminders: reminders,
+    });
+    setIsDetailModalOpen(false);
+    setIsEditModalOpen(true);
+  };
+
   const handleEventClick = (clickInfo: EventClickArg) => {
-    const event = events.find(e => e.id === clickInfo.event.id);
+    const event = fullCalendarEvents.find(e => e.id === clickInfo.event.id);
     if (event) {
       setSelectedEvent(event);
       setIsDetailModalOpen(true);
@@ -255,16 +260,42 @@ export default function CalendarPage() {
   const resetForm = () => {
     setFormData({
       summary: '',
+      description: '',
+      location: '',
       start: '',
       end: '',
-      creator: '',
-      organizer: ''
+      useDefaultReminders: true,
+      customReminders: [{ method: 'popup' as 'email' | 'popup', minutes: 10 }],
     });
   };
 
+  const addReminder = () => {
+    setFormData({
+      ...formData,
+      customReminders: [...formData.customReminders, { method: 'popup' as 'email' | 'popup', minutes: 10 }],
+    });
+  };
+
+  const removeReminder = (index: number) => {
+    setFormData({
+      ...formData,
+      customReminders: formData.customReminders.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateReminder = (index: number, field: 'method' | 'minutes', value: string | number) => {
+    const updated = [...formData.customReminders];
+    if (field === 'method') {
+      updated[index].method = value as 'email' | 'popup';
+    } else {
+      updated[index].minutes = Number(value);
+    }
+    setFormData({ ...formData, customReminders: updated });
+  };
+
   return (
-    <div className="h-full flex flex-col" ref={containerRef}>
-      <div className="flex-1 bg-card overflow-hidden flex flex-col">
+  <div className="h-full flex flex-col m-2 border border-border rounded-lg shadow-md overflow-hidden" ref={containerRef}>
+      <div className="flex-1 bg-card overflow-hidden flex flex-col rounded-[calc(var(--radius)-2px)]">
         <style jsx global>{`
           .fc {
             --fc-border-color: var(--border);
@@ -274,9 +305,9 @@ export default function CalendarPage() {
             --fc-button-hover-border-color: color-mix(in srgb, var(--primary), black 10%);
             --fc-button-active-bg-color: color-mix(in srgb, var(--primary), black 20%);
             --fc-button-active-border-color: color-mix(in srgb, var(--primary), black 20%);
-            --fc-event-bg-color: color-mix(in srgb, var(--primary), transparent 80%);
-            --fc-event-border-color: transparent;
-            --fc-event-text-color: var(--primary);
+            --fc-event-bg-color: var(--primary);
+            --fc-event-border-color: var(--primary);
+            --fc-event-text-color: var(--primary-foreground);
             --fc-today-bg-color: color-mix(in srgb, var(--accent), transparent 90%);
             font-family: inherit;
           }
@@ -308,6 +339,14 @@ export default function CalendarPage() {
             transition: all 0.2s;
             font-size: 0.875rem;
             margin-bottom: 2px;
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: var(--primary-foreground) !important;
+          }
+          .fc-event .fc-event-title,
+          .fc-event .fc-event-time,
+          .fc-event-content {
+            color: var(--primary-foreground) !important;
           }
           .fc-event:hover {
             opacity: 0.9;
@@ -364,12 +403,24 @@ export default function CalendarPage() {
           selectMirror={true}
           dayMaxEvents={true}
           weekends={true}
-          events={events} // Use the state events
+          events={fullCalendarEvents} // Use the converted events
           datesSet={handleDatesSet}
           select={handleDateSelect}
           eventClick={handleEventClick}
         />
       </div>
+
+      {/* Error Display */}
+      {calendar.error && (
+        <div className="fixed bottom-4 right-4 bg-destructive text-destructive-foreground p-4 rounded-lg shadow-lg animate-in slide-in-from-bottom-5 duration-300">
+          <div className="flex items-center gap-2">
+            <span>{calendar.error}</span>
+            <button onClick={calendar.clearError} className="ml-2">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create Event Modal */}
       {isCreateModalOpen && (
@@ -381,7 +432,7 @@ export default function CalendarPage() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={createEvent} className="p-4 space-y-4">
+            <form onSubmit={handleCreateEvent} className="p-4 space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Event Title</label>
                 <input
@@ -391,6 +442,28 @@ export default function CalendarPage() {
                   onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
                   className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   placeholder="Meeting with team"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description (optional)</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Event details..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location (optional)</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Conference Room A"
                 />
               </div>
               
@@ -417,26 +490,64 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Creator Email</label>
-                <input
-                  type="email"
-                  value={formData.creator}
-                  onChange={(e) => setFormData({ ...formData, creator: e.target.value })}
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="creator@example.com"
-                />
-              </div>
+              {/* Reminders Section */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Reminders
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.useDefaultReminders}
+                      onChange={(e) => setFormData({ ...formData, useDefaultReminders: e.target.checked })}
+                      className="w-4 h-4 rounded border-input"
+                    />
+                    <span className="text-sm text-muted-foreground">Use default</span>
+                  </label>
+                </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Organizer Email</label>
-                <input
-                  type="email"
-                  value={formData.organizer}
-                  onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
-                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  placeholder="organizer@example.com"
-                />
+                {!formData.useDefaultReminders && (
+                  <div className="space-y-2">
+                    {formData.customReminders.map((reminder, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <select
+                          value={reminder.method}
+                          onChange={(e) => updateReminder(index, 'method', e.target.value)}
+                          className="px-2 py-1.5 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="popup">Popup</option>
+                          <option value="email">Email</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={reminder.minutes}
+                          onChange={(e) => updateReminder(index, 'minutes', e.target.value)}
+                          className="flex-1 px-2 py-1.5 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          min="0"
+                        />
+                        <span className="text-sm text-muted-foreground">min before</span>
+                        {formData.customReminders.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeReminder(index)}
+                            className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addReminder}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      + Add reminder
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
@@ -449,10 +560,10 @@ export default function CalendarPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={calendar.loading}
                   className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors disabled:opacity-50"
                 >
-                  {isLoading ? 'Creating...' : 'Create Event'}
+                  {calendar.loading ? 'Creating...' : 'Create Event'}
                 </button>
               </div>
             </form>
@@ -478,6 +589,26 @@ export default function CalendarPage() {
                   <p className="font-medium">End: {new Date(selectedEvent.end).toLocaleString()}</p>
                 </div>
               </div>
+
+              {selectedEvent.extendedProps.description && (
+                <div className="flex items-start gap-3 text-sm">
+                  <CalendarIcon className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Description:</p>
+                    <p className="mt-1">{selectedEvent.extendedProps.description}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedEvent.extendedProps.location && (
+                <div className="flex items-start gap-3 text-sm">
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Location:</p>
+                    <p className="mt-1">{selectedEvent.extendedProps.location}</p>
+                  </div>
+                </div>
+              )}
 
               {(selectedEvent.extendedProps.creator || selectedEvent.extendedProps.organizer) && (
                 <div className="flex items-start gap-3 text-sm">
@@ -507,17 +638,197 @@ export default function CalendarPage() {
                 </div>
               )}
 
+              {selectedEvent.extendedProps.reminders && (
+                <div className="flex items-start gap-3 text-sm">
+                  <Bell className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Reminders:</p>
+                    {selectedEvent.extendedProps.reminders.useDefault ? (
+                      <p className="mt-1">Using default reminders</p>
+                    ) : selectedEvent.extendedProps.reminders.overrides && selectedEvent.extendedProps.reminders.overrides.length > 0 ? (
+                      <ul className="mt-1 space-y-1">
+                        {selectedEvent.extendedProps.reminders.overrides.map((reminder, idx) => (
+                          <li key={idx} className="flex items-center gap-2">
+                            <span className="capitalize">{reminder.method}</span>
+                            <span>-</span>
+                            <span>{reminder.minutes} minutes before</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-muted-foreground">No reminders</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4">
                 <button
-                  onClick={deleteEvent}
-                  disabled={isLoading}
+                  onClick={handleEditClick}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-accent rounded-md transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={handleDeleteEvent}
+                  disabled={calendar.loading}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-md transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4" />
-                  {isLoading ? 'Deleting...' : 'Delete'}
+                  {calendar.loading ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Event Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-background rounded-xl shadow-lg w-full max-w-md border border-border animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background">
+              <h2 className="text-lg font-semibold">Edit Event</h2>
+              <button onClick={() => { setIsEditModalOpen(false); setSelectedEvent(null); }} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateEvent} className="p-4 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Event Title</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.summary}
+                  onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Meeting with team"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description (optional)</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Event details..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location (optional)</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Conference Room A"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={formData.start}
+                    onChange={(e) => setFormData({ ...formData, start: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={formData.end}
+                    onChange={(e) => setFormData({ ...formData, end: e.target.value })}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+
+              {/* Reminders Section */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Reminders
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.useDefaultReminders}
+                      onChange={(e) => setFormData({ ...formData, useDefaultReminders: e.target.checked })}
+                      className="w-4 h-4 rounded border-input"
+                    />
+                    <span className="text-sm text-muted-foreground">Use default</span>
+                  </label>
+                </div>
+
+                {!formData.useDefaultReminders && (
+                  <div className="space-y-2">
+                    {formData.customReminders.map((reminder, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <select
+                          value={reminder.method}
+                          onChange={(e) => updateReminder(index, 'method', e.target.value)}
+                          className="px-2 py-1.5 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="popup">Popup</option>
+                          <option value="email">Email</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={reminder.minutes}
+                          onChange={(e) => updateReminder(index, 'minutes', e.target.value)}
+                          className="flex-1 px-2 py-1.5 rounded-md border border-input bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          min="0"
+                        />
+                        <span className="text-sm text-muted-foreground">min before</span>
+                        {formData.customReminders.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeReminder(index)}
+                            className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addReminder}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      + Add reminder
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setIsEditModalOpen(false); setSelectedEvent(null); }}
+                  className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={calendar.loading}
+                  className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors disabled:opacity-50"
+                >
+                  {calendar.loading ? 'Updating...' : 'Update Event'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

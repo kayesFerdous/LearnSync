@@ -139,7 +139,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
   };
 
   return (
-    <div className="absolute bottom-6 left-4 right-4 md:left-10 md:right-10 z-10">
+    <div className="absolute bottom-2 left-4 right-4 md:left-8 md:right-8 z-10">
       {/* Tags Dropdown */}
       {showTags && (
         <div className="absolute bottom-full mb-4 left-0 bg-card border border-border theme-shadow-lg rounded-xl p-2 min-w-[240px] animate-in fade-in slide-in-from-bottom-2 overflow-hidden">
@@ -329,7 +329,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
       </div>
 
       {/* Disclaimer */}
-      <div className="text-center mt-3">
+      <div className="text-center mt-2">
         <p className="text-[10px] text-muted-foreground/60">AI can make mistakes. Check important info.</p>
       </div>
     </div>
