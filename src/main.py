@@ -11,16 +11,17 @@ from src.api.auth.router import router as auth_router
 from src.api.uploads.router import router as upload_router
 from src.api.agents.router import router as agent_router
 from src.api.users.router import router as user_router
+from src.api.calendar.router import router as calendar_router
 from src.core.lifespan import lifespan
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(agent_router)
-# app.include_router(calendar_router)
 # app.include_router(editor_router)
 app.include_router(auth_router)
 app.include_router(upload_router)
 app.include_router(user_router)
+app.include_router(calendar_router)
 app.add_middleware(SessionMiddleware, secret_key="amijanikintubolbona")
 # app.include_router(study_router)
 

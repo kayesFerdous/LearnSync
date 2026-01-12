@@ -1,12 +1,11 @@
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.users.crud import get_user_identity
-from src.db.session import AsyncSessionLocal
 from src.core.config import settings
 
-async def get_google_calendar_service(user_id: str):
-    async with AsyncSessionLocal() as db:
-        identity = await get_user_identity(user_id, db)
+async def get_google_calendar_service(user_id: str, db: AsyncSession):
+    identity = await get_user_identity(user_id, db)
         
     if not identity:
         print(f"No identity found for user {user_id}")

@@ -12,7 +12,7 @@ class GoogleCalendarClient:
     def __init__(self, service: Any):
         self.service = service
 
-    def list_events(
+    async def list_events(
         self, 
         calendar_id: str = 'primary', 
         time_min: Optional[datetime] = None, 
@@ -26,8 +26,17 @@ class GoogleCalendarClient:
         Lists events from the specified calendar.
         """
         try:
-            time_min_str = time_min.isoformat() + 'Z' if time_min else None
-            time_max_str = time_max.isoformat() + 'Z' if time_max else None
+            time_min_str = None
+            if time_min:
+                time_min_str = time_min.isoformat()
+                if time_min.tzinfo is None:
+                    time_min_str += 'Z'
+
+            time_max_str = None
+            if time_max:
+                time_max_str = time_max.isoformat()
+                if time_max.tzinfo is None:
+                    time_max_str += 'Z'
             
             # Build the request
             request = self.service.events().list(
@@ -47,7 +56,7 @@ class GoogleCalendarClient:
             print(f"Error listing events: {e}")
             raise e
 
-    def create_event(self, event_data: Union[EventCreate, Dict[str, Any]], calendar_id: str = 'primary') -> Event:
+    async def create_event(self, event_data: Union[EventCreate, Dict[str, Any]], calendar_id: str = 'primary') -> Event:
         """
         Creates a new event in the specified calendar.
         """
@@ -66,7 +75,7 @@ class GoogleCalendarClient:
             print(f"Error creating event: {e}")
             raise e
 
-    def update_event(
+    async def update_event(
         self, 
         event_id: str, 
         event_data: Union[EventUpdate, Dict[str, Any]], 
@@ -91,7 +100,7 @@ class GoogleCalendarClient:
             print(f"Error updating event: {e}")
             raise e
 
-    def delete_event(self, event_id: str, calendar_id: str = 'primary') -> None:
+    async def delete_event(self, event_id: str, calendar_id: str = 'primary') -> None:
         """
         Deletes an event from the specified calendar.
         """
@@ -104,7 +113,7 @@ class GoogleCalendarClient:
             print(f"Error deleting event: {e}")
             raise e
 
-    def get_event(self, event_id: str, calendar_id: str = 'primary') -> Event:
+    async def get_event(self, event_id: str, calendar_id: str = 'primary') -> Event:
         """
         Retrieves a specific event.
         """
