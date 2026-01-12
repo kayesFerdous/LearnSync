@@ -1,40 +1,67 @@
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
+from src.services.vision.schema import WeeklyRoutine
+from src.services.vision.models import ClassSession, Routine
 from src.agents.model import AgentState
 
 
 def make_routine_approval_node():
-    async def routine_approval_node(state: AgentState):
+    async def routine_approval_node(state: AgentState, config: RunnableConfig):
         """
         Extract routine and interrupt for human approval
         """
-        # print("this is the make_routine_approval_node node")
+        # Retrieve the DB session from the runtime config
+        # This assumes the caller puts 'db' into config['configurable']
+        db: AsyncSession = config["configurable"]["db"] #type: ignore
 
         extracted_routine = state['scratchpad'].get('extracted_routine')
-        # print(extracted_routine)
 
         user_dicision = interrupt({
             "type": "routine_approval_required",
             "extracted_data": extracted_routine,
         })
 
-        print(f'\nuser dicision: {user_dicision}\n')
+        print(f'\nuser decision: {user_dicision}\n')
 
         messages = []
         metadata = state.get('metadata', {}).copy()
 
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
-            metadata['routine'] = user_dicision.get('data')
-            # print(metadata)
-            messages.append(SystemMessage(content="The routine has been approved and saved"))
+            approved_routine = WeeklyRoutine.model_validate(user_dicision.get("data")) 
+
+            # Create and add the parent Routine first
+            new_routine = Routine(title=approved_routine.title)
+            db.add(new_routine)
+            await db.flush() # Generates the ID for new_routine
+
+            all_classes: list[ClassSession] = []
+            for single_class in approved_routine.classes:
+                new_class = ClassSession(
+                    day=single_class.day, 
+                    time=single_class.time,
+                    course_name=single_class.course_name,
+                    routine_id=new_routine.id 
+                )
+                all_classes.append(new_class)
+            
+            db.add_all(all_classes)
+            await db.commit()
+            
+            # Construct metadata output without needing to refresh objects
+            # (Fetching attributes from DB objects after commit would trigger a refresh anyway)
+            metadata['routine'] = [
+                {"day": c.day, "time": c.time, "course": c.course_name} 
+                for c in all_classes
+            ]
+
+            messages.append(SystemMessage(content="The routine has been approved and saved."))
 
         else:
-            messages.append(SystemMessage(content="The routine has been rejected"))
-
+            messages.append(SystemMessage(content="The routine has been rejected."))
 
         return {"metadata": metadata, "messages": messages}
 
     return routine_approval_node
-
-
