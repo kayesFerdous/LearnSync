@@ -1,11 +1,13 @@
-from fastapi import Depends, status, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends, status, HTTPException, Request
 
-from src.db.session import get_db
-from src.auth.service import AuthError, decode_access_token
-from src.users.crud import get_user_by_id
-from src.core.config import settings
 from src.users.model import User
+from src.db.session import get_db
+from src.core.config import settings
+from src.users.crud import get_user_by_id
+from src.auth.service import AuthError, decode_access_token
+from src.calendar.google_client import GoogleCalendarClient
+from src.core.integrations.google.auth_utils import get_google_calendar_service
 
 
 async def get_current_user(
@@ -44,3 +46,22 @@ async def is_admin(user:User =  Depends(get_current_user)):
         )
 
     return user
+
+
+async def get_calendar_client(
+    user: User = Depends(get_current_user), 
+    db: AsyncSession = Depends(get_db)
+) -> GoogleCalendarClient:
+    """
+    Dependency to get an authenticated GoogleCalendarClient for the current user.
+    """
+
+    service = await get_google_calendar_service(str(user.user_id), db)
+
+    if not service:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User does not have a connected Google Calendar or tokens are expired."
+        )
+
+    return GoogleCalendarClient(service)
