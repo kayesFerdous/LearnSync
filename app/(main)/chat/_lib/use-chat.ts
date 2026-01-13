@@ -189,6 +189,7 @@ export function useChat() {
           tag: 'routine_generator',
           user_input: { approved: true, data: editedData },
         }),
+        credentials: 'include'
       });
 
       if (!response.ok) throw new Error(`Backend error (${response.status})`);

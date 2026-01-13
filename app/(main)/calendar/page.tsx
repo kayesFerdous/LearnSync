@@ -6,9 +6,12 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core';
-import { Plus, Trash2, X, Calendar as CalendarIcon, Clock, User, MapPin, Link as LinkIcon, Edit, Bell } from 'lucide-react';
+import { Plus, Trash2, X, Calendar as CalendarIcon, Clock, User, MapPin, Link as LinkIcon, Edit, Bell, Repeat2 } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import { useCalendar, type CalendarEvent } from './_lib';
+import { RecurrenceModal } from './_components/recurrence-modal';
+import { generateRRules, isValidRecurrenceArray, parseRRuleToHumanReadable } from './_lib/rrule-utils';
+import type { RRuleFormState } from './_lib/rrule-utils';
 
 // --- Interfaces ---
 
@@ -30,6 +33,7 @@ interface FullCalendarEvent {
       useDefault: boolean;
       overrides?: Array<{ method: string; minutes: number }>;
     };
+    recurrence?: string[];
   };
 }
 
@@ -61,6 +65,7 @@ const convertCalendarEventToFullCalendarEvent = (event: CalendarEvent): FullCale
       description: event.description || '',
       location: event.location || '',
       reminders: event.reminders,
+      recurrence: event.recurrence,
     }
   };
 };
@@ -81,6 +86,7 @@ export default function CalendarPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
   const [selectedDateRange, setSelectedDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<FullCalendarEvent | null>(null);
 
@@ -93,6 +99,8 @@ export default function CalendarPage() {
     end: '',
     useDefaultReminders: true,
     customReminders: [{ method: 'popup' as 'email' | 'popup', minutes: 10 }],
+    recurrence: [] as string[],
+    recurrenceState: undefined as RRuleFormState | undefined,
   });
 
   // Convert calendar events to FullCalendar format
@@ -135,6 +143,12 @@ export default function CalendarPage() {
       const startDateTime = convertToISOString(formData.start);
       const endDateTime = convertToISOString(formData.end);
 
+      // Validate recurrence if present
+      if (formData.recurrence.length > 0 && !isValidRecurrenceArray(formData.recurrence)) {
+        alert('Invalid recurrence configuration');
+        return;
+      }
+
       const success = await calendar.createEvent({
         summary: formData.summary,
         description: formData.description,
@@ -151,6 +165,7 @@ export default function CalendarPage() {
           useDefault: formData.useDefaultReminders,
           overrides: formData.useDefaultReminders ? undefined : formData.customReminders,
         },
+        recurrence: formData.recurrence.length > 0 ? formData.recurrence : undefined,
       });
 
       if (success) {
@@ -170,6 +185,12 @@ export default function CalendarPage() {
       const startDateTime = convertToISOString(formData.start);
       const endDateTime = convertToISOString(formData.end);
 
+      // Validate recurrence if present
+      if (formData.recurrence.length > 0 && !isValidRecurrenceArray(formData.recurrence)) {
+        alert('Invalid recurrence configuration');
+        return;
+      }
+
       const success = await calendar.updateEvent(selectedEvent.id, {
         summary: formData.summary,
         description: formData.description,
@@ -186,6 +207,7 @@ export default function CalendarPage() {
           useDefault: formData.useDefaultReminders,
           overrides: formData.useDefaultReminders ? undefined : formData.customReminders,
         },
+        recurrence: formData.recurrence.length > 0 ? formData.recurrence : undefined,
       });
 
       if (success) {
@@ -224,6 +246,8 @@ export default function CalendarPage() {
       end: formatDateTimeLocal(selectInfo.end),
       useDefaultReminders: true,
       customReminders: [{ method: 'popup' as 'email' | 'popup', minutes: 10 }],
+      recurrence: [],
+      recurrenceState: undefined,
     });
     setIsCreateModalOpen(true);
   };
@@ -244,6 +268,8 @@ export default function CalendarPage() {
       end: formatDateTimeLocal(new Date(selectedEvent.end)),
       useDefaultReminders: selectedEvent.extendedProps.reminders?.useDefault ?? true,
       customReminders: reminders,
+      recurrence: selectedEvent.extendedProps.recurrence || [],
+      recurrenceState: undefined,
     });
     setIsDetailModalOpen(false);
     setIsEditModalOpen(true);
@@ -266,6 +292,8 @@ export default function CalendarPage() {
       end: '',
       useDefaultReminders: true,
       customReminders: [{ method: 'popup' as 'email' | 'popup', minutes: 10 }],
+      recurrence: [],
+      recurrenceState: undefined,
     });
   };
 
@@ -291,6 +319,16 @@ export default function CalendarPage() {
       updated[index].minutes = Number(value);
     }
     setFormData({ ...formData, customReminders: updated });
+  };
+
+  const handleRecurrenceApply = (recurrenceState: RRuleFormState) => {
+    const rrules = generateRRules(recurrenceState);
+    setFormData({
+      ...formData,
+      recurrence: rrules,
+      recurrenceState: recurrenceState,
+    });
+    setIsRecurrenceModalOpen(false);
   };
 
   return (
@@ -550,6 +588,29 @@ export default function CalendarPage() {
                 )}
               </div>
 
+              {/* Recurrence Section */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Repeat2 className="h-4 w-4" />
+                    Repeat
+                  </label>
+                </div>
+                {formData.recurrence.length > 0 && (
+                  <div className="p-3 bg-muted rounded-md text-sm">
+                    <p className="text-muted-foreground">Current recurrence:</p>
+                    <p className="mt-1 font-medium">{parseRRuleToHumanReadable(formData.recurrence[0])}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsRecurrenceModalOpen(true)}
+                  className="w-full px-4 py-2 text-sm font-medium border border-input rounded-md hover:bg-accent transition-colors"
+                >
+                  {formData.recurrence.length > 0 ? 'Edit Recurrence' : 'Add Recurrence'}
+                </button>
+              </div>
+
               <div className="flex justify-end gap-2 pt-4">
                 <button
                   type="button"
@@ -662,6 +723,16 @@ export default function CalendarPage() {
                 </div>
               )}
 
+              {selectedEvent.extendedProps.recurrence && selectedEvent.extendedProps.recurrence.length > 0 && (
+                <div className="flex items-start gap-3 text-sm">
+                  <Repeat2 className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="text-muted-foreground">Recurrence:</p>
+                    <p className="mt-1">{parseRRuleToHumanReadable(selectedEvent.extendedProps.recurrence[0])}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4">
                 <button
                   onClick={handleEditClick}
@@ -683,6 +754,14 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
+
+      {/* Recurrence Modal */}
+      <RecurrenceModal
+        isOpen={isRecurrenceModalOpen}
+        onClose={() => setIsRecurrenceModalOpen(false)}
+        onApply={handleRecurrenceApply}
+        initialState={formData.recurrenceState}
+      />
 
       {/* Edit Event Modal */}
       {isEditModalOpen && (
@@ -810,6 +889,29 @@ export default function CalendarPage() {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Recurrence Section */}
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Repeat2 className="h-4 w-4" />
+                    Repeat
+                  </label>
+                </div>
+                {formData.recurrence.length > 0 && (
+                  <div className="p-3 bg-muted rounded-md text-sm">
+                    <p className="text-muted-foreground">Current recurrence:</p>
+                    <p className="mt-1 font-medium">{parseRRuleToHumanReadable(formData.recurrence[0])}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsRecurrenceModalOpen(true)}
+                  className="w-full px-4 py-2 text-sm font-medium border border-input rounded-md hover:bg-accent transition-colors"
+                >
+                  {formData.recurrence.length > 0 ? 'Edit Recurrence' : 'Add Recurrence'}
+                </button>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">

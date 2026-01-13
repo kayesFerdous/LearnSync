@@ -11,7 +11,7 @@ export default function MainLayout({
       <Sidebar />
       <main className="flex-1 flex flex-col min-w-0">
         <TopBar />
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto relative">
           {children}
         </div>
       </main>

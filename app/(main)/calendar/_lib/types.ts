@@ -34,6 +34,7 @@ export interface CalendarEvent {
   start?: CalendarTime;
   end?: CalendarTime;
   reminders?: EventReminders;
+  recurrence?: string[];
 }
 
 // Request DTOs
@@ -45,6 +46,7 @@ export interface CreateEventRequest {
   end: CalendarTime;
   attendees?: Array<{ email: string }>;
   reminders?: EventReminders;
+  recurrence?: string[];
 }
 
 export interface UpdateEventRequest {
@@ -54,6 +56,7 @@ export interface UpdateEventRequest {
   start?: CalendarTime;
   end?: CalendarTime;
   attendees?: Array<{ email: string }>;
+  recurrence?: string[];
   reminders?: EventReminders;
 }
 
