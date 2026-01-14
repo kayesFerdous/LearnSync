@@ -1,6 +1,7 @@
 import json
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.encoders import jsonable_encoder
 
 from src.agents.runner import runner
 from src.schemas.bot import QuestionRequest
@@ -27,7 +28,7 @@ async def chat_bot_response(
                 user_id=user.user_id,
                 db=db
             ):
-                yield f"data: {json.dumps(chunk)}\n\n"
+                yield f"data: {json.dumps(jsonable_encoder(chunk))}\n\n"
 
         return StreamingResponse(
                 generate_response(),
