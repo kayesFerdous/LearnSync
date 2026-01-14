@@ -41,7 +41,8 @@ def make_routine_approval_node():
             for single_class in approved_routine.classes:
                 new_class = ClassSession(
                     day=single_class.day, 
-                    time=single_class.time,
+                    start_time=single_class.start.dateTime,
+                    end_time=single_class.end.dateTime,
                     course_name=single_class.course_name,
                     routine_id=new_routine.id 
                 )
@@ -53,7 +54,12 @@ def make_routine_approval_node():
             # Construct metadata output without needing to refresh objects
             # (Fetching attributes from DB objects after commit would trigger a refresh anyway)
             metadata['routine'] = [
-                {"day": c.day, "time": c.time, "course": c.course_name} 
+                {
+                    "day": c.day, 
+                    "start": c.start_time.isoformat() if c.start_time else None, 
+                    "end": c.end_time.isoformat() if c.end_time else None, 
+                    "course": c.course_name
+                } 
                 for c in all_classes
             ]
 

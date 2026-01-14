@@ -39,7 +39,8 @@ class ClassSession(Base):
         nullable=False
     )
     day: Mapped[str] = mapped_column(String, nullable=False)
-    time: Mapped[str] = mapped_column(String, nullable=False)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     course_name: Mapped[str] = mapped_column(String, nullable=False)
 
     # Relationships
