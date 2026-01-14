@@ -2,13 +2,19 @@
 
 export interface ClassSchedule {
   day: string;
-  time: string;
   course_name: string;
+  start: {
+    dateTime: string; // ISO 8601 format: "2024-01-15T08:30:00"
+  };
+  end: {
+    dateTime: string; // ISO 8601 format: "2024-01-15T10:00:00"
+  };
 }
 
 export interface RoutineData {
   title: string;
   classes: ClassSchedule[];
+  recurrence?: string[];
 }
 
 export interface InterruptPayload {
