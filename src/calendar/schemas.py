@@ -43,6 +43,7 @@ class Event(BaseModel):
     start: Optional[CalendarTime] = None
     end: Optional[CalendarTime] = None
     reminders: Optional[EventReminders] = None
+    recurrence: Optional[List[str]] = None
     
     class Config:
         from_attributes = True
@@ -56,6 +57,15 @@ class EventCreate(BaseModel):
     end: CalendarTime
     attendees: Optional[List[Dict[str, str]]] = None
     reminders: Optional[EventReminders] = None
+    recurrence: Optional[List[str]] = None
+
+    @model_validator(mode='after')
+    def validate_recurrence(self) -> 'EventCreate':
+        if self.recurrence:
+            for rule in self.recurrence:
+                if not (rule.startswith("RRULE:") or rule.startswith("RDATE:")):
+                    raise ValueError(f"Recurrence rule must start with 'RRULE:' or 'RDATE:'. Got: {rule}")
+        return self
 
 class EventUpdate(BaseModel):
     """Fields for updating an existing calendar event."""
@@ -66,6 +76,15 @@ class EventUpdate(BaseModel):
     end: Optional[CalendarTime] = None
     attendees: Optional[List[Dict[str, str]]] = None
     reminders: Optional[EventReminders] = None
+    recurrence: Optional[List[str]] = None
+
+    @model_validator(mode='after')
+    def validate_recurrence(self) -> 'EventUpdate':
+        if self.recurrence:
+            for rule in self.recurrence:
+                if not (rule.startswith("RRULE:") or rule.startswith("RDATE:")):
+                    raise ValueError(f"Recurrence rule must start with 'RRULE:' or 'RDATE:'. Got: {rule}")
+        return self
 
 class EventList(BaseModel):
     """A collection of Event objects."""
