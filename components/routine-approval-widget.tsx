@@ -1,18 +1,79 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Plus, Trash2, Edit3, Loader2, Calendar, Clock, BookOpen } from 'lucide-react';
+import { Check, X, Plus, Trash2, Edit3, Loader2, Calendar, Clock, BookOpen, Repeat2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RecurrenceModal } from '@/app/(main)/calendar/_components/recurrence-modal';
+import { generateRRules, parseRRuleToHumanReadable } from '@/app/(main)/calendar/_lib/rrule-utils';
+import type { RRuleFormState } from '@/app/(main)/calendar/_lib/rrule-utils';
 
 interface ClassSchedule {
   day: string;
-  time: string;
   course_name: string;
+  start: {
+    dateTime: string; // ISO 8601 format
+  };
+  end: {
+    dateTime: string; // ISO 8601 format
+  };
+}
+
+/**
+ * Formats ISO datetime strings to readable time range
+ * @param startDateTime ISO 8601 datetime string (e.g., "2024-01-15T08:30:00")
+ * @param endDateTime ISO 8601 datetime string (e.g., "2024-01-15T10:00:00")
+ * @returns Formatted time range (e.g., "08:30 AM - 10:00 AM")
+ */
+function formatTimeRange(startDateTime: string, endDateTime: string): string {
+  try {
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
+    
+    const formatTime = (date: Date) => {
+      let hours = date.getHours();
+      const minutes = date.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const minutesStr = minutes.toString().padStart(2, '0');
+      return `${hours}:${minutesStr} ${ampm}`;
+    };
+    
+    return `${formatTime(start)} - ${formatTime(end)}`;
+  } catch (error) {
+    return 'Invalid time';
+  }
+}
+
+/**
+ * Creates ISO datetime string from time input
+ * @param timeStr Time string (e.g., "08:30 AM")
+ * @param baseDate Base date to use for the datetime
+ * @returns ISO 8601 datetime string
+ */
+function timeToISO(timeStr: string, baseDate: Date = new Date()): string {
+  try {
+    const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return baseDate.toISOString().slice(0, 19);
+    
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const ampm = match[3].toUpperCase();
+    
+    if (ampm === 'PM' && hours !== 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+    
+    const date = new Date(baseDate);
+    date.setHours(hours, minutes, 0, 0);
+    return date.toISOString().slice(0, 19);
+  } catch (error) {
+    return baseDate.toISOString().slice(0, 19);
+  }
 }
 
 interface RoutineData {
   title: string;
   classes: ClassSchedule[];
+  recurrence?: string[];
 }
 
 interface RoutineApprovalWidgetProps {
@@ -35,8 +96,11 @@ export default function RoutineApprovalWidget({
   const [editedData, setEditedData] = useState<RoutineData>(() => ({
     title: data.title,
     classes: data.classes.map(c => ({ ...c })),
+    recurrence: data.recurrence || [],
   }));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
+  const [recurrenceState, setRecurrenceState] = useState<RRuleFormState | undefined>(undefined);
 
   const isEditable = !isLocked && status === 'pending';
 
@@ -54,9 +118,23 @@ export default function RoutineApprovalWidget({
   };
 
   const handleAddClass = () => {
+    const now = new Date();
+    const defaultStart = new Date(now);
+    defaultStart.setHours(8, 0, 0, 0);
+    const defaultEnd = new Date(now);
+    defaultEnd.setHours(9, 30, 0, 0);
+    
     setEditedData(prev => ({
       ...prev,
-      classes: [...prev.classes, { day: 'Monday', time: '', course_name: '' }],
+      classes: [
+        ...prev.classes,
+        {
+          day: 'Monday',
+          course_name: '',
+          start: { dateTime: defaultStart.toISOString().slice(0, 19) },
+          end: { dateTime: defaultEnd.toISOString().slice(0, 19) },
+        },
+      ],
     }));
     setEditingIndex(editedData.classes.length);
   };
@@ -71,6 +149,24 @@ export default function RoutineApprovalWidget({
 
   const handleApprove = () => {
     onApprove(editedData);
+  };
+
+  const handleRecurrenceApply = (state: RRuleFormState) => {
+    const rrules = generateRRules(state);
+    setEditedData(prev => ({
+      ...prev,
+      recurrence: rrules,
+    }));
+    setRecurrenceState(state);
+    setIsRecurrenceModalOpen(false);
+  };
+
+  const handleClearRecurrence = () => {
+    setEditedData(prev => ({
+      ...prev,
+      recurrence: [],
+    }));
+    setRecurrenceState(undefined);
   };
 
   // Group classes by day for a cleaner display
@@ -172,26 +268,46 @@ export default function RoutineApprovalWidget({
                   {editingIndex === originalIndex && isEditable ? (
                     // Edit Mode
                     <div className="space-y-2">
+                      <div>
+                        <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Day</label>
+                        <select
+                          value={cls.day}
+                          onChange={(e) => handleClassChange(originalIndex, 'day', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
+                        >
+                          {DAYS.map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Day</label>
-                          <select
-                            value={cls.day}
-                            onChange={(e) => handleClassChange(originalIndex, 'day', e.target.value)}
+                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Start Time</label>
+                          <input
+                            type="time"
+                            value={new Date(cls.start.dateTime).toTimeString().slice(0, 5)}
+                            onChange={(e) => {
+                              const [hours, minutes] = e.target.value.split(':');
+                              const date = new Date(cls.start.dateTime);
+                              date.setHours(parseInt(hours), parseInt(minutes));
+                              const newStart = { dateTime: date.toISOString().slice(0, 19) };
+                              handleClassChange(originalIndex, 'start', newStart as any);
+                            }}
                             className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
-                          >
-                            {DAYS.map(d => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div>
-                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Time</label>
+                          <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">End Time</label>
                           <input
-                            type="text"
-                            value={cls.time}
-                            onChange={(e) => handleClassChange(originalIndex, 'time', e.target.value)}
-                            placeholder="e.g., 08:30 AM - 10:00 AM"
+                            type="time"
+                            value={new Date(cls.end.dateTime).toTimeString().slice(0, 5)}
+                            onChange={(e) => {
+                              const [hours, minutes] = e.target.value.split(':');
+                              const date = new Date(cls.end.dateTime);
+                              date.setHours(parseInt(hours), parseInt(minutes));
+                              const newEnd = { dateTime: date.toISOString().slice(0, 19) };
+                              handleClassChange(originalIndex, 'end', newEnd as any);
+                            }}
                             className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
                           />
                         </div>
@@ -226,7 +342,9 @@ export default function RoutineApprovalWidget({
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <Clock className="h-3.5 w-3.5" />
-                        <span className="text-xs font-medium">{cls.time || 'No time set'}</span>
+                        <span className="text-xs font-medium">
+                          {formatTimeRange(cls.start.dateTime, cls.end.dateTime)}
+                        </span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-foreground truncate block">
@@ -269,7 +387,63 @@ export default function RoutineApprovalWidget({
             Add Class
           </button>
         )}
+
+        {/* Recurrence Section */}
+        {isEditable && (
+          <div className="pt-2 border-t border-border/50 mt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <Repeat2 className="h-3.5 w-3.5" />
+                Repeat Pattern
+              </label>
+              {editedData.recurrence && editedData.recurrence.length > 0 && (
+                <button
+                  onClick={handleClearRecurrence}
+                  className="text-xs text-red-600 hover:bg-red-500/10 px-2 py-1 rounded transition-colors"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {editedData.recurrence && editedData.recurrence.length > 0 && (
+              <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
+                <p className="text-xs text-foreground font-medium">
+                  {parseRRuleToHumanReadable(editedData.recurrence[0])}
+                </p>
+              </div>
+            )}
+            <button
+              onClick={() => setIsRecurrenceModalOpen(true)}
+              className="w-full py-2 text-xs font-medium border border-primary/30 text-primary rounded-lg hover:bg-primary/10 transition-colors"
+            >
+              {editedData.recurrence && editedData.recurrence.length > 0 ? 'Edit Pattern' : 'Add Repeat Pattern'}
+            </button>
+          </div>
+        )}
+
+        {/* Display Recurrence in View Mode */}
+        {!isEditable && editedData.recurrence && editedData.recurrence.length > 0 && (
+          <div className="pt-2 border-t border-border/50 mt-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              <Repeat2 className="h-3.5 w-3.5" />
+              Repeat Pattern
+            </div>
+            <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-xs text-foreground font-medium">
+                {parseRRuleToHumanReadable(editedData.recurrence[0])}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Recurrence Modal */}
+      <RecurrenceModal
+        isOpen={isRecurrenceModalOpen}
+        onClose={() => setIsRecurrenceModalOpen(false)}
+        onApply={handleRecurrenceApply}
+        initialState={recurrenceState}
+      />
 
       {/* Actions */}
       {status === 'pending' && (
