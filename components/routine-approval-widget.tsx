@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Check, X, Plus, Trash2, Edit3, Loader2, Calendar, Clock, BookOpen, Repeat2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RecurrenceModal } from '@/app/(main)/calendar/_components/recurrence-modal';
@@ -16,6 +16,7 @@ interface ClassSchedule {
   end: {
     dateTime: string; // ISO 8601 format
   };
+  recurrence?: string[]; // Per-class recurrence (RRULE array)
 }
 
 /**
@@ -70,6 +71,138 @@ function timeToISO(timeStr: string, baseDate: Date = new Date()): string {
   }
 }
 
+/**
+ * Finds the next occurrence of a specific day of the week
+ * @param dayName Day name (e.g., "Monday", "Tuesday")
+ * @param afterDate Reference date (defaults to today)
+ * @returns Next occurrence of that day
+ */
+function getNextOccurrenceOfDay(dayName: string, afterDate: Date = new Date()): Date {
+  const dayMap: Record<string, number> = {
+    'Sunday': 0,
+    'Monday': 1,
+    'Tuesday': 2,
+    'Wednesday': 3,
+    'Thursday': 4,
+    'Friday': 5,
+    'Saturday': 6,
+  };
+  
+  const targetDay = dayMap[dayName];
+  const startDate = new Date(afterDate);
+  startDate.setDate(startDate.getDate() + 1); // Start from tomorrow
+  
+  let daysToAdd = (targetDay - startDate.getDay() + 7) % 7;
+  
+  const result = new Date(startDate);
+  result.setDate(result.getDate() + daysToAdd);
+  
+  return result;
+}
+
+/**
+ * Generates individual recurrence pattern for a single class
+ * Creates a weekly recurring event starting from the class's first actual occurrence
+ * @param classItem The class schedule
+ * @param endType 'count' or 'date' - how the recurrence should end
+ * @param endValue Either a count number or a date string (ISO format)
+ * @returns Updated class with corrected dates and RRULE for this specific class
+ */
+function generateRecurrenceForClass(
+  classItem: ClassSchedule,
+  endType: 'count' | 'date' = 'count',
+  endValue: number | string = 16
+): ClassSchedule | null {
+  try {
+    const dayMap: Record<string, string> = {
+      'Sunday': 'SU',
+      'Monday': 'MO',
+      'Tuesday': 'TU',
+      'Wednesday': 'WE',
+      'Thursday': 'TH',
+      'Friday': 'FR',
+      'Saturday': 'SA',
+    };
+
+    const byDay = dayMap[classItem.day];
+    if (!byDay) return null;
+
+    // Find the next occurrence of this day
+    const nextOccurrence = getNextOccurrenceOfDay(classItem.day);
+
+    // Extract time directly from ISO string to avoid timezone conversion
+    // ISO format: "2026-01-16T11:30:00" -> extract "11:30:00"
+    const startTimeStr = classItem.start.dateTime.slice(11, 19);
+    const endTimeStr = classItem.end.dateTime.slice(11, 19);
+    const [hours, minutes] = startTimeStr.split(':').map(Number);
+    const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
+
+    // Create new dates with correct calendar dates but same times (no timezone conversion)
+    const correctedStart = new Date(nextOccurrence);
+    correctedStart.setHours(hours, minutes, 0, 0);
+    
+    const correctedEnd = new Date(nextOccurrence);
+    correctedEnd.setHours(endHours, endMinutes, 0, 0);
+
+    // Create RRULE with user-specified end type
+    const state: RRuleFormState = {
+      frequency: 'WEEKLY',
+      interval: 1,
+      daysOfWeek: [byDay],
+      endType: endType === 'date' ? 'until' : 'count',
+      count: endType === 'count' ? (typeof endValue === 'number' ? endValue : 16) : undefined,
+      untilDate: endType === 'date' ? new Date(typeof endValue === 'string' ? endValue : new Date()) : undefined,
+    };
+
+    // Generate RRULE string
+    const rrules = generateRRules(state);
+
+    // Return updated class with corrected dates and recurrence
+    return {
+      ...classItem,
+      start: { dateTime: correctedStart.toISOString().slice(0, 19) },
+      end: { dateTime: correctedEnd.toISOString().slice(0, 19) },
+      recurrence: rrules,
+    };
+  } catch (error) {
+    console.error('Error generating recurrence for class:', error);
+    return null;
+  }
+}
+
+/**
+ * Automatically generates recurrence patterns for all classes
+ * Each class gets corrected dates matching its day of week and per-class recurrence
+ * @param classes Array of class schedules
+ * @param endType 'count' or 'date' - how the recurrence should end
+ * @param endValue Either a count number or a date string (ISO format)
+ * @returns Updated classes array with corrected dates and per-class recurrence
+ */
+function generateAutoRecurrence(
+  classes: ClassSchedule[],
+  endType: 'count' | 'date' = 'count',
+  endValue: number | string = 16
+): ClassSchedule[] {
+  if (!classes || classes.length === 0) return classes;
+
+  try {
+    return classes.map(classItem => {
+      // Skip if this class already has recurrence
+      if (classItem.recurrence && classItem.recurrence.length > 0) {
+        return classItem;
+      }
+
+      // Generate recurrence and corrected dates for this specific class
+      const updated = generateRecurrenceForClass(classItem, endType, endValue);
+      
+      return updated || classItem;
+    });
+  } catch (error) {
+    console.error('Error generating auto-recurrence:', error);
+    return classes;
+  }
+}
+
 interface RoutineData {
   title: string;
   classes: ClassSchedule[];
@@ -96,13 +229,38 @@ export default function RoutineApprovalWidget({
   const [editedData, setEditedData] = useState<RoutineData>(() => ({
     title: data.title,
     classes: data.classes.map(c => ({ ...c })),
-    recurrence: data.recurrence || [],
   }));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
-  const [recurrenceState, setRecurrenceState] = useState<RRuleFormState | undefined>(undefined);
+  
+  // Recurrence end type state
+  const [recurrenceEndType, setRecurrenceEndType] = useState<'count' | 'date'>('count');
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(16);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>(
+    new Date(new Date().getTime() + 16 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
 
   const isEditable = !isLocked && status === 'pending';
+
+  // Auto-generate per-class recurrence patterns when data loads or end type changes
+  useEffect(() => {
+    // Only auto-generate if:
+    // 1. Not already locked/processing
+    // 2. There are classes to work with
+    // 3. At least one class doesn't have recurrence yet
+    if (isEditable && editedData.classes.length > 0) {
+      const hasAnyWithoutRecurrence = editedData.classes.some(
+        c => !c.recurrence || c.recurrence.length === 0
+      );
+
+      if (hasAnyWithoutRecurrence) {
+        const updatedClasses = generateAutoRecurrence(editedData.classes, recurrenceEndType, recurrenceEndType === 'count' ? recurrenceCount : recurrenceEndDate);
+        setEditedData(prev => ({
+          ...prev,
+          classes: updatedClasses,
+        }));
+      }
+    }
+  }, [isEditable, editedData.classes.length, recurrenceEndType, recurrenceCount, recurrenceEndDate]); // Include recurrence end settings in dependencies
 
   const handleTitleChange = (newTitle: string) => {
     setEditedData(prev => ({ ...prev, title: newTitle }));
@@ -149,24 +307,6 @@ export default function RoutineApprovalWidget({
 
   const handleApprove = () => {
     onApprove(editedData);
-  };
-
-  const handleRecurrenceApply = (state: RRuleFormState) => {
-    const rrules = generateRRules(state);
-    setEditedData(prev => ({
-      ...prev,
-      recurrence: rrules,
-    }));
-    setRecurrenceState(state);
-    setIsRecurrenceModalOpen(false);
-  };
-
-  const handleClearRecurrence = () => {
-    setEditedData(prev => ({
-      ...prev,
-      recurrence: [],
-    }));
-    setRecurrenceState(undefined);
   };
 
   // Group classes by day for a cleaner display
@@ -285,12 +425,10 @@ export default function RoutineApprovalWidget({
                           <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Start Time</label>
                           <input
                             type="time"
-                            value={new Date(cls.start.dateTime).toTimeString().slice(0, 5)}
+                            value={cls.start.dateTime.slice(11, 16)}
                             onChange={(e) => {
-                              const [hours, minutes] = e.target.value.split(':');
-                              const date = new Date(cls.start.dateTime);
-                              date.setHours(parseInt(hours), parseInt(minutes));
-                              const newStart = { dateTime: date.toISOString().slice(0, 19) };
+                              const newDateTime = cls.start.dateTime.slice(0, 11) + e.target.value + ':00';
+                              const newStart = { dateTime: newDateTime };
                               handleClassChange(originalIndex, 'start', newStart as any);
                             }}
                             className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
@@ -300,12 +438,10 @@ export default function RoutineApprovalWidget({
                           <label className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">End Time</label>
                           <input
                             type="time"
-                            value={new Date(cls.end.dateTime).toTimeString().slice(0, 5)}
+                            value={cls.end.dateTime.slice(11, 16)}
                             onChange={(e) => {
-                              const [hours, minutes] = e.target.value.split(':');
-                              const date = new Date(cls.end.dateTime);
-                              date.setHours(parseInt(hours), parseInt(minutes));
-                              const newEnd = { dateTime: date.toISOString().slice(0, 19) };
+                              const newDateTime = cls.end.dateTime.slice(0, 11) + e.target.value + ':00';
+                              const newEnd = { dateTime: newDateTime };
                               handleClassChange(originalIndex, 'end', newEnd as any);
                             }}
                             className="w-full px-2 py-1.5 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
@@ -339,36 +475,38 @@ export default function RoutineApprovalWidget({
                     </div>
                   ) : (
                     // View Mode
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span className="text-xs font-medium">
-                          {formatTimeRange(cls.start.dateTime, cls.end.dateTime)}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-foreground truncate block">
-                          {cls.course_name || 'Untitled Course'}
-                        </span>
-                      </div>
-                      {isEditable && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => setEditingIndex(originalIndex)}
-                            className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                            title="Edit"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleRemoveClass(originalIndex)}
-                            className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors"
-                            title="Remove"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span className="text-xs font-medium">
+                            {formatTimeRange(cls.start.dateTime, cls.end.dateTime)}
+                          </span>
                         </div>
-                      )}
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-foreground truncate block">
+                            {cls.course_name || 'Untitled Course'}
+                          </span>
+                        </div>
+                        {isEditable && (
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => setEditingIndex(originalIndex)}
+                              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              title="Edit"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleRemoveClass(originalIndex)}
+                              className="p-1.5 rounded-md hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -388,62 +526,114 @@ export default function RoutineApprovalWidget({
           </button>
         )}
 
-        {/* Recurrence Section */}
-        {isEditable && (
-          <div className="pt-2 border-t border-border/50 mt-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <Repeat2 className="h-3.5 w-3.5" />
-                Repeat Pattern
-              </label>
-              {editedData.recurrence && editedData.recurrence.length > 0 && (
-                <button
-                  onClick={handleClearRecurrence}
-                  className="text-xs text-red-600 hover:bg-red-500/10 px-2 py-1 rounded transition-colors"
-                >
-                  Clear
-                </button>
-              )}
+        {/* Recurrence Configuration Section */}
+        {editedData.classes.length > 0 && (
+          <div className="pt-4 border-t border-border/50 mt-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <Repeat2 className="h-3.5 w-3.5" />
+              Recurrence Settings
             </div>
-            {editedData.recurrence && editedData.recurrence.length > 0 && (
-              <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
+            
+            {/* Recurrence End Type Selection */}
+            {isEditable && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <label className="flex-1 relative">
+                    <input
+                      type="radio"
+                      name="recurrence-end"
+                      value="count"
+                      checked={recurrenceEndType === 'count'}
+                      onChange={(e) => setRecurrenceEndType(e.target.value as 'count' | 'date')}
+                      className="sr-only"
+                    />
+                    <div className={cn(
+                      "px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-all",
+                      recurrenceEndType === 'count'
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                    )}>
+                      After N weeks
+                    </div>
+                  </label>
+                  <label className="flex-1 relative">
+                    <input
+                      type="radio"
+                      name="recurrence-end"
+                      value="date"
+                      checked={recurrenceEndType === 'date'}
+                      onChange={(e) => setRecurrenceEndType(e.target.value as 'count' | 'date')}
+                      className="sr-only"
+                    />
+                    <div className={cn(
+                      "px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-all",
+                      recurrenceEndType === 'date'
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
+                    )}>
+                      End on Date
+                    </div>
+                  </label>
+                </div>
+                
+                {/* Count Input */}
+                {recurrenceEndType === 'count' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">
+                      Number of Weeks
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={recurrenceCount}
+                      onChange={(e) => setRecurrenceCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
+                    />
+                  </div>
+                )}
+                
+                {/* Date Input */}
+                {recurrenceEndType === 'date' && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={recurrenceEndDate}
+                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Applied Recurrence Summary */}
+            {editedData.classes.some(c => c.recurrence && c.recurrence.length > 0) && (
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-1">
                 <p className="text-xs text-foreground font-medium">
-                  {parseRRuleToHumanReadable(editedData.recurrence[0])}
+                  {editedData.classes[0]?.recurrence?.[0] ? parseRRuleToHumanReadable(editedData.classes[0].recurrence[0]) : 'No recurrence'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {recurrenceEndType === 'count' 
+                    ? `All events will occur for ${recurrenceCount} weeks`
+                    : `All events will occur until ${new Date(recurrenceEndDate).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}`
+                  }
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Applied to all {editedData.classes.length} class{editedData.classes.length !== 1 ? 'es' : ''}
                 </p>
               </div>
             )}
-            <button
-              onClick={() => setIsRecurrenceModalOpen(true)}
-              className="w-full py-2 text-xs font-medium border border-primary/30 text-primary rounded-lg hover:bg-primary/10 transition-colors"
-            >
-              {editedData.recurrence && editedData.recurrence.length > 0 ? 'Edit Pattern' : 'Add Repeat Pattern'}
-            </button>
-          </div>
-        )}
-
-        {/* Display Recurrence in View Mode */}
-        {!isEditable && editedData.recurrence && editedData.recurrence.length > 0 && (
-          <div className="pt-2 border-t border-border/50 mt-3">
-            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-              <Repeat2 className="h-3.5 w-3.5" />
-              Repeat Pattern
-            </div>
-            <div className="p-2 bg-primary/5 rounded-lg border border-primary/20">
-              <p className="text-xs text-foreground font-medium">
-                {parseRRuleToHumanReadable(editedData.recurrence[0])}
-              </p>
-            </div>
           </div>
         )}
       </div>
-
-      {/* Recurrence Modal */}
-      <RecurrenceModal
-        isOpen={isRecurrenceModalOpen}
-        onClose={() => setIsRecurrenceModalOpen(false)}
-        onApply={handleRecurrenceApply}
-        initialState={recurrenceState}
-      />
 
       {/* Actions */}
       {status === 'pending' && (

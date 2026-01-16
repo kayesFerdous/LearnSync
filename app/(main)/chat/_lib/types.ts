@@ -9,6 +9,7 @@ export interface ClassSchedule {
   end: {
     dateTime: string; // ISO 8601 format: "2024-01-15T10:00:00"
   };
+  recurrence?: string[]; // Per-class recurrence (RRULE array)
 }
 
 export interface RoutineData {
