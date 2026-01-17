@@ -3,6 +3,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
+# --- User Settings Schemas ---
+class UserSettings(BaseModel):
+    timezone: str = "UTC"
+    theme: str | None = "dark"
+
 # --- User Identity Schemas ---
 
 class UserIdentityBase(BaseModel):
@@ -26,6 +31,7 @@ class UserBase(BaseModel):
     username: str = Field(..., max_length=150)
     email: EmailStr
     picture: str | None = Field(None, max_length=150)
+    settings: UserSettings | None = None
 
 
 class UserCreate(UserBase, UserIdentityCreate):

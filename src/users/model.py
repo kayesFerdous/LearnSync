@@ -34,6 +34,14 @@ class User(Base):
         passive_deletes=True,
     )
 
+    settings: Mapped["UserSettings"] = relationship(
+        "UserSettings",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
 class UserIdentity(Base):
     __tablename__ = "user_identities"
     __table_args__ = (UniqueConstraint("provider", "external_sub"),)
@@ -60,7 +68,21 @@ class UserIdentity(Base):
         nullable=False,
     )
 
-    user: Mapped["User"] = relationship(
-        "User",
-        back_populates="identity",
+    user: Mapped["User"] = relationship("User", back_populates="identity")
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
     )
+    
+    timezone: Mapped[str] = mapped_column(String, default="UTC", nullable=False)
+    theme: Mapped[str] = mapped_column(String, default="dark", nullable=False)
+
+    # Relationship
+    user: Mapped["User"] = relationship("User", back_populates="settings")

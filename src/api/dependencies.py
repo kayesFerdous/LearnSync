@@ -13,7 +13,7 @@ from src.core.integrations.google.auth_utils import get_google_calendar_service
 async def get_current_user(
     request: Request, 
     db: AsyncSession = Depends(get_db)
-):
+) -> User | None:
     """
     Dependency to secure a route by verifying the JWT from a cookie.
     """
@@ -28,6 +28,14 @@ async def get_current_user(
     try:
         user_id = await decode_access_token(token)
         user = await get_user_by_id(user_id, db)
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
         return user
     except AuthError as e:
         raise HTTPException(
@@ -37,7 +45,7 @@ async def get_current_user(
         )
 
 
-async def is_admin(user:User =  Depends(get_current_user)):
+async def is_admin(user:User =  Depends(get_current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

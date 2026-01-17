@@ -1,9 +1,13 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
-from src.users.model import User, UserIdentity
-from src.users.schemas import UserCreate
+from src.core.logging_config import get_logger
+from src.users.model import User, UserIdentity, UserSettings as UserSettingsModel
+from src.users.schemas import UserCreate, UserSettings
+
+logger = get_logger(__name__)
 
 
 async def get_user_by_email_with_identity(email: str, db: AsyncSession) -> User | None:
@@ -18,8 +22,8 @@ async def get_user_by_email_with_identity(email: str, db: AsyncSession) -> User 
         result = await db.execute(query)
         return result.scalar_one_or_none()
     except Exception as e:
-        print(f"Error in get_user_by_email_with_identity: {e}")
-        return None
+        logger.error(f"Error fetching user by email {email}: {e}")
+        raise  # Re-raise strictly in production so the API layer knows it was a DB error, not just 'Not Found'
 
 
 async def get_user_id(email: str, db: AsyncSession) -> str | None:
@@ -36,43 +40,47 @@ async def get_user_id(email: str, db: AsyncSession) -> str | None:
         return None
 
     except Exception as e:
-        print(f"Error in get_user_id def\n{str(e)}")
+        logger.error(f"Error fetching user_id for {email}: {e}")
+        raise
 
 
 async def get_user_by_id(user_id: str, db: AsyncSession) -> User | None:
     try:
         query = (
             select(User)
-            .options(noload(User.identity))
+            .options(noload(User.identity), selectinload(User.settings))
             .where(User.user_id == user_id)
             .limit(1)
         )
         result = await db.execute(query)
         user = result.scalar_one_or_none()
-
-        if user:
-            return user
-        return None
+        return user
 
     except Exception as e:
-        print(f"Error in get_user_by_id def\n{str(e)}")
+        logger.error(f"Error fetching user by ID {user_id}: {e}")
+        raise
 
 
-async def create_user( user_data: UserCreate, db: AsyncSession ) -> User | None:
+async def create_user(user_data: UserCreate, db: AsyncSession) -> User | None:
     try:
         new_identity = UserIdentity(
-            provider = user_data.provider,
-            password_hash = user_data.password_hash,
-            external_sub = user_data.external_sub,
-            access_token = user_data.access_token,
-            refresh_token = user_data.refresh_token,
+            provider=user_data.provider,
+            password_hash=user_data.password_hash,
+            external_sub=user_data.external_sub,
+            access_token=user_data.access_token,
+            refresh_token=user_data.refresh_token,
         )
 
-        new_user =  User(
-            username = user_data.username,
-            email = user_data.email,
-            picture = user_data.picture,
-            identity= new_identity,
+        # Use Model defaults for settings (defined in src/users/model.py)
+        # This prevents duplication of default values "UTC"/"dark" here.
+        new_settings = UserSettingsModel()
+
+        new_user = User(
+            username=user_data.username,
+            email=user_data.email,
+            picture=user_data.picture,
+            identity=new_identity,
+            settings=new_settings
         )
 
         db.add(new_user)
@@ -80,21 +88,48 @@ async def create_user( user_data: UserCreate, db: AsyncSession ) -> User | None:
         await db.refresh(new_user)
         return new_user
 
-    except Exception as e:
-        print(f"Error in create_user def\n{str(e)}")
+    except IntegrityError as e:
         await db.rollback()
-        raise e
+        logger.warning(f"Integrity error creating user {user_data.email}: {e}")
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Unexpected error creating user {user_data.email}: {e}")
+        raise
 
 
 async def get_user_identity(user_id: str, db: AsyncSession) -> UserIdentity | None:
     try:
-        # We need to cast the string user_id to UUID if the DB expects it, 
-        # but SQLAlchemy usually handles string-to-UUID coercion for PG UUID columns.
         query = select(UserIdentity).where(UserIdentity.user_id == user_id)
         result = await db.execute(query)
         identity = result.scalar_one_or_none()
         return identity
     except Exception as e:
-        print(f"Error fetching user identity for {user_id}: {e}")
-        return None
+        logger.error(f"Error fetching user identity for {user_id}: {e}")
+        raise
 
+
+async def update_user_settings(user_id: str, settings_data: dict, db: AsyncSession) -> UserSettingsModel | None:
+    try:
+        # Fetch existing settings for the user
+        query = select(UserSettingsModel).where(UserSettingsModel.user_id == user_id)
+        result = await db.execute(query)
+        settings_obj = result.scalar_one_or_none()
+
+        if not settings_obj:
+            logger.warning(f"Settings not found for user {user_id} during update")
+            return None
+
+        # Update fields
+        for key, value in settings_data.items():
+            if value is not None:
+                setattr(settings_obj, key, value)
+        
+        await db.commit()
+        await db.refresh(settings_obj)
+        return settings_obj
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error updating settings for user {user_id}: {e}")
+        raise
