@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import { Bell, Calendar as CalendarIcon, User, Palette } from 'lucide-react';
 import { ThemeSelector } from '@/components/theme-selector';
+import { TimezoneSelector } from '@/components/timezone-selector';
 
 export default function SettingsPage() {
   return (
@@ -34,6 +35,10 @@ export default function SettingsPage() {
           Account
         </h2>
         <div className="bg-card rounded-xl p-6 theme-shadow border border-border space-y-6">
+            <TimezoneSelector />
+            
+            <div className="h-px bg-border" />
+
             <div className="flex items-center justify-between group cursor-pointer">
                 <div className="flex items-center gap-4">
                     <div className="p-2 rounded-lg bg-secondary text-muted-foreground group-hover:text-foreground transition-colors">
