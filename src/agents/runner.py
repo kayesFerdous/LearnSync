@@ -3,7 +3,13 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.types import Command
 
 
-async def runner( workflow, payload, user_id: str, db=None ) -> AsyncGenerator[dict, None]:
+async def runner( 
+    workflow,
+    payload,
+    thread_id: str,
+    user_id: str,
+    db=None
+) -> AsyncGenerator[dict, None]:
     query = payload.message
     tag = payload.tag
     image_data = payload.image
@@ -11,7 +17,7 @@ async def runner( workflow, payload, user_id: str, db=None ) -> AsyncGenerator[d
 
     config = {
         "configurable": {
-            "thread_id": user_id,
+            "thread_id": thread_id,
             "db": db
         }
     }

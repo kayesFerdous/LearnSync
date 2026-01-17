@@ -1,6 +1,5 @@
-import aiosqlite
 from langchain_core.language_models.chat_models import BaseChatModel
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.constants import END, START
 from langgraph.graph.state import StateGraph
 
@@ -11,7 +10,12 @@ from src.agents.nodes.chat_node import make_chat_node
 from src.agents.nodes.routine_node import make_routine_node
 from src.agents.nodes.routine_approval_node import make_routine_approval_node
 
-async def build_graph(groq_llm: BaseChatModel, gemini_llm: BaseChatModel, gemini_llm_temp_0: BaseChatModel):
+async def build_graph(
+    groq_llm: BaseChatModel, 
+    gemini_llm: BaseChatModel, 
+    gemini_llm_temp_0: BaseChatModel,
+    checkpointer: AsyncPostgresSaver
+):
     graph = StateGraph(AgentState)
     
     chat_node = make_chat_node(groq_llm)
@@ -36,6 +40,4 @@ async def build_graph(groq_llm: BaseChatModel, gemini_llm: BaseChatModel, gemini
     graph.add_edge("routine_node", "routine_approval_node")
     graph.add_edge("routine_approval_node", END)
 
-    conn = await aiosqlite.connect("chat.sqlite")
-
-    return graph.compile(checkpointer=AsyncSqliteSaver(conn=conn))
+    return graph.compile(checkpointer=checkpointer)
