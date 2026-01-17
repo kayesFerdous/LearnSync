@@ -2,12 +2,36 @@
 
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import { useTheme } from './theme-provider';
 import { getAllThemes, type ThemeId } from '@/lib/themes';
+import { useAuthStore } from '@/lib/store';
 
 export function ThemeSelector() {
   const { themeId, setTheme } = useTheme();
+  const { updateUserSettings, user } = useAuthStore();
   const themes = getAllThemes();
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = async (id: ThemeId) => {
+    setTheme(id); // instant UI feedback
+    setError(null);
+    setIsSaving(true);
+    try {
+      const updated = await updateUserSettings({ theme: id });
+      // ensure theme stays in sync with backend response
+      if (updated?.settings?.theme) {
+        setTheme(updated.settings.theme as ThemeId);
+      }
+    } catch (err) {
+      setError('Failed to save theme');
+      // Revert to previous theme if save fails
+      if (user?.settings?.theme) setTheme(user.settings.theme as ThemeId);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -16,7 +40,7 @@ export function ThemeSelector() {
         return (
           <button
             key={theme.id}
-            onClick={() => setTheme(theme.id as ThemeId)}
+            onClick={() => handleChange(theme.id as ThemeId)}
             className={cn(
               "relative p-4 rounded-xl border-2 text-left transition-all duration-200 group",
               isSelected
@@ -64,6 +88,13 @@ export function ThemeSelector() {
           </button>
         );
       })}
+
+      {isSaving && (
+        <p className="text-sm text-muted-foreground mt-2">Saving…</p>
+      )}
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>
+      )}
     </div>
   );
 }
