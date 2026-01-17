@@ -1,16 +1,22 @@
 import logging
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, Request, Response, status, HTTPException
 from authlib.integrations.base_client.errors import OAuthError
+from fastapi import APIRouter, Depends, Request, Response, status, HTTPException
 
+from src.users.service import (
+    create_user_by_email, 
+    get_or_create_user, 
+    authenticate_user, 
+    InvalidCredentialsException, 
+    UserAlreadyExistsException
+)
 from src.db.session import get_db
-from src.api.auth.schemas import AuthResponse, SignupRequest, LoginRequest
 from src.core.config import settings
 from src.services.google_auth import oauth
-from src.users.service import create_user_by_email, get_or_create_user, authenticate_user, InvalidCredentialsException, UserAlreadyExistsException
 from src.auth.service import create_access_token
 from src.api.dependencies import get_current_user
+from src.api.auth.schemas import AuthResponse, SignupRequest, LoginRequest
 
 # Use a standard logger for logging events and errors.
 log = logging.getLogger(__name__)
@@ -123,7 +129,7 @@ async def login(request: Request):
     # An absolute URI is required by Google for the redirect.
     # redirect_uri = f"{SERVER_URL}/auth/callback"
     redirect_uri = "http://localhost:8000/auth/callback"
-    return await oauth.google.authorize_redirect(
+    return await oauth.google.authorize_redirect( #type: ignore
         request,
         redirect_uri,
         access_type="offline",
@@ -146,7 +152,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
     failure_redirect_url = f"{FRONTEND_LINK}?error=authentication_failed"
 
     try:
-        token = await oauth.google.authorize_access_token(request)
+        token = await oauth.google.authorize_access_token(request) #type: ignore
     except OAuthError as e:
         log.error(f"OAuth error during Google token exchange: {e.error}", exc_info=True)
         return RedirectResponse(url=failure_redirect_url)

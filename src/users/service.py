@@ -4,6 +4,9 @@ from src.api.auth.schemas import SignupRequest, LoginRequest
 from src.users.crud import get_user_id, create_user, get_user_by_email_with_identity
 from src.users.schemas import UserCreate
 from src.auth.service import get_password_hash, verify_password
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 class EmptyTokenException(Exception):
     pass
@@ -54,9 +57,12 @@ async def get_or_create_user(token: dict, db: AsyncSession) -> str | None:
         if new_user:
             return str(new_user.user_id)
 
+    except KeyError as e:
+        logger.error(f"Missing required user info in token: {e}")
+        raise
     except Exception as e:
-        print(f"Error in get_or_create_user def\n{str(e)}")
-        raise e
+        logger.error(f"Error in get_or_create_user: {e}")
+        raise
 
 
 async def create_user_by_email(user_info: SignupRequest, db: AsyncSession):
@@ -82,5 +88,5 @@ async def create_user_by_email(user_info: SignupRequest, db: AsyncSession):
         return new_user
 
     except Exception as e:
-        print(f"Error in create_user_by_email def\n{str(e)}")
-        raise e
+        logger.error(f"Error in create_user_by_email: {e}")
+        raise
