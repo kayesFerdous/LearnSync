@@ -9,18 +9,35 @@ def make_routine_node(llm: BaseChatModel):
     async def routine_node(state: AgentState):
 
         message = state['messages'][-1]
-
         result:WeeklyRoutine = await image_extractor(llm, message)
-
         state['scratchpad']['extracted_routine'] = result.model_dump()
-        # print(f'in the routine_node{state['scratchpad']}')
 
-        #delete the last message which contains base64
-        state['messages'].pop()
-        print("\nfull message:\n",state['messages'])
-        # print(f"\n\nfrom the image to text:\n {result}\n\n")
+        # Clean image data from all messages to save tokens/space
+        cleaned_messages = []
+        for msg in state['messages']:
+            if isinstance(msg.content, list):
+                # Keep only non-image content
+                msg.content = [
+                    part for part in msg.content 
+                    if isinstance(part, dict) and part.get('type') != 'image_url'
+                ]
+            cleaned_messages.append(msg)
 
-        return state['scratchpad']
+        # Signal the reducer to replace the history with this cleaned list
+        if cleaned_messages:
+            cleaned_messages[0].additional_kwargs['replace_history'] = True
+
+        # Debug print
+        debug_msgs = [
+            f"{type(m).__name__}: {str(m.content)[:50]}..." 
+            for m in cleaned_messages
+        ]
+        print(f"\nCleaned messages sent to state:\n {debug_msgs}")
+
+        return {
+            "scratchpad": state['scratchpad'],
+            "messages": cleaned_messages
+        }
 
     return routine_node
 

@@ -7,7 +7,7 @@ from uuid import UUID
 class ConversationRequest(BaseModel):
     message: str | None = None
     image: str | None = None
-    user_input: str | None  = None
+    user_input: str | dict | None  = None
     tag: str
 
 
