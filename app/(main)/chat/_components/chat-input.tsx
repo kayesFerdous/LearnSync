@@ -139,7 +139,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
   };
 
   return (
-    <div className="absolute bottom-2 left-4 right-4 md:left-8 md:right-8 z-10">
+    <div className="w-full relative z-10">
       {/* Tags Dropdown */}
       {showTags && (
         <div className="absolute bottom-full mb-4 left-0 bg-card border border-border theme-shadow-lg rounded-xl p-2 min-w-[240px] animate-in fade-in slide-in-from-bottom-2 overflow-hidden">
@@ -232,7 +232,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
         </button>
 
         {/* Input Area */}
-        <div className="flex-1 py-3 min-h-[3rem] max-h-[12rem] overflow-y-auto flex flex-col justify-center">
+        <div className="flex-1 py-2 min-h-[auto] max-h-[12rem] overflow-y-auto flex flex-col justify-center">
           {/* Selected Tags/Files */}
           <div className="flex flex-wrap gap-2 mb-1 empty:hidden">
             {selectedTag && (

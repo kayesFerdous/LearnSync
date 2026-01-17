@@ -24,40 +24,51 @@ export default function ChatPage() {
 
   return (
     <div className="absolute inset-0 flex w-full overflow-hidden">
-      {/* Chat Area */}
-      <div className={`flex flex-col h-full min-w-0 relative transition-all duration-300 ${
+      {/* Chat Wrapper */}
+      <div className={`h-full min-w-0 relative transition-all duration-300 ${
         selectedPdf 
           ? 'flex-1' 
-          : 'w-full max-w-4xl mx-auto'
+          : 'w-full'
       }`}>
-        <div className={`flex flex-col h-full ${!selectedPdf ? 'p-2 md:p-4' : 'p-2'}`}>
-          {/* Header */}
-          <div className="shrink-0 py-2 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span>AI Assistant</span>
+        
+        {/* Scrollable Area - Full Height with Overlay Support */}
+        <div className="absolute inset-0 overflow-y-auto scroll-smooth scrollbar-custom">
+            <div className="w-full max-w-4xl mx-auto p-2 md:p-4">
+                {/* Header */}
+                <div className="shrink-0 py-2 text-center">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <span>AI Assistant</span>
+                    </div>
+                </div>
+
+                {/* Messages */}
+                <div className="py-2 space-y-4 px-1">
+                    {messages.map((msg) => (
+                    <ChatMessage
+                        key={msg.id}
+                        message={msg}
+                        onApproveRoutine={approveRoutine}
+                        onRejectRoutine={rejectRoutine}
+                    />
+                    ))}
+                    {/* Add spacer to prevent last message from being hidden by floating input */}
+                    <div className="h-4 md:h-8" aria-hidden="true" />
+                    <div ref={messagesEndRef} />
+                    <div className="h-10 md:h-12" aria-hidden="true" /> {/* Calculated spacer for input area */}
+                </div>
             </div>
-          </div>
+        </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto py-2 space-y-4 pb-24 scroll-smooth scrollbar-hide px-5 pr-6 min-h-0">
-            {messages.map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                message={msg}
-                onApproveRoutine={approveRoutine}
-                onRejectRoutine={rejectRoutine}
-              />
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <ChatInput 
-            onSend={sendMessage} 
-            onPdfSelect={handlePdfSelect}
-            selectedPdf={selectedPdf}
-          />
+        {/* Input Area - Floating at bottom */}
+        <div className="absolute bottom-0 left-0 w-full z-10 bg-background pt-2">
+            <div className="w-full max-w-4xl mx-auto px-4 pb-2">
+                <ChatInput 
+                    onSend={sendMessage} 
+                    onPdfSelect={handlePdfSelect}
+                    selectedPdf={selectedPdf}
+                />
+            </div>
         </div>
       </div>
 
