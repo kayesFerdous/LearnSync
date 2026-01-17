@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
 from src.core.logging_config import get_logger
-from src.users.model import User, UserIdentity, UserSettings
-from src.users.schemas import UserCreate
+from src.users.model import User, UserIdentity, UserSettings as UserSettingsModel
+from src.users.schemas import UserCreate, UserSettings
 
 logger = get_logger(__name__)
 
@@ -73,7 +73,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession) -> User | None:
 
         # Use Model defaults for settings (defined in src/users/model.py)
         # This prevents duplication of default values "UTC"/"dark" here.
-        new_settings = UserSettings()
+        new_settings = UserSettingsModel()
 
         new_user = User(
             username=user_data.username,
@@ -108,3 +108,28 @@ async def get_user_identity(user_id: str, db: AsyncSession) -> UserIdentity | No
         logger.error(f"Error fetching user identity for {user_id}: {e}")
         raise
 
+
+async def update_user_settings(user_id: str, settings_data: dict, db: AsyncSession) -> UserSettingsModel | None:
+    try:
+        # Fetch existing settings for the user
+        query = select(UserSettingsModel).where(UserSettingsModel.user_id == user_id)
+        result = await db.execute(query)
+        settings_obj = result.scalar_one_or_none()
+
+        if not settings_obj:
+            logger.warning(f"Settings not found for user {user_id} during update")
+            return None
+
+        # Update fields
+        for key, value in settings_data.items():
+            if value is not None:
+                setattr(settings_obj, key, value)
+        
+        await db.commit()
+        await db.refresh(settings_obj)
+        return settings_obj
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error updating settings for user {user_id}: {e}")
+        raise

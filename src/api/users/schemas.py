@@ -4,9 +4,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class UserSettings(BaseModel):
     timezone: str
-    theme: str | None = None
+    theme: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class UserSettingsUpdate(BaseModel):
+    timezone: str | None = None
+    theme: str | None = None
 
 class UserBase(BaseModel):
     username: str
