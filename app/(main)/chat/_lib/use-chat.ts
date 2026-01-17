@@ -146,8 +146,8 @@ export function useChat() {
     // Add user message optimistically
     setMessages(prev => [
       ...prev,
-      { id: userMessageId, role: 'user', content: displayContent },
-      { id: assistantId, role: 'ai', content: '', thinking: { status: undefined }, isStreaming: true },
+      { id: userMessageId, role: 'user', content: displayContent, created_at: new Date(now).toISOString() },
+      { id: assistantId, role: 'ai', content: '', created_at: new Date(now).toISOString(), thinking: { status: undefined }, isStreaming: true },
     ]);
 
     // Abort any previous request

@@ -1,10 +1,11 @@
 'use client';
 
 import { useRef, useEffect, useState, use } from 'react';
-import { Sparkles, Plus } from 'lucide-react';
+import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
 import { ChatMessage, ChatInput, PdfViewerPanel } from '@/app/(main)/chat/_components';
+import { cn } from '@/lib/utils';
 
 export default function ChatPage({ params }: { params: Promise<{ conversationId?: string[] }> }) {
   const { 
@@ -24,6 +25,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { setBreadcrumbOverride } = useUiStore();
 
   // Initial load from URL params (Deep Linking)
@@ -62,6 +64,8 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   };
 
   const handleConversationClick = (conversationId: string) => {
+    if (conversationId === currentConversationId) return;
+    
     setSelectedPdf(null);
     loadMessages(conversationId);
     window.history.pushState(null, '', `/chat/${conversationId}`); // Update URL
@@ -70,7 +74,10 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   return (
     <div className="absolute inset-0 flex w-full overflow-hidden">
       {/* Conversations Sidebar */}
-      <div className="w-64 h-full border-r border-border bg-card flex flex-col overflow-hidden">
+      <div className={cn(
+        "h-full border-r border-border bg-card flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
+        sidebarOpen ? "w-64" : "w-0 border-r-0"
+      )}>
         {/* Header */}
         <div className="p-4 border-b border-border shrink-0">
           <button
@@ -120,14 +127,23 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
           : 'w-full'
       }`}>
         
+        {/* Floating Sidebar Toggle Button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
+          aria-label="Toggle sidebar"
+        >
+          {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+        </button>
+
         {/* Scrollable Area - Full Height with Overlay Support */}
         <div className="absolute inset-0 overflow-y-auto scroll-smooth scrollbar-custom">
             <div className="w-full max-w-4xl mx-auto p-2 md:p-4">
                 {/* Header */}
                 <div className="shrink-0 py-2 text-center">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    <span>AI Assistant</span>
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <span>AI Assistant</span>
                     </div>
                 </div>
 

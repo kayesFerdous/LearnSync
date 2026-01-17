@@ -36,6 +36,7 @@ export interface Message {
   id: string;
   role: 'user' | 'ai';
   content: string;
+  created_at?: string; // ISO date string
   thinking?: {
     status?: string;
   };

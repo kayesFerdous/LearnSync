@@ -55,16 +55,6 @@ export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }:
         {(!msg.interrupt || msg.content.trim()) && (
           <MarkdownContent content={msg.content} />
         )}
-
-        {/* Timestamp */}
-        {!msg.interrupt && (
-          <div className={cn(
-            "absolute -bottom-5 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap",
-            msg.role === 'user' ? "right-2" : "left-2"
-          )}>
-            Just now
-          </div>
-        )}
       </div>
     </div>
   );

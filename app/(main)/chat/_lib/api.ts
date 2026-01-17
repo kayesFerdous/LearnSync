@@ -188,13 +188,14 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
   
   if (!response.ok) throw new Error(`Failed to fetch messages (${response.status})`);
   
-  const rawMessages: Array<{ type: 'human' | 'ai'; content: string }> = await response.json();
+  const rawMessages: Array<{ type: 'human' | 'ai'; content: string; created_at?: string }> = await response.json();
   
   // Map backend format to frontend Message interface with unique IDs
   return rawMessages.map((msg, index) => ({
     id: `${conversationId}-${index}-${Date.now()}`, // Ensure unique ID
     role: msg.type === 'human' ? 'user' : 'ai',
     content: msg.content,
+    created_at: msg.created_at || new Date().toISOString(), // Use provided timestamp or fallback to now
     thinking: undefined,
     isStreaming: false
   }));
