@@ -1,4 +1,4 @@
-import type { BackendStreamEvent, PresignResponse } from './types';
+import type { BackendStreamEvent, PresignResponse, Conversation, Message } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
 const API_BASE_URL = 'http://localhost:8000';
@@ -97,6 +97,7 @@ export const confirmUpload = async (objectKey: string, originalFilename: string)
 export interface StreamHandlers {
   onStatus: (message: string) => void;
   onChunk: (content: string) => void;
+  onConversationId?: (conversationId: string) => void;
   onInterrupt: (payload: BackendStreamEvent & { type: 'interrupt' }) => void;
   onError: (message: string) => void;
   onDone: () => void;
@@ -128,6 +129,10 @@ export const processStream = async (
       if (!event) continue;
 
       switch (event.type) {
+        case 'conversation_id':
+          // Handle conversation creation metadata
+          handlers.onConversationId?.(event.payload);
+          break;
         case 'status':
           handlers.onStatus(event.message ?? 'Thinking...');
           break;
@@ -154,4 +159,43 @@ export const processStream = async (
       }
     }
   }
+};
+
+/**
+ * Fetch all conversations for the sidebar
+ * GET /conversation/
+ */
+export const fetchConversations = async (): Promise<Conversation[]> => {
+  const response = await fetch(`${API_BASE_URL}/conversation/`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  if (!response.ok) throw new Error(`Failed to fetch conversations (${response.status})`);
+  return response.json();
+};
+
+/**
+ * Fetch message history for a specific conversation
+ * GET /conversation/{conversationId}/messages
+ */
+export const fetchMessages = async (conversationId: string): Promise<Message[]> => {
+  const response = await fetch(`${API_BASE_URL}/conversation/${conversationId}/messages`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) throw new Error(`Failed to fetch messages (${response.status})`);
+  
+  const rawMessages: Array<{ type: 'human' | 'ai'; content: string }> = await response.json();
+  
+  // Map backend format to frontend Message interface with unique IDs
+  return rawMessages.map((msg, index) => ({
+    id: `${conversationId}-${index}-${Date.now()}`, // Ensure unique ID
+    role: msg.type === 'human' ? 'user' : 'ai',
+    content: msg.content,
+    thinking: undefined,
+    isStreaming: false
+  }));
 };

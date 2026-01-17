@@ -184,3 +184,16 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+interface UiState {
+  breadcrumbOverrides: Record<string, string>;
+  setBreadcrumbOverride: (segment: string, label: string) => void;
+}
+
+export const useUiStore = create<UiState>((set) => ({
+  breadcrumbOverrides: {},
+  setBreadcrumbOverride: (segment, label) =>
+    set((state) => ({
+      breadcrumbOverrides: { ...state.breadcrumbOverrides, [segment]: label }
+    })),
+}));

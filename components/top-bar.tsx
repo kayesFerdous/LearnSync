@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuthStore } from "@/lib/store";
+import { useAuthStore, useUiStore } from "@/lib/store";
 import { User, LogIn, LogOut, ChevronRight, Home } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
@@ -8,6 +8,7 @@ import Link from "next/link";
 
 export function TopBar() {
   const { user, isAuthenticated, logout, fetchUser } = useAuthStore();
+  const { breadcrumbOverrides } = useUiStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -20,8 +21,12 @@ export function TopBar() {
   const breadcrumbs = segments.map((segment, index) => {
     const href = `/${segments.slice(0, index + 1).join('/')}`;
     const isLast = index === segments.length - 1;
+    
+    // Check for override (handle UUIDs or specific segments)
+    const label = breadcrumbOverrides[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+    
     return {
-      label: segment.charAt(0).toUpperCase() + segment.slice(1),
+      label,
       href,
       isLast
     };

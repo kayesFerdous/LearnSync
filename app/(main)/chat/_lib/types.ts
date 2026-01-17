@@ -1,5 +1,12 @@
 // Chat Types
 
+export interface Conversation {
+  id: string;          // UUID
+  title: string;       // Default: "New Conversation"
+  created_at: string;  // ISO Date string
+  updated_at: string | null;
+}
+
 export interface ClassSchedule {
   day: string;
   course_name: string;
@@ -44,7 +51,8 @@ export type BackendStreamEvent =
   | { type: 'chunk'; content?: string }
   | { type: 'done' }
   | { type: 'error'; message?: string }
-  | { type: 'interrupt'; payload: InterruptPayload };
+  | { type: 'interrupt'; payload: InterruptPayload }
+  | { type: 'conversation_id'; payload: string };
 
 export interface ChatTag {
   id: string;
