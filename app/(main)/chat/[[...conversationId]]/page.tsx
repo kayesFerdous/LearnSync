@@ -158,6 +158,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         <ChatMessage
                             key={msg.id}
                             message={msg}
+                            conversationId={currentConversationId || undefined}
                             onApproveRoutine={approveRoutine}
                             onRejectRoutine={rejectRoutine}
                         />

@@ -243,8 +243,8 @@ export function useChat() {
   }, [currentConversationId, setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   // Handle routine approval
-  const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData) => {
-    setInterruptStatus(messageId, 'processing');
+  const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData, conversationId?: string) => {
+    const targetConversationId = conversationId || currentConversationId;
 
     const now = Date.now();
     const resumeAssistantId = `${now}-resume`;
@@ -255,7 +255,12 @@ export function useChat() {
     ]);
 
     try {
-      const response = await fetch(BACKEND_URL, {
+      // Use conversation endpoint with the target conversation ID
+      const endpoint = targetConversationId 
+        ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${targetConversationId}`
+        : BACKEND_URL;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,8 +303,8 @@ export function useChat() {
   }, [setInterruptStatus, setThinkingStatus, enqueueAssistantChunk, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   // Handle routine rejection
-  const rejectRoutine = useCallback(async (messageId: string) => {
-    setInterruptStatus(messageId, 'processing');
+  const rejectRoutine = useCallback(async (messageId: string, conversationId?: string) => {
+    const targetConversationId = conversationId || currentConversationId;
 
     const now = Date.now();
     const rejectAssistantId = `${now}-reject`;
@@ -310,7 +315,12 @@ export function useChat() {
     ]);
 
     try {
-      const response = await fetch(BACKEND_URL, {
+      // Use conversation endpoint with the target conversation ID
+      const endpoint = targetConversationId 
+        ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${targetConversationId}`
+        : BACKEND_URL;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

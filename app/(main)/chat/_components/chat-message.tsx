@@ -9,11 +9,12 @@ import type { Message, RoutineData } from '../_lib/types';
 
 interface ChatMessageProps {
   message: Message;
-  onApproveRoutine: (messageId: string, editedData: RoutineData) => void;
-  onRejectRoutine: (messageId: string) => void;
+  conversationId?: string;
+  onApproveRoutine: (messageId: string, editedData: RoutineData, conversationId?: string) => void;
+  onRejectRoutine: (messageId: string, conversationId?: string) => void;
 }
 
-export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }: ChatMessageProps) {
+export function ChatMessage({ message: msg, conversationId, onApproveRoutine, onRejectRoutine }: ChatMessageProps) {
   return (
     <div
       className={cn(
@@ -44,8 +45,8 @@ export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }:
         {msg.interrupt && msg.interrupt.payload.type === 'routine_approval_required' && (
           <RoutineApprovalWidget
             data={msg.interrupt.payload.extracted_data}
-            onApprove={(editedData) => onApproveRoutine(msg.id, editedData)}
-            onReject={() => onRejectRoutine(msg.id)}
+            onApprove={(editedData) => onApproveRoutine(msg.id, editedData, conversationId)}
+            onReject={() => onRejectRoutine(msg.id, conversationId)}
             isLocked={msg.interrupt.status !== 'pending'}
             status={msg.interrupt.status}
           />
@@ -53,7 +54,7 @@ export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }:
 
         {/* Only render markdown content if there's no interrupt or if there is additional content */}
         {(!msg.interrupt || msg.content.trim()) && (
-          <MarkdownContent content={msg.content} />
+          <MarkdownContent content={String(msg.content)} />
         )}
       </div>
     </div>
