@@ -18,7 +18,7 @@ def make_routine_approval_node():
         db: AsyncSession = config["configurable"]["db"] #type: ignore
 
         extracted_routine = state['scratchpad'].get('extracted_routine')
-        print("\napproval message:\n",state['messages'])
+        print("\n\nextracted routine:\n", extracted_routine)
 
         user_dicision = interrupt({
             "type": "routine_approval_required",
