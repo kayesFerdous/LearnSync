@@ -1,4 +1,4 @@
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -18,6 +18,7 @@ def make_routine_approval_node():
         db: AsyncSession = config["configurable"]["db"] #type: ignore
 
         extracted_routine = state['scratchpad'].get('extracted_routine')
+        print("\napproval message:\n",state['messages'])
 
         user_dicision = interrupt({
             "type": "routine_approval_required",
@@ -27,7 +28,6 @@ def make_routine_approval_node():
         print(f'\nuser decision: {user_dicision}\n')
 
         messages = []
-        metadata = state.get('metadata', {}).copy()
 
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
             approved_routine = WeeklyRoutine.model_validate(user_dicision.get("data")) 
@@ -51,23 +51,32 @@ def make_routine_approval_node():
             db.add_all(all_classes)
             await db.commit()
             
-            # Construct metadata output without needing to refresh objects
-            # (Fetching attributes from DB objects after commit would trigger a refresh anyway)
-            metadata['routine'] = [
-                {
-                    "day": c.day, 
-                    "start": c.start_time.isoformat() if c.start_time else None, 
-                    "end": c.end_time.isoformat() if c.end_time else None, 
-                    "course": c.course_name
-                } 
-                for c in all_classes
-            ]
+            # Construct routine data to embed in message
+            routine_data = {
+                "title": approved_routine.title,
+                "classes": [
+                    {
+                        "day": c.day, 
+                        "start": c.start_time.isoformat() if c.start_time else None, 
+                        "end": c.end_time.isoformat() if c.end_time else None, 
+                        "course": c.course_name
+                    } 
+                    for c in all_classes
+                ]
+            }
 
-            messages.append(SystemMessage(content="The routine has been approved and saved."))
+            # Embed routine data in the message using additional_kwargs
+            messages.append(AIMessage(
+                content="The routine has been approved and saved.",
+                additional_kwargs={
+                    "routine_approved": True,
+                    "routine_data": routine_data
+                }
+            ))
 
         else:
             messages.append(SystemMessage(content="The routine has been rejected."))
 
-        return {"metadata": metadata, "messages": messages}
+        return {"messages": messages}
 
     return routine_approval_node
