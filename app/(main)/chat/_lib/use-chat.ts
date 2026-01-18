@@ -1,15 +1,28 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import type { Message, InterruptPayload, InterruptStatus, RoutineData } from './types';
-import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload } from './api';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation } from './types';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, normalizeRoutineData } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
+  // Conversation thread state
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  
+  // Chat message state
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Request abort and batching refs
   const abortRef = useRef<AbortController | null>(null);
   const pendingChunkRef = useRef('');
   const flushRafRef = useRef<number | null>(null);
+
+  // Load conversations on mount
+  useEffect(() => {
+    loadConversations();
+  }, []);
 
   // Message update helpers
   const updateMessage = useCallback((messageId: string, updater: (m: Message) => Message) => {
@@ -77,7 +90,43 @@ export function useChat() {
     }
   }, [appendAssistantContent]);
 
-  // Send a chat message
+  // Conversation management functions
+  const loadConversations = useCallback(async () => {
+    try {
+      const data = await fetchConversations();
+      // Sort by updated_at (descending), fallback to created_at if updated_at is null
+      const sorted = data.sort((a, b) => {
+        const timeA = a.updated_at ? new Date(a.updated_at).getTime() : new Date(a.created_at).getTime();
+        const timeB = b.updated_at ? new Date(b.updated_at).getTime() : new Date(b.created_at).getTime();
+        return timeB - timeA;
+      });
+      setConversations(sorted);
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    }
+  }, []);
+
+  const loadMessages = useCallback(async (conversationId: string) => {
+    setIsLoading(true);
+    try {
+      const data = await fetchMessages(conversationId);
+      // Clear and set messages, stripping INITIAL_MESSAGE
+      setMessages(data);
+      setCurrentConversationId(conversationId);
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+      setMessages([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const startNewChat = useCallback(() => {
+    setCurrentConversationId(null);
+    setMessages([INITIAL_MESSAGE]);
+  }, []);
+
+  // Send a chat message with lazy conversation creation logic
   const sendMessage = useCallback(async (
     userMessage: string,
     tag: string | null,
@@ -94,11 +143,11 @@ export function useChat() {
       ? `📷 Image uploaded${file ? `: ${file.name}` : ''}`
       : userMessage || (file ? `📎 ${file.name}` : '');
 
-    // Add messages
+    // Add user message optimistically
     setMessages(prev => [
       ...prev,
-      { id: userMessageId, role: 'user', content: displayContent },
-      { id: assistantId, role: 'ai', content: '', thinking: { status: undefined }, isStreaming: true },
+      { id: userMessageId, role: 'user', content: displayContent, created_at: new Date(now).toISOString() },
+      { id: assistantId, role: 'ai', content: '', created_at: new Date(now).toISOString(), thinking: { status: undefined }, isStreaming: true },
     ]);
 
     // Abort any previous request
@@ -123,7 +172,12 @@ export function useChat() {
         }
       }
 
-      const response = await fetch(BACKEND_URL, {
+      // Determine endpoint: POST /conversation/ for new chat, POST /conversation/{id} for existing
+      const endpoint = currentConversationId 
+        ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${currentConversationId}`
+        : `${BACKEND_URL.replace('/chat_bot', '')}/conversation/`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,11 +192,46 @@ export function useChat() {
         throw new Error(`Backend error (${response.status})`);
       }
 
+      // Track if we get conversation_id (only for new chats)
+      let newConversationId: string | null = null;
+
       await processStream(response, {
         onStatus: (message) => setThinkingStatus(assistantId, message),
         onChunk: (content) => {
           setThinkingStatus(assistantId, undefined);
           enqueueAssistantChunk(assistantId, content);
+        },
+        onConversationId: (conversationId) => {
+          // CRITICAL: Handle conversation creation
+          newConversationId = conversationId;
+          setCurrentConversationId(conversationId);
+          
+          // Silent URL Switch: Update URL without reloading or triggering re-fetch
+          // Using window.history.replaceState to change URL to /chat/{id}
+          window.history.replaceState(null, '', `/chat/${conversationId}`);
+          
+          // Optimistically add to sidebar (title from first 30 chars of message)
+          const title = userMessage.substring(0, 30) || (file ? `📎 ${file.name}` : 'New Conversation');
+          const newConversation: Conversation = {
+            id: conversationId,
+            title,
+            created_at: new Date().toISOString(),
+            updated_at: null,
+          };
+          setConversations(prev => [newConversation, ...prev]);
+        },
+        onRoutineApproved: (payload) => {
+          setThinkingStatus(assistantId, undefined);
+          // Update the assistant message with routine_approved flag and data
+          updateMessage(assistantId, m => ({
+            ...m,
+            content: 'The routine has been approved and saved.',
+            additional_kwargs: {
+              routine_approved: true,
+              routine_data: normalizeRoutineData(payload.routine_data),
+            },
+            isStreaming: false,
+          }));
         },
         onInterrupt: (event) => {
           setThinkingStatus(assistantId, undefined);
@@ -164,11 +253,11 @@ export function useChat() {
       setAssistantStreaming(assistantId, false);
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
+  }, [currentConversationId, setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   // Handle routine approval
-  const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData) => {
-    setInterruptStatus(messageId, 'processing');
+  const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData, conversationId?: string) => {
+    const targetConversationId = conversationId || currentConversationId;
 
     const now = Date.now();
     const resumeAssistantId = `${now}-resume`;
@@ -179,7 +268,12 @@ export function useChat() {
     ]);
 
     try {
-      const response = await fetch(BACKEND_URL, {
+      // Use conversation endpoint with the target conversation ID
+      const endpoint = targetConversationId 
+        ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${targetConversationId}`
+        : BACKEND_URL;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,6 +293,19 @@ export function useChat() {
         onChunk: (content) => {
           setThinkingStatus(resumeAssistantId, undefined);
           enqueueAssistantChunk(resumeAssistantId, content);
+        },
+        onRoutineApproved: (payload) => {
+          setThinkingStatus(resumeAssistantId, undefined);
+          // Update the resume message with routine_approved flag and data
+          updateMessage(resumeAssistantId, m => ({
+            ...m,
+            content: 'The routine has been approved and saved.',
+            additional_kwargs: {
+              routine_approved: true,
+              routine_data: normalizeRoutineData(payload.routine_data),
+            },
+            isStreaming: false,
+          }));
         },
         onInterrupt: () => { },
         onError: (message) => {
@@ -222,8 +329,8 @@ export function useChat() {
   }, [setInterruptStatus, setThinkingStatus, enqueueAssistantChunk, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   // Handle routine rejection
-  const rejectRoutine = useCallback(async (messageId: string) => {
-    setInterruptStatus(messageId, 'processing');
+  const rejectRoutine = useCallback(async (messageId: string, conversationId?: string) => {
+    const targetConversationId = conversationId || currentConversationId;
 
     const now = Date.now();
     const rejectAssistantId = `${now}-reject`;
@@ -234,7 +341,12 @@ export function useChat() {
     ]);
 
     try {
-      const response = await fetch(BACKEND_URL, {
+      // Use conversation endpoint with the target conversation ID
+      const endpoint = targetConversationId 
+        ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${targetConversationId}`
+        : BACKEND_URL;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,6 +365,19 @@ export function useChat() {
         onChunk: (content) => {
           setThinkingStatus(rejectAssistantId, undefined);
           enqueueAssistantChunk(rejectAssistantId, content);
+        },
+        onRoutineApproved: (payload) => {
+          setThinkingStatus(rejectAssistantId, undefined);
+          // Update the reject message with routine_approved flag and data if returned
+          updateMessage(rejectAssistantId, m => ({
+            ...m,
+            content: 'The routine has been approved and saved.',
+            additional_kwargs: {
+              routine_approved: true,
+              routine_data: normalizeRoutineData(payload.routine_data),
+            },
+            isStreaming: false,
+          }));
         },
         onInterrupt: () => { },
         onError: (message) => {
@@ -276,7 +401,20 @@ export function useChat() {
   }, [setInterruptStatus, setThinkingStatus, enqueueAssistantChunk, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   return {
+    // Conversation state
+    conversations,
+    currentConversationId,
+    isLoading,
+    
+    // Chat state
     messages,
+    
+    // Conversation functions
+    loadConversations,
+    loadMessages,
+    startNewChat,
+    
+    // Chat functions
     sendMessage,
     approveRoutine,
     rejectRoutine,

@@ -9,11 +9,12 @@ import type { Message, RoutineData } from '../_lib/types';
 
 interface ChatMessageProps {
   message: Message;
-  onApproveRoutine: (messageId: string, editedData: RoutineData) => void;
-  onRejectRoutine: (messageId: string) => void;
+  conversationId?: string;
+  onApproveRoutine: (messageId: string, editedData: RoutineData, conversationId?: string) => void;
+  onRejectRoutine: (messageId: string, conversationId?: string) => void;
 }
 
-export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }: ChatMessageProps) {
+export function ChatMessage({ message: msg, conversationId, onApproveRoutine, onRejectRoutine }: ChatMessageProps) {
   return (
     <div
       className={cn(
@@ -33,37 +34,40 @@ export function ChatMessage({ message: msg, onApproveRoutine, onRejectRoutine }:
           ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm p-4 theme-shadow"
           : msg.interrupt 
             ? "" // No background for interrupt messages - widget has its own styling
+            : msg.additional_kwargs?.routine_approved
+            ? "" // No background for approved routine messages - widget has its own styling
             : "text-foreground px-1 py-1"
       )}>
         {/* Thinking indicator */}
-        {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' && !msg.interrupt ? (
+        {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' && !msg.interrupt && !msg.additional_kwargs?.routine_approved ? (
           <ThinkingIndicator status={msg.thinking?.status} />
         ) : null}
+
+        {/* Render approved routine if present */}
+        {msg.additional_kwargs?.routine_approved && msg.additional_kwargs?.routine_data && (
+          <RoutineApprovalWidget
+            data={msg.additional_kwargs.routine_data}
+            onApprove={() => {}} // No-op for approved routines
+            onReject={() => {}} // No-op for approved routines
+            isLocked={true} // Display-only mode
+            status="approved"
+          />
+        )}
 
         {/* Render interrupt widget if present */}
         {msg.interrupt && msg.interrupt.payload.type === 'routine_approval_required' && (
           <RoutineApprovalWidget
             data={msg.interrupt.payload.extracted_data}
-            onApprove={(editedData) => onApproveRoutine(msg.id, editedData)}
-            onReject={() => onRejectRoutine(msg.id)}
+            onApprove={(editedData) => onApproveRoutine(msg.id, editedData, conversationId)}
+            onReject={() => onRejectRoutine(msg.id, conversationId)}
             isLocked={msg.interrupt.status !== 'pending'}
             status={msg.interrupt.status}
           />
         )}
 
         {/* Only render markdown content if there's no interrupt or if there is additional content */}
-        {(!msg.interrupt || msg.content.trim()) && (
-          <MarkdownContent content={msg.content} />
-        )}
-
-        {/* Timestamp */}
-        {!msg.interrupt && (
-          <div className={cn(
-            "absolute -bottom-5 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap",
-            msg.role === 'user' ? "right-2" : "left-2"
-          )}>
-            Just now
-          </div>
+        {(!msg.interrupt && !msg.additional_kwargs?.routine_approved || msg.content.trim()) && (
+          <MarkdownContent content={String(msg.content)} />
         )}
       </div>
     </div>
