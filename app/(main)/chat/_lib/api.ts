@@ -256,3 +256,34 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
     } : undefined,
   }));
 };
+
+/**
+ * Delete a conversation permanently
+ * DELETE /conversation/{conversationId}
+ * Returns 204 No Content on success
+ */
+export const deleteConversation = async (conversationId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/conversation/${conversationId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  // 204 No Content is success
+  if (response.status === 204) {
+    return;
+  }
+  
+  // Handle error responses
+  if (response.status === 404) {
+    throw new Error('Conversation not found');
+  }
+  
+  if (response.status === 400) {
+    throw new Error('Invalid conversation ID format');
+  }
+  
+  if (!response.ok) {
+    throw new Error(`Failed to delete conversation (${response.status})`);
+  }
+};

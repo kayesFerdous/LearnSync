@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation } from './types';
-import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, normalizeRoutineData } from './api';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
@@ -400,6 +400,28 @@ export function useChat() {
     }
   }, [setInterruptStatus, setThinkingStatus, enqueueAssistantChunk, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
+  // Handle conversation deletion
+  const deleteConversationHandler = useCallback(async (conversationId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await deleteConversation(conversationId);
+      
+      // Optimistically remove from sidebar
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      
+      // If we were viewing the deleted conversation, navigate to new chat
+      if (currentConversationId === conversationId) {
+        startNewChat();
+        window.history.pushState(null, '', '/chat');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Delete conversation error:', error);
+      return { success: false, error: message };
+    }
+  }, [currentConversationId, startNewChat]);
+
   return {
     // Conversation state
     conversations,
@@ -413,6 +435,7 @@ export function useChat() {
     loadConversations,
     loadMessages,
     startNewChat,
+    deleteConversationHandler,
     
     // Chat functions
     sendMessage,

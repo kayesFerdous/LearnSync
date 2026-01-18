@@ -1,10 +1,11 @@
 'use client';
 
 import { useRef, useEffect, useState, use } from 'react';
-import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
-import { ChatMessage, ChatInput, PdfViewerPanel } from '@/app/(main)/chat/_components';
+import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer } from '@/app/(main)/chat/_components';
+import { showErrorToast, showSuccessToast } from '@/app/(main)/chat/_lib/toast';
 import { cn } from '@/lib/utils';
 
 export default function ChatPage({ params }: { params: Promise<{ conversationId?: string[] }> }) {
@@ -18,6 +19,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     rejectRoutine,
     startNewChat,
     loadMessages,
+    deleteConversationHandler,
   } = useChat();
 
   const resolvedParams = use(params);
@@ -26,6 +28,16 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    conversationId: string | null;
+    conversationTitle: string;
+  }>({
+    isOpen: false,
+    conversationId: null,
+    conversationTitle: '',
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
   const { setBreadcrumbOverride } = useUiStore();
 
   // Initial load from URL params (Deep Linking)
@@ -71,6 +83,37 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     window.history.pushState(null, '', `/chat/${conversationId}`); // Update URL
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, conversationId: string, title: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeleteConfirmation({
+      isOpen: true,
+      conversationId,
+      conversationTitle: title,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation.conversationId) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteConversationHandler(deleteConfirmation.conversationId);
+      if (result.success) {
+        showSuccessToast(`Conversation "${deleteConfirmation.conversationTitle}" deleted`);
+        setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '' });
+      } else {
+        showErrorToast(`Failed to delete conversation: ${result.error}`);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '' });
+  };
+
   return (
     <div className="absolute inset-0 flex w-full overflow-hidden">
       {/* Conversations Sidebar */}
@@ -100,19 +143,39 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
               conversations.map((conversation) => {
                 const isActive = currentConversationId === conversation.id;
                 return (
-                  <button
+                  <div
                     key={conversation.id}
-                    onClick={() => handleConversationClick(conversation.id)}
-                    disabled={isLoading}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate ${ 
-                      isActive
-                        ? 'bg-primary text-primary-foreground font-medium'
-                        : 'text-foreground hover:bg-accent'
-                    } disabled:opacity-50`}
-                    title={conversation.title}
+                    className="group relative"
                   >
-                    {conversation.title}
-                  </button>
+                    <button
+                      onClick={() => handleConversationClick(conversation.id)}
+                      disabled={isLoading}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate ${ 
+                        isActive
+                          ? 'bg-primary text-primary-foreground font-medium'
+                          : 'text-foreground hover:bg-accent'
+                      } disabled:opacity-50`}
+                      title={conversation.title}
+                    >
+                      {conversation.title}
+                    </button>
+                    
+                    {/* Delete Button - Appears on hover */}
+                    <button
+                      onClick={(e) => handleDeleteClick(e, conversation.id, conversation.title)}
+                      disabled={isLoading || isDeleting}
+                      className={cn(
+                        "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200",
+                        isActive
+                          ? "hover:bg-white/20 text-primary-foreground"
+                          : "hover:bg-red-500/10 text-red-600"
+                      )}
+                      title="Delete conversation"
+                      aria-label={`Delete conversation "${conversation.title}"`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 );
               })
             )}
@@ -193,6 +256,18 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
           />
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={deleteConfirmation.isOpen}
+        conversationTitle={deleteConfirmation.conversationTitle}
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
+
+      {/* Toast Notifications */}
+      <ToastContainer />
     </div>
   );
 }
