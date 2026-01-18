@@ -27,19 +27,19 @@ interface ClassSchedule {
  */
 function formatTimeRange(startDateTime: string, endDateTime: string): string {
   try {
-    const start = new Date(startDateTime);
-    const end = new Date(endDateTime);
-    
-    const formatTime = (date: Date) => {
-      let hours = date.getHours();
-      const minutes = date.getMinutes();
+    // Extract time directly from ISO string to avoid timezone conversion
+    // ISO format: "2024-01-15T08:30:00" -> extract "08:30:00"
+    const formatTime = (isoString: string) => {
+      const timeStr = isoString.slice(11, 19); // Extract "HH:MM:SS"
+      const [hoursStr, minutesStr] = timeStr.split(':');
+      let hours = parseInt(hoursStr, 10);
+      const minutes = minutesStr;
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12 || 12;
-      const minutesStr = minutes.toString().padStart(2, '0');
-      return `${hours}:${minutesStr} ${ampm}`;
+      return `${hours}:${minutes} ${ampm}`;
     };
     
-    return `${formatTime(start)} - ${formatTime(end)}`;
+    return `${formatTime(startDateTime)} - ${formatTime(endDateTime)}`;
   } catch (error) {
     return 'Invalid time';
   }
@@ -130,19 +130,20 @@ function generateRecurrenceForClass(
     // Find the next occurrence of this day
     const nextOccurrence = getNextOccurrenceOfDay(classItem.day);
 
-    // Extract time directly from ISO string to avoid timezone conversion
+    // Extract time directly from ISO string (preserve exact time from backend)
     // ISO format: "2026-01-16T11:30:00" -> extract "11:30:00"
-    const startTimeStr = classItem.start.dateTime.slice(11, 19);
-    const endTimeStr = classItem.end.dateTime.slice(11, 19);
-    const [hours, minutes] = startTimeStr.split(':').map(Number);
-    const [endHours, endMinutes] = endTimeStr.split(':').map(Number);
+    const startTimeStr = classItem.start.dateTime.slice(11, 19); // "HH:MM:SS"
+    const endTimeStr = classItem.end.dateTime.slice(11, 19); // "HH:MM:SS"
 
-    // Create new dates with correct calendar dates but same times (no timezone conversion)
-    const correctedStart = new Date(nextOccurrence);
-    correctedStart.setHours(hours, minutes, 0, 0);
+    // Format the date portion from nextOccurrence (YYYY-MM-DD)
+    const year = nextOccurrence.getFullYear();
+    const month = String(nextOccurrence.getMonth() + 1).padStart(2, '0');
+    const day = String(nextOccurrence.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     
-    const correctedEnd = new Date(nextOccurrence);
-    correctedEnd.setHours(endHours, endMinutes, 0, 0);
+    // Combine date with exact time from backend (no timezone conversion)
+    const correctedStartISO = `${dateStr}T${startTimeStr}`;
+    const correctedEndISO = `${dateStr}T${endTimeStr}`;
 
     // Create RRULE with user-specified end type
     const state: RRuleFormState = {
@@ -160,8 +161,8 @@ function generateRecurrenceForClass(
     // Return updated class with corrected dates and recurrence
     return {
       ...classItem,
-      start: { dateTime: correctedStart.toISOString().slice(0, 19) },
-      end: { dateTime: correctedEnd.toISOString().slice(0, 19) },
+      start: { dateTime: correctedStartISO },
+      end: { dateTime: correctedEndISO },
       recurrence: rrules,
     };
   } catch (error) {

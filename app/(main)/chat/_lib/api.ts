@@ -1,4 +1,4 @@
-import type { BackendStreamEvent, PresignResponse, Conversation, Message } from './types';
+import type { BackendStreamEvent, PresignResponse, Conversation, Message, RoutineData } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
 const API_BASE_URL = 'http://localhost:8000';
@@ -99,6 +99,7 @@ export interface StreamHandlers {
   onChunk: (content: string) => void;
   onConversationId?: (conversationId: string) => void;
   onInterrupt: (payload: BackendStreamEvent & { type: 'interrupt' }) => void;
+  onRoutineApproved?: (payload: { routine_data: RoutineData }) => void;
   onError: (message: string) => void;
   onDone: () => void;
 }
@@ -139,6 +140,13 @@ export const processStream = async (
         case 'chunk':
           handlers.onChunk(event.content ?? '');
           break;
+        case 'routine_approved':
+          const normalizedPayload = {
+            routine_data: normalizeRoutineData(event.payload?.routine_data)
+          };
+          handlers.onRoutineApproved?.(normalizedPayload as any);
+          finished = true;
+          break;
         case 'interrupt':
           handlers.onInterrupt(event);
           finished = true;
@@ -176,6 +184,42 @@ export const fetchConversations = async (): Promise<Conversation[]> => {
 };
 
 /**
+ * Normalize routine data from backend format to frontend format
+ * Handles multiple input formats for flexibility:
+ * - start/end as strings (ISO format)
+ * - start/end as objects with dateTime property
+ * - course vs course_name field names
+ */
+export const normalizeRoutineData = (routineData: any): RoutineData | undefined => {
+  if (!routineData) return undefined;
+  
+  try {
+    return {
+      title: routineData.title || '',
+      classes: (routineData.classes || []).map((cls: any) => ({
+        day: cls.day || '',
+        course_name: cls.course_name || cls.course || '',
+        start: {
+          dateTime: typeof cls.start === 'string' 
+            ? cls.start 
+            : (cls.start?.dateTime || ''),
+        },
+        end: {
+          dateTime: typeof cls.end === 'string' 
+            ? cls.end 
+            : (cls.end?.dateTime || ''),
+        },
+        recurrence: cls.recurrence,
+      })),
+      recurrence: routineData.recurrence,
+    };
+  } catch (error) {
+    console.error('Error normalizing routine data:', error, routineData);
+    return undefined;
+  }
+};
+
+/**
  * Fetch message history for a specific conversation
  * GET /conversation/{conversationId}/messages
  */
@@ -188,7 +232,15 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
   
   if (!response.ok) throw new Error(`Failed to fetch messages (${response.status})`);
   
-  const rawMessages: Array<{ type: 'human' | 'ai'; content: string; created_at?: string }> = await response.json();
+  const rawMessages: Array<{ 
+    type: 'human' | 'ai'; 
+    content: string; 
+    created_at?: string;
+    additional_kwargs?: {
+      routine_approved?: boolean;
+      routine_data?: any;
+    };
+  }> = await response.json();
   
   // Map backend format to frontend Message interface with unique IDs
   return rawMessages.map((msg, index) => ({
@@ -197,6 +249,10 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
     content: msg.content,
     created_at: msg.created_at || new Date().toISOString(), // Use provided timestamp or fallback to now
     thinking: undefined,
-    isStreaming: false
+    isStreaming: false,
+    additional_kwargs: msg.additional_kwargs ? {
+      routine_approved: msg.additional_kwargs.routine_approved,
+      routine_data: normalizeRoutineData(msg.additional_kwargs.routine_data),
+    } : undefined,
   }));
 };

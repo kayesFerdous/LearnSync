@@ -34,12 +34,25 @@ export function ChatMessage({ message: msg, conversationId, onApproveRoutine, on
           ? "bg-primary text-primary-foreground rounded-2xl rounded-tr-sm p-4 theme-shadow"
           : msg.interrupt 
             ? "" // No background for interrupt messages - widget has its own styling
+            : msg.additional_kwargs?.routine_approved
+            ? "" // No background for approved routine messages - widget has its own styling
             : "text-foreground px-1 py-1"
       )}>
         {/* Thinking indicator */}
-        {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' && !msg.interrupt ? (
+        {msg.role === 'ai' && msg.isStreaming && msg.content.trim() === '' && !msg.interrupt && !msg.additional_kwargs?.routine_approved ? (
           <ThinkingIndicator status={msg.thinking?.status} />
         ) : null}
+
+        {/* Render approved routine if present */}
+        {msg.additional_kwargs?.routine_approved && msg.additional_kwargs?.routine_data && (
+          <RoutineApprovalWidget
+            data={msg.additional_kwargs.routine_data}
+            onApprove={() => {}} // No-op for approved routines
+            onReject={() => {}} // No-op for approved routines
+            isLocked={true} // Display-only mode
+            status="approved"
+          />
+        )}
 
         {/* Render interrupt widget if present */}
         {msg.interrupt && msg.interrupt.payload.type === 'routine_approval_required' && (
@@ -53,7 +66,7 @@ export function ChatMessage({ message: msg, conversationId, onApproveRoutine, on
         )}
 
         {/* Only render markdown content if there's no interrupt or if there is additional content */}
-        {(!msg.interrupt || msg.content.trim()) && (
+        {(!msg.interrupt && !msg.additional_kwargs?.routine_approved || msg.content.trim()) && (
           <MarkdownContent content={String(msg.content)} />
         )}
       </div>

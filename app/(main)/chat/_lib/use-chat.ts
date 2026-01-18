@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation } from './types';
-import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages } from './api';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, normalizeRoutineData } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
@@ -220,6 +220,19 @@ export function useChat() {
           };
           setConversations(prev => [newConversation, ...prev]);
         },
+        onRoutineApproved: (payload) => {
+          setThinkingStatus(assistantId, undefined);
+          // Update the assistant message with routine_approved flag and data
+          updateMessage(assistantId, m => ({
+            ...m,
+            content: 'The routine has been approved and saved.',
+            additional_kwargs: {
+              routine_approved: true,
+              routine_data: normalizeRoutineData(payload.routine_data),
+            },
+            isStreaming: false,
+          }));
+        },
         onInterrupt: (event) => {
           setThinkingStatus(assistantId, undefined);
           addInterruptToMessage(assistantId, event.payload);
@@ -281,6 +294,19 @@ export function useChat() {
           setThinkingStatus(resumeAssistantId, undefined);
           enqueueAssistantChunk(resumeAssistantId, content);
         },
+        onRoutineApproved: (payload) => {
+          setThinkingStatus(resumeAssistantId, undefined);
+          // Update the resume message with routine_approved flag and data
+          updateMessage(resumeAssistantId, m => ({
+            ...m,
+            content: 'The routine has been approved and saved.',
+            additional_kwargs: {
+              routine_approved: true,
+              routine_data: normalizeRoutineData(payload.routine_data),
+            },
+            isStreaming: false,
+          }));
+        },
         onInterrupt: () => { },
         onError: (message) => {
           setThinkingStatus(resumeAssistantId, undefined);
@@ -339,6 +365,19 @@ export function useChat() {
         onChunk: (content) => {
           setThinkingStatus(rejectAssistantId, undefined);
           enqueueAssistantChunk(rejectAssistantId, content);
+        },
+        onRoutineApproved: (payload) => {
+          setThinkingStatus(rejectAssistantId, undefined);
+          // Update the reject message with routine_approved flag and data if returned
+          updateMessage(rejectAssistantId, m => ({
+            ...m,
+            content: 'The routine has been approved and saved.',
+            additional_kwargs: {
+              routine_approved: true,
+              routine_data: normalizeRoutineData(payload.routine_data),
+            },
+            isStreaming: false,
+          }));
         },
         onInterrupt: () => { },
         onError: (message) => {
