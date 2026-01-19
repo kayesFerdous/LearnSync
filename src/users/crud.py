@@ -1,13 +1,69 @@
-from sqlalchemy import select
+from sqlalchemy import select, or_, asc, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
 from src.core.logging_config import get_logger
 from src.users.model import User, UserIdentity, UserSettings as UserSettingsModel
-from src.users.schemas import UserCreate, UserSettings
+from src.users.schemas import UserCreate
 
 logger = get_logger(__name__)
+
+
+async def get_users(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 10,
+    search: str | None = None,
+    sort_by: str = "created_at",
+    sort_order: str = "desc"
+) -> list[User]:
+    """
+    Fetch basic user info with pagination, search, and sorting.
+    Optimized: No relationship loading (settings/identity).
+    """
+    try:
+        # Efficient: SELECT * FROM users
+        # noload: Explicitly prevents N+1 lazy loading when schema accesses these fields
+        query = select(User).options(
+            noload(User.settings),
+            noload(User.identity)
+        )
+
+        # Apply search filter
+        if search:
+            search_filter = or_(
+                User.username.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%")
+            )
+            query = query.where(search_filter)
+
+        # Apply sorting
+        valid_sort_fields = {
+            "user_id": User.user_id,
+            "username": User.username,
+            "email": User.email,
+            "created_at": User.created_at
+        }
+        
+        sort_column = valid_sort_fields.get(sort_by, User.created_at)
+        
+        if sort_order.lower() == "asc":
+            query = query.order_by(asc(sort_column))
+        else:
+            query = query.order_by(desc(sort_column))
+
+        # Apply pagination
+        query = query.offset(skip).limit(limit)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    except Exception as e:
+        logger.error(f"Error fetching users: {e}")
+        raise
+
+
 
 
 async def get_user_by_email_with_identity(email: str, db: AsyncSession) -> User | None:
