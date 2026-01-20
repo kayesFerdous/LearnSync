@@ -1,4 +1,5 @@
-from sqlalchemy import select, or_, asc, desc
+from uuid import UUID
+from sqlalchemy import delete, select, or_, asc, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
@@ -114,6 +115,25 @@ async def get_user_by_id(user_id: str, db: AsyncSession) -> User | None:
 
     except Exception as e:
         logger.error(f"Error fetching user by ID {user_id}: {e}")
+        raise
+
+
+async def delete_user(user_id: str, db: AsyncSession):
+    uuid_id = UUID(user_id)
+    try:
+        query = (
+            delete(User)
+            .where(User.user_id == uuid_id)
+            .returning(User)
+        )
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+        await db.commit()
+        return user
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error deleting user by ID {user_id}: {e}")
         raise
 
 

@@ -13,3 +13,5 @@ class UserRead(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
 
+class UserDeleteRequest(BaseModel):
+    user_id: str

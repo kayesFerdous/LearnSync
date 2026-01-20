@@ -3,12 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import is_admin
 from src.db.session import get_db
-from src.users.crud import get_users
-from .schemas import UserRead
+from src.users.crud import delete_user, get_users
+from .schemas import UserRead, UserDeleteRequest
 
 
 router = APIRouter(
-    prefix="/admin",
     tags=["Admin"]
 )
 
@@ -37,5 +36,12 @@ async def get_all_users(
     )
     return users
 
+@router.delete("/users")
+async def remove_user(
+    payload: UserDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    _ = Depends(is_admin)
+):
 
+    return await delete_user(payload.user_id, db)
 
