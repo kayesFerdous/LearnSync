@@ -4,18 +4,19 @@ import { useRef, useEffect, useState, use } from 'react';
 import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
-import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer } from '@/app/(main)/chat/_components';
+import { useViewerState } from '@/app/(main)/chat/_lib/use-viewer-state';
+import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer } from '@/app/(main)/chat/_components';
 import { showErrorToast, showSuccessToast } from '@/app/(main)/chat/_lib/toast';
 import { cn } from '@/lib/utils';
 
 export default function ChatPage({ params }: { params: Promise<{ conversationId?: string[] }> }) {
-  const { 
-    conversations, 
-    currentConversationId, 
+  const {
+    conversations,
+    currentConversationId,
     isLoading,
-    messages, 
-    sendMessage, 
-    approveRoutine, 
+    messages,
+    sendMessage,
+    approveRoutine,
     rejectRoutine,
     startNewChat,
     loadMessages,
@@ -26,7 +27,8 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const conversationIdParam = resolvedParams.conversationId?.[0];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -39,13 +41,23 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const { setBreadcrumbOverride } = useUiStore();
+  
+  // Viewer state management
+  const { viewerContent, splitRatio, isViewerActive, openViewer, closeViewer, setSplitRatio } = useViewerState();
+  
+  // Resize state
+  const [isDragging, setIsDragging] = useState(false);
+  const [localSplitRatio, setLocalSplitRatio] = useState(splitRatio);
+  const dragStartX = useRef(0);
+  const dragStartRatio = useRef(splitRatio);
+  const rafRef = useRef<number | null>(null);
 
   // Initial load from URL params (Deep Linking)
   useEffect(() => {
     if (conversationIdParam && conversationIdParam !== currentConversationId) {
       loadMessages(conversationIdParam);
     }
-  }, [conversationIdParam, loadMessages]); // Allow loadMessages to be dependency
+  }, [conversationIdParam, loadMessages]);
 
   // Update breadcrumb title when conversation changes
   useEffect(() => {
@@ -66,21 +78,25 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   }, [messages]);
 
   const handlePdfSelect = (file: File | null) => {
-    setSelectedPdf(file);
+    if (file) {
+      openViewer('pdf', file);
+    } else {
+      closeViewer();
+    }
   };
 
   const handleNewChat = () => {
     startNewChat();
-    setSelectedPdf(null);
-    window.history.pushState(null, '', '/chat'); // Reset URL
+    closeViewer();
+    window.history.pushState(null, '', '/chat');
   };
 
   const handleConversationClick = (conversationId: string) => {
     if (conversationId === currentConversationId) return;
-    
-    setSelectedPdf(null);
+
+    closeViewer();
     loadMessages(conversationId);
-    window.history.pushState(null, '', `/chat/${conversationId}`); // Update URL
+    window.history.pushState(null, '', `/chat/${conversationId}`);
   };
 
   const handleDeleteClick = (e: React.MouseEvent, conversationId: string, title: string) => {
@@ -113,6 +129,72 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const handleCancelDelete = () => {
     setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '' });
   };
+
+  // Drag to resize handler
+  const handleDividerMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartX.current = e.clientX;
+    dragStartRatio.current = localSplitRatio;
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+
+      rafRef.current = requestAnimationFrame(() => {
+        if (!containerRef.current) return;
+
+        const containerWidth = containerRef.current.offsetWidth;
+        const deltaX = e.clientX - dragStartX.current;
+        const deltaRatio = deltaX / containerWidth;
+        const newRatio = dragStartRatio.current + deltaRatio;
+        const constrainedRatio = Math.max(0.3, Math.min(0.7, newRatio));
+        
+        setLocalSplitRatio(constrainedRatio);
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+        }
+        setSplitRatio(localSplitRatio);
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
+    }
+  }, [isDragging, localSplitRatio, setSplitRatio]);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
+  const currentRatio = isDragging ? localSplitRatio : splitRatio;
+  const leftWidth = isViewerActive ? `${currentRatio * 100}%` : '100%';
+  const rightWidth = isViewerActive ? `${(1 - currentRatio) * 100}%` : '0%';
 
   return (
     <div className="absolute inset-0 flex w-full overflow-hidden">
@@ -150,16 +232,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     <button
                       onClick={() => handleConversationClick(conversation.id)}
                       disabled={isLoading}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate ${ 
-                        isActive
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate ${isActive
                           ? 'bg-primary text-primary-foreground font-medium'
                           : 'text-foreground hover:bg-accent'
-                      } disabled:opacity-50`}
+                        } disabled:opacity-50`}
                       title={conversation.title}
                     >
                       {conversation.title}
                     </button>
-                    
+
                     {/* Delete Button - Appears on hover */}
                     <button
                       onClick={(e) => handleDeleteClick(e, conversation.id, conversation.title)}
@@ -183,79 +264,103 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         </div>
       </div>
 
-      {/* Chat Wrapper */}
-      <div className={`h-full min-w-0 relative transition-all duration-300 flex-1 ${
-        selectedPdf 
-          ? 'flex-1' 
-          : 'w-full'
-      }`}>
+      {/* Main Content Container */}
+      <div ref={containerRef} className="flex-1 h-full flex relative overflow-hidden">
         
-        {/* Floating Sidebar Toggle Button */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
-          aria-label="Toggle sidebar"
+        {/* LEFT PANE - Chat */}
+        <div
+          className={`h-full flex flex-col bg-background relative ${isDragging ? '' : 'transition-all duration-300 ease-in-out'}`}
+          style={{ width: leftWidth }}
         >
-          {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-        </button>
+          {/* Sidebar Toggle Button */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
+            aria-label="Toggle sidebar"
+          >
+            {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+          </button>
 
-        {/* Scrollable Area - Full Height with Overlay Support */}
-        <div className="absolute inset-0 overflow-y-auto scroll-smooth scrollbar-custom">
-            <div className="w-full max-w-4xl mx-auto p-2 md:p-4">
-                {/* Header */}
-                <div className="shrink-0 py-2 text-center">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <span>AI Assistant</span>
-                    </div>
+          {/* Messages Area - Scrollable (full height) */}
+          <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-custom">
+            <div className="w-full max-w-4xl mx-auto px-2 md:px-4">
+              {/* Header */}
+              <div className="shrink-0 py-2 text-center pt-2 md:pt-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span>AI Assistant</span>
                 </div>
+              </div>
 
-                {/* Messages */}
-                <div className="py-2 space-y-4 px-1">
-                    {isLoading ? (
-                      <div className="text-center text-muted-foreground py-8">
-                        Loading conversation...
-                      </div>
-                    ) : (
-                      messages.map((msg) => (
-                        <ChatMessage
-                            key={msg.id}
-                            message={msg}
-                            conversationId={currentConversationId || undefined}
-                            onApproveRoutine={approveRoutine}
-                            onRejectRoutine={rejectRoutine}
-                        />
-                      ))
-                    )}
-                    {/* Add spacer to prevent last message from being hidden by floating input */}
-                    <div className="h-4 md:h-8" aria-hidden="true" />
-                    <div ref={messagesEndRef} />
-                    <div className="h-10 md:h-12" aria-hidden="true" /> {/* Calculated spacer for input area */}
-                </div>
+              {/* Messages */}
+              <div className="space-y-4 pb-32">
+                {isLoading ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    Loading conversation...
+                  </div>
+                ) : (
+                  messages.map((msg) => (
+                    <ChatMessage
+                      key={msg.id}
+                      message={msg}
+                      conversationId={currentConversationId || undefined}
+                      onApproveRoutine={approveRoutine}
+                      onRejectRoutine={rejectRoutine}
+                    />
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
+          </div>
+
+          {/* Input Area - Absolute at bottom */}
+          <div className="absolute bottom-0 inset-x-0 px-2 md:px-4 flex justify-center pointer-events-none">
+            <div className="w-full max-w-4xl bg-background rounded-lg pointer-events-auto">
+              <ChatInput
+                onSend={sendMessage}
+                onPdfSelect={handlePdfSelect}
+                selectedPdf={viewerContent?.type === 'pdf' ? viewerContent.data : null}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Input Area - Floating at bottom */}
-        <div className="absolute bottom-0 left-0 w-full z-10 bg-background pt-2">
-            <div className="w-full max-w-4xl mx-auto px-4 pb-2">
-                <ChatInput 
-                    onSend={sendMessage} 
-                    onPdfSelect={handlePdfSelect}
-                    selectedPdf={selectedPdf}
-                />
-            </div>
+        {/* DIVIDER - Drag to resize */}
+        {isViewerActive && (
+          <div
+            ref={dividerRef}
+            onMouseDown={handleDividerMouseDown}
+            className={`flex-shrink-0 w-1 h-full bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 ${isDragging ? 'bg-primary' : ''}`}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panes"
+          />
+        )}
+
+        {/* RIGHT PANE - Viewer */}
+        <div
+          className={`h-full flex flex-col overflow-hidden ${isDragging ? '' : 'transition-all duration-300 ease-in-out'} ${isViewerActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          style={{ width: rightWidth }}
+        >
+          {isViewerActive && viewerContent && (
+            <ViewerContainer
+              viewerType={viewerContent.type}
+              onClose={closeViewer}
+              title={viewerContent.type === 'pdf' ? viewerContent.data.name : undefined}
+            >
+              {viewerContent.type === 'pdf' && (
+                <PdfViewerPanel file={viewerContent.data} />
+              )}
+              {viewerContent.type === 'schedule' && (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  Schedule viewer coming soon...
+                </div>
+              )}
+            </ViewerContainer>
+          )}
         </div>
       </div>
-
-      {/* PDF Viewer Panel */}
-      {selectedPdf && (
-        <div className="w-[50%] h-full shrink-0 border-l border-border bg-background animate-in slide-in-from-right duration-300">
-          <PdfViewerPanel 
-            file={selectedPdf} 
-            onClose={() => setSelectedPdf(null)} 
-          />
-        </div>
-      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog
