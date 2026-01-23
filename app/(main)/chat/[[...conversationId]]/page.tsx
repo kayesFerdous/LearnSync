@@ -4,18 +4,19 @@ import { useRef, useEffect, useState, use } from 'react';
 import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
-import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer } from '@/app/(main)/chat/_components';
+import { useViewerState } from '@/app/(main)/chat/_lib/use-viewer-state';
+import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ResizableSplitPane, ViewerContainer } from '@/app/(main)/chat/_components';
 import { showErrorToast, showSuccessToast } from '@/app/(main)/chat/_lib/toast';
 import { cn } from '@/lib/utils';
 
 export default function ChatPage({ params }: { params: Promise<{ conversationId?: string[] }> }) {
-  const { 
-    conversations, 
-    currentConversationId, 
+  const {
+    conversations,
+    currentConversationId,
     isLoading,
-    messages, 
-    sendMessage, 
-    approveRoutine, 
+    messages,
+    sendMessage,
+    approveRoutine,
     rejectRoutine,
     startNewChat,
     loadMessages,
@@ -26,7 +27,6 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const conversationIdParam = resolvedParams.conversationId?.[0];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -39,6 +39,9 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const { setBreadcrumbOverride } = useUiStore();
+  
+  // Viewer state management
+  const { viewerContent, splitRatio, isViewerActive, openViewer, closeViewer, setSplitRatio } = useViewerState();
 
   // Initial load from URL params (Deep Linking)
   useEffect(() => {
@@ -66,19 +69,23 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   }, [messages]);
 
   const handlePdfSelect = (file: File | null) => {
-    setSelectedPdf(file);
+    if (file) {
+      openViewer('pdf', file);
+    } else {
+      closeViewer();
+    }
   };
 
   const handleNewChat = () => {
     startNewChat();
-    setSelectedPdf(null);
+    closeViewer();
     window.history.pushState(null, '', '/chat'); // Reset URL
   };
 
   const handleConversationClick = (conversationId: string) => {
     if (conversationId === currentConversationId) return;
-    
-    setSelectedPdf(null);
+
+    closeViewer();
     loadMessages(conversationId);
     window.history.pushState(null, '', `/chat/${conversationId}`); // Update URL
   };
@@ -150,16 +157,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     <button
                       onClick={() => handleConversationClick(conversation.id)}
                       disabled={isLoading}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate ${ 
-                        isActive
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate ${isActive
                           ? 'bg-primary text-primary-foreground font-medium'
                           : 'text-foreground hover:bg-accent'
-                      } disabled:opacity-50`}
+                        } disabled:opacity-50`}
                       title={conversation.title}
                     >
                       {conversation.title}
                     </button>
-                    
+
                     {/* Delete Button - Appears on hover */}
                     <button
                       onClick={(e) => handleDeleteClick(e, conversation.id, conversation.title)}
@@ -183,35 +189,36 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         </div>
       </div>
 
-      {/* Chat Wrapper */}
-      <div className={`h-full min-w-0 relative transition-all duration-300 flex-1 ${
-        selectedPdf 
-          ? 'flex-1' 
-          : 'w-full'
-      }`}>
-        
-        {/* Floating Sidebar Toggle Button */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
-          aria-label="Toggle sidebar"
-        >
-          {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-        </button>
+      {/* Main Content Area with Resizable Split Pane */}
+      <div className="flex-1 h-full min-w-0 relative">
+        <ResizableSplitPane
+          isActive={isViewerActive}
+          splitRatio={splitRatio}
+          onSplitRatioChange={setSplitRatio}
+          leftPane={
+            <div className="relative h-full w-full flex flex-col bg-background">
+              {/* Floating Sidebar Toggle Button */}
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
+                aria-label="Toggle sidebar"
+              >
+                {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+              </button>
 
-        {/* Scrollable Area - Full Height with Overlay Support */}
-        <div className="absolute inset-0 overflow-y-auto scroll-smooth scrollbar-custom">
-            <div className="w-full max-w-4xl mx-auto p-2 md:p-4">
-                {/* Header */}
-                <div className="shrink-0 py-2 text-center">
+              {/* Scrollable Area - Full Height with Overlay Support */}
+              <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-custom">
+                <div className="w-full max-w-4xl mx-auto p-2 md:p-4">
+                  {/* Header */}
+                  <div className="shrink-0 py-2 text-center">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
                       <Sparkles className="h-4 w-4 text-primary" />
                       <span>AI Assistant</span>
                     </div>
-                </div>
+                  </div>
 
-                {/* Messages */}
-                <div className="py-2 space-y-4 px-1">
+                  {/* Messages */}
+                  <div className="py-2 space-y-4 px-1">
                     {isLoading ? (
                       <div className="text-center text-muted-foreground py-8">
                         Loading conversation...
@@ -219,11 +226,11 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     ) : (
                       messages.map((msg) => (
                         <ChatMessage
-                            key={msg.id}
-                            message={msg}
-                            conversationId={currentConversationId || undefined}
-                            onApproveRoutine={approveRoutine}
-                            onRejectRoutine={rejectRoutine}
+                          key={msg.id}
+                          message={msg}
+                          conversationId={currentConversationId || undefined}
+                          onApproveRoutine={approveRoutine}
+                          onRejectRoutine={rejectRoutine}
                         />
                       ))
                     )}
@@ -231,31 +238,42 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     <div className="h-4 md:h-8" aria-hidden="true" />
                     <div ref={messagesEndRef} />
                     <div className="h-10 md:h-12" aria-hidden="true" /> {/* Calculated spacer for input area */}
+                  </div>
                 </div>
-            </div>
-        </div>
+              </div>
 
-        {/* Input Area - Floating at bottom */}
-        <div className="absolute bottom-0 left-0 w-full z-10 bg-background pt-2">
-            <div className="w-full max-w-4xl mx-auto px-4 pb-2">
-                <ChatInput 
-                    onSend={sendMessage} 
+              {/* Input Area - Floating at bottom */}
+              <div className="shrink-0 w-full z-10 bg-background border-t border-border pt-2">
+                <div className="w-full max-w-4xl mx-auto px-4 pb-2">
+                  <ChatInput
+                    onSend={sendMessage}
                     onPdfSelect={handlePdfSelect}
-                    selectedPdf={selectedPdf}
-                />
+                    selectedPdf={viewerContent?.type === 'pdf' ? viewerContent.data : null}
+                  />
+                </div>
+              </div>
             </div>
-        </div>
+          }
+          rightPane={
+            viewerContent && (
+              <ViewerContainer
+                viewerType={viewerContent.type}
+                onClose={closeViewer}
+                title={viewerContent.type === 'pdf' ? viewerContent.data.name : undefined}
+              >
+                {viewerContent.type === 'pdf' && (
+                  <PdfViewerPanel file={viewerContent.data} />
+                )}
+                {viewerContent.type === 'schedule' && (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    Schedule viewer coming soon...
+                  </div>
+                )}
+              </ViewerContainer>
+            )
+          }
+        />
       </div>
-
-      {/* PDF Viewer Panel */}
-      {selectedPdf && (
-        <div className="w-[50%] h-full shrink-0 border-l border-border bg-background animate-in slide-in-from-right duration-300">
-          <PdfViewerPanel 
-            file={selectedPdf} 
-            onClose={() => setSelectedPdf(null)} 
-          />
-        </div>
-      )}
 
       {/* Delete Confirmation Dialog */}
       <DeleteConfirmationDialog

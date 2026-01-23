@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { ZoomIn, ZoomOut, RotateCw, Loader2, X, FileText } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCw, Loader2, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -21,10 +21,9 @@ const Page = dynamic(
 
 interface PdfViewerPanelProps {
   file: File;
-  onClose: () => void;
 }
 
-export function PdfViewerPanel({ file, onClose }: PdfViewerPanelProps) {
+export function PdfViewerPanel({ file }: PdfViewerPanelProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [scale, setScale] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
@@ -72,33 +71,14 @@ export function PdfViewerPanel({ file, onClose }: PdfViewerPanelProps) {
 
   if (!fileUrl || !pdfJsReady) {
     return (
-      <div className="flex flex-col h-full bg-card border-l border-border">
-        <div className="flex items-center justify-center h-full">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-card border-l border-border">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <FileText className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-sm font-medium text-foreground truncate" title={file.name}>
-            {file.name}
-          </span>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          aria-label="Close PDF viewer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
+    <div className="flex flex-col h-full bg-background">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-background shrink-0">
         {/* Page Info */}
