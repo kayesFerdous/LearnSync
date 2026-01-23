@@ -329,7 +329,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
       </div>
 
       {/* Disclaimer */}
-      <div className="text-center mt-2">
+      <div className="text-center mt-2 mb-2">
         <p className="text-[10px] text-muted-foreground/60">AI can make mistakes. Check important info.</p>
       </div>
     </div>
