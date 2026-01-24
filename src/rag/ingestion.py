@@ -1,48 +1,98 @@
-""" 
-  1. `extract_text_from_pdf(file_path: str) -> str`
-       * Reads the PDF file and converts its content into a raw text string.
+from typing import List, Optional
 
-   2. `create_text_chunks(text: str, chunk_size: int, chunk_overlap: int) -> List[Document]`
-       * Splits the raw text into smaller, manageable chunks (e.g., using RecursiveCharacterTextSplitter) to ensure they fit within the embedding model's context window.
+from docling.document_converter import DocumentConverter
+from docling_core.transforms.chunker.doc_chunk import DocChunk
+from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+from langchain_core.documents import Document
 
-   3. `index_documents(documents: List[Document], collection_name: str) -> None`
-       * Takes the chunked documents, generates embeddings for them (using the store), and persists them into the Vector Database (Chroma).
-
-   4. `process_and_ingest_file(file_path: str, collection_name: str) -> None`
-       * The main coordinator function that calls the three functions above in order: Extract -> Chunk -> Index.
-
-"""
-
-# from langchain_community.document_loaders import UnstructuredMarkdownLoader
-from langchain_text_splitters import ExperimentalMarkdownSyntaxTextSplitter
-# from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-from src.core.splitter import split_md_by_section
-from api.services.vector_store import setup_vector_store
+from .store import get_vector_store
 
 
-async def load_and_index(path:str):
-    """Load pdf, split, embedding""" 
+def _create_metadata_from_chunk(chunk: DocChunk) -> dict:
+    """
+    Extracts and standardizes metadata from a Docling chunk.
+    """
+    meta = chunk.meta
+    
+    filename = meta.origin.filename if meta.origin else "unknown_file"
+    
+    page_number = 0
+    if meta.doc_items and meta.doc_items[0].prov:
+        page_number = meta.doc_items[0].prov[0].page_no
+        
+    headings = meta.headings if meta.headings else []
+    section_context = " > ".join(headings)
+    
+    # Extract content type (e.g., 'table', 'list_item', 'text')
+    content_type = "text"
+    if meta.doc_items:
+        # label is typically an enum, converting to string and cleaning
+        content_type = str(meta.doc_items[0].label).split(".")[-1].lower()
 
-    # loader = UnstructuredMarkdownLoader(path) #accepts Path instance
-    # docs = loader.load()
-    # splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-
-    splitted_docs = split_md_by_section(file_location=path)
-
-    vector_store = await setup_vector_store()
-    await vector_store.aadd_documents(splitted_docs)
-    print("\nvecotr was storred ...\n")
+    return {
+        "source": filename,
+        "page": page_number,
+        "section": section_context,
+        "type": content_type
+    }
 
 
-async def main():
-    print("Loading and indexing data...")
-    pdf_path = "./data/info.md"
-    await load_and_index(pdf_path)
-    print("Data loaded and indexed successfully.")
+def _convert_chunk_to_document(chunk: DocChunk) -> Document:
+    """
+    Converts a single Docling chunk into a LangChain Document.
+    """
+    metadata = _create_metadata_from_chunk(chunk)
+    section_context = metadata.get("section", "")
+    
+    # Prepend context to text for better retrieval context
+    page_content = f"Context: {section_context}\nContent: {chunk.text}" if section_context else chunk.text
+
+    return Document(page_content=page_content, metadata=metadata)
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def parse_and_chunk_file(file_path: str, max_tokens: int = 700) -> List[Document]:
+    """
+    Loads a file, converts it using Docling, splits it into chunks, 
+    and formats them as LangChain Documents.
+    """
+    converter = DocumentConverter()
+    conversion_result = converter.convert(file_path)
+
+    chunker = HybridChunker(
+        max_tokens=max_tokens, #type: ignore
+        merge_peers=True
+    )
+
+    chunk_iterator = chunker.chunk(conversion_result.document)
+
+    documents: List[Document] = []
+    for chunk in chunk_iterator:
+        # The chunker returns DocChunk objects, we convert them to LangChain Documents
+        document = _convert_chunk_to_document(chunk) # type: ignore
+        documents.append(document)
+
+    return documents
 
 
+async def save_documents_to_db(documents: List[Document], collection_name: Optional[str] = None) -> None:
+    """
+    Persists a list of documents into the vector store.
+    """
+    if not documents:
+        return
+
+    # Pass collection_name if provided, otherwise get_vector_store uses its default
+    if collection_name:
+        vector_store = await get_vector_store(collection_name=collection_name)
+    else:
+        vector_store = await get_vector_store()
+        
+    await vector_store.aadd_documents(documents)
+
+
+async def ingest_file(file_path: str, collection_name: Optional[str] = None) -> None:
+    """
+    Orchestrates the full ingestion process: Parse -> Chunk -> Index.
+    """
+    documents = parse_and_chunk_file(file_path)
+    await save_documents_to_db(documents, collection_name)
