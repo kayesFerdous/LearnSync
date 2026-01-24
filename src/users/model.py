@@ -83,6 +83,7 @@ class UserSettings(Base):
     
     timezone: Mapped[str] = mapped_column(String, default="UTC", nullable=False)
     theme: Mapped[str] = mapped_column(String, default="dark", nullable=False)
+    font: Mapped[str] = mapped_column(String, default="system", nullable=False)
 
     # Relationship
     user: Mapped["User"] = relationship("User", back_populates="settings")
