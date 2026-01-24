@@ -18,7 +18,7 @@ export interface ThemeConfig {
   };
   // Component style variants
   styles: {
-    borderRadius: 'rounded-lg' | 'rounded-xl' | 'rounded-2xl' | 'rounded-full';
+    borderRadius: 'rounded-none' | 'rounded-lg' | 'rounded-xl' | 'rounded-2xl' | 'rounded-full';
     borderWidth: 'border' | 'border-2';
     shadow: string;
     shadowHover: string;
@@ -49,19 +49,19 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
   },
   neobrutalism: {
     id: 'neobrutalism',
-    name: 'Neobrutalism',
-    description: 'Bold borders, offset shadows, playful colors',
+    name: 'PrivFi (Neobrutalism)',
+    description: 'Technical, high-contrast, orange & black with sharp edges',
     preview: {
-      primary: '#a78bfa',
-      secondary: '#7dd3c0',
-      accent: '#f472b6',
-      background: '#fefce8',
+      primary: '#F3540F',
+      secondary: '#FFFFFF',
+      accent: '#F3540F',
+      background: '#FFFFFF',
     },
     styles: {
-      borderRadius: 'rounded-xl',
+      borderRadius: 'rounded-none',
       borderWidth: 'border-2',
-      shadow: 'shadow-[3px_3px_0px_hsl(var(--border))]',
-      shadowHover: 'shadow-[1px_1px_0px_hsl(var(--border))]',
+      shadow: 'shadow-[4px_4px_0px_#000000]',
+      shadowHover: 'shadow-[2px_2px_0px_#000000]',
       buttonEffect: 'translate',
       fontWeight: 'font-bold',
     },

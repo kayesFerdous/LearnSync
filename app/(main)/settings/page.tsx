@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { 
   Bell, 
@@ -15,7 +15,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { ThemeSelector } from '@/components/theme-selector';
 import { TimezoneSelector } from '@/components/timezone-selector';
-import { useAuthStore } from '@/lib/store';
+import { useAuthStore, type FontId } from '@/lib/store';
 
 // --- Small Reusable UI Components ---
 
@@ -97,6 +97,85 @@ function Switch({ checked, onCheckedChange }: { checked: boolean; onCheckedChang
         )}
       />
     </button>
+  );
+}
+
+const FONT_OPTIONS: { id: FontId; label: string; description: string; sample: string }[] = [
+  {
+    id: 'system',
+    label: 'System',
+    description: 'Default UI font for readability',
+    sample: 'Aa',
+  },
+  {
+    id: 'space-mono',
+    label: 'Mono',
+    description: 'Monospaced look like the PrivFi hero',
+    sample: '<>',
+  },
+];
+
+function FontSelector() {
+  const { user, updateUserSettings } = useAuthStore();
+  const currentFont = (user?.settings?.font || 'system') as FontId;
+  const [selectedFont, setSelectedFont] = useState<FontId>(currentFont);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedFont(currentFont);
+  }, [currentFont]);
+
+  const handleChange = async (id: FontId) => {
+    setSelectedFont(id);
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updated = await updateUserSettings({ font: id });
+      if (updated?.settings?.font) {
+        setSelectedFont(updated.settings.font as FontId);
+      }
+    } catch (err) {
+      setError('Failed to save font');
+      setSelectedFont(currentFont);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {FONT_OPTIONS.map((font) => {
+          const isSelected = selectedFont === font.id;
+          return (
+            <button
+              key={font.id}
+              onClick={() => handleChange(font.id)}
+              className={cn(
+                "flex items-center justify-between rounded-xl border-2 p-4 text-left transition-all",
+                isSelected
+                  ? "border-primary bg-primary/5 theme-shadow-md"
+                  : "border-border bg-card hover:border-primary/50 hover:theme-shadow"
+              )}
+            >
+              <div>
+                <p className={cn("font-semibold text-foreground", isSelected && "text-primary")}>{font.label}</p>
+                <p className="text-sm text-muted-foreground">{font.description}</p>
+              </div>
+              <span
+                className="text-lg px-3 py-1 rounded-lg border border-border bg-background"
+                style={{ fontFamily: font.id === 'space-mono' ? 'var(--font-space-mono, "Space Mono", monospace)' : 'var(--font-system)' }}
+              >
+                {font.sample}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {isSaving && <p className="text-sm text-muted-foreground">Saving…</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+    </div>
   );
 }
 
@@ -182,6 +261,14 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">Select a theme that suits your workflow.</p>
             </div>
             <ThemeSelector />
+          </div>
+
+          <div className="mt-6">
+            <div className="mb-3">
+              <h3 className="font-medium text-foreground">Font</h3>
+              <p className="text-sm text-muted-foreground">Choose between the default system font and the PrivFi-style monospace.</p>
+            </div>
+            <FontSelector />
           </div>
         </SettingsSection>
 

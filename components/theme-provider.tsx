@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useThemeStore } from '@/lib/store';
-import { getTheme, type ThemeId } from '@/lib/themes';
+import { useThemeStore, useFontStore } from '@/lib/store';
+import { getTheme } from '@/lib/themes';
 
 interface ThemeProviderProps {
   children: React.ReactNode;
@@ -10,6 +10,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const { currentTheme } = useThemeStore();
+  const { currentFont } = useFontStore();
 
   useEffect(() => {
     document.documentElement.classList.add('theme-transition');
@@ -19,13 +20,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     // Apply theme to document
     document.documentElement.setAttribute('data-theme', currentTheme);
+    document.documentElement.setAttribute('data-font', currentFont);
     
     // Store theme config in CSS custom property for component access
     const theme = getTheme(currentTheme);
     document.documentElement.style.setProperty('--theme-id', theme.id);
 
     return () => window.clearTimeout(timeout);
-  }, [currentTheme]);
+  }, [currentTheme, currentFont]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font', currentFont);
+  }, [currentFont]);
 
   // Prevent flash of wrong theme on initial load
   useEffect(() => {
@@ -38,6 +44,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         }
       } catch {
         // Use default theme
+      }
+    }
+
+    const storedFont = localStorage.getItem('font-storage');
+    if (storedFont) {
+      try {
+        const parsedFont = JSON.parse(storedFont);
+        if (parsedFont.state?.currentFont) {
+          document.documentElement.setAttribute('data-font', parsedFont.state.currentFont);
+        }
+      } catch {
+        // Use default font
       }
     }
   }, []);

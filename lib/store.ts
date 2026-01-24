@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ThemeId } from './themes';
 
+export type FontId = 'system' | 'space-mono';
+
 interface ThemeState {
   currentTheme: ThemeId;
   setTheme: (theme: ThemeId) => void;
@@ -10,7 +12,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      currentTheme: 'default',
+      currentTheme: 'neobrutalism',
       setTheme: (theme) => set({ currentTheme: theme }),
     }),
     {
@@ -19,9 +21,27 @@ export const useThemeStore = create<ThemeState>()(
   )
 );
 
+interface FontState {
+  currentFont: FontId;
+  setFont: (font: FontId) => void;
+}
+
+export const useFontStore = create<FontState>()(
+  persist(
+    (set) => ({
+      currentFont: 'system',
+      setFont: (font) => set({ currentFont: font }),
+    }),
+    {
+      name: 'font-storage',
+    }
+  )
+);
+
 interface UserSettings {
   timezone: string;
   theme: string;
+  font: FontId;
 }
 
 interface User {
@@ -51,10 +71,21 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       login: (user) => {
-        if (user?.settings?.theme) {
-          useThemeStore.getState().setTheme(user.settings.theme as ThemeId);
+        const normalizedUser = user && user.settings ? {
+          ...user,
+          settings: {
+            ...user.settings,
+            font: user.settings.font || 'system',
+          },
+        } : user;
+
+        if (normalizedUser?.settings?.theme) {
+          useThemeStore.getState().setTheme(normalizedUser.settings.theme as ThemeId);
         }
-        set({ user, isAuthenticated: true });
+        if (normalizedUser?.settings?.font) {
+          useFontStore.getState().setFont(normalizedUser.settings.font as FontId);
+        }
+        set({ user: normalizedUser, isAuthenticated: true });
       },
       logout: async () => {
         try {
@@ -80,9 +111,20 @@ export const useAuthStore = create<AuthState>()(
 
           if (response.ok) {
             const userData = await response.json();
-            set({ user: userData, isAuthenticated: true });
-            if (userData?.settings?.theme) {
-              useThemeStore.getState().setTheme(userData.settings.theme as ThemeId);
+            const normalizedUser = userData && userData.settings ? {
+              ...userData,
+              settings: {
+                ...userData.settings,
+                font: userData.settings.font || 'system',
+              },
+            } : userData;
+
+            set({ user: normalizedUser, isAuthenticated: true });
+            if (normalizedUser?.settings?.theme) {
+              useThemeStore.getState().setTheme(normalizedUser.settings.theme as ThemeId);
+            }
+            if (normalizedUser?.settings?.font) {
+              useFontStore.getState().setFont(normalizedUser.settings.font as FontId);
             }
           } else {
              // If fetching fails (e.g. 401), we might want to logout
@@ -118,6 +160,9 @@ export const useAuthStore = create<AuthState>()(
         // 2. Sync Theme Store immediately (Vital for ThemeProvider)
         if (settings.theme) {
           useThemeStore.getState().setTheme(settings.theme as ThemeId);
+        }
+        if (settings.font) {
+          useFontStore.getState().setFont(settings.font as FontId);
         }
 
         try {
@@ -162,6 +207,11 @@ export const useAuthStore = create<AuthState>()(
              useThemeStore.getState().setTheme(confirmedTheme as ThemeId);
           }
 
+          const confirmedFont = finalUser?.settings?.font;
+          if (confirmedFont && settings.font && confirmedFont !== settings.font) {
+             useFontStore.getState().setFont(confirmedFont as FontId);
+          }
+
           return finalUser as User;
 
         } catch (error) {
@@ -173,6 +223,10 @@ export const useAuthStore = create<AuthState>()(
           const oldTheme = currentUser?.settings?.theme;
           if (oldTheme) {
             useThemeStore.getState().setTheme(oldTheme as ThemeId);
+          }
+          const oldFont = currentUser?.settings?.font;
+          if (oldFont) {
+            useFontStore.getState().setFont(oldFont as FontId);
           }
           
           throw error;
