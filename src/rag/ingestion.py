@@ -8,7 +8,11 @@ from langchain_core.documents import Document
 from .store import get_vector_store
 
 
-def _create_metadata_from_chunk(chunk: DocChunk) -> dict:
+def _create_metadata_from_chunk(
+    chunk: DocChunk,
+    user_id: str,
+    document_id: str
+) -> dict:
     """
     Extracts and standardizes metadata from a Docling chunk.
     """
@@ -33,15 +37,21 @@ def _create_metadata_from_chunk(chunk: DocChunk) -> dict:
         "source": filename,
         "page": page_number,
         "section": section_context,
-        "type": content_type
+        "type": content_type,
+        "user_id": user_id,
+        "document_id": document_id
     }
 
 
-def _convert_chunk_to_document(chunk: DocChunk) -> Document:
+def _convert_chunk_to_document(
+    chunk: DocChunk,
+    user_id: str,
+    document_id: str
+) -> Document:
     """
     Converts a single Docling chunk into a LangChain Document.
     """
-    metadata = _create_metadata_from_chunk(chunk)
+    metadata = _create_metadata_from_chunk(chunk, user_id, document_id)
     section_context = metadata.get("section", "")
     
     # Prepend context to text for better retrieval context
@@ -50,7 +60,12 @@ def _convert_chunk_to_document(chunk: DocChunk) -> Document:
     return Document(page_content=page_content, metadata=metadata)
 
 
-def parse_and_chunk_file(file_path: str, max_tokens: int = 700) -> List[Document]:
+def parse_and_chunk_file(
+    file_path: str,
+    user_id: str,
+    document_id: str,
+    max_tokens: int = 700
+) -> List[Document]:
     """
     Loads a file, converts it using Docling, splits it into chunks, 
     and formats them as LangChain Documents.
@@ -68,16 +83,22 @@ def parse_and_chunk_file(file_path: str, max_tokens: int = 700) -> List[Document
     documents: List[Document] = []
     for chunk in chunk_iterator:
         # The chunker returns DocChunk objects, we convert them to LangChain Documents
-        document = _convert_chunk_to_document(chunk) # type: ignore
+        document = _convert_chunk_to_document(chunk, user_id, document_id) #type: ignore 
         documents.append(document)
 
     return documents
 
 
-async def save_documents_to_db(documents: List[Document], collection_name: Optional[str] = None) -> None:
+async def ingest_file(
+    file_path: str,
+    user_id: str,
+    document_id: str,
+    collection_name: Optional[str] = None
+) -> None:
     """
-    Persists a list of documents into the vector store.
+    Orchestrates the full ingestion process: Parse -> Chunk -> Index.
     """
+    documents = parse_and_chunk_file(file_path, user_id, document_id)
     if not documents:
         return
 
@@ -88,11 +109,3 @@ async def save_documents_to_db(documents: List[Document], collection_name: Optio
         vector_store = await get_vector_store()
         
     await vector_store.aadd_documents(documents)
-
-
-async def ingest_file(file_path: str, collection_name: Optional[str] = None) -> None:
-    """
-    Orchestrates the full ingestion process: Parse -> Chunk -> Index.
-    """
-    documents = parse_and_chunk_file(file_path)
-    await save_documents_to_db(documents, collection_name)

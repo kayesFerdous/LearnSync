@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 class PresignUploadRequest(BaseModel):
     filename: str
@@ -12,3 +12,7 @@ class PresignUploadResponse(BaseModel):
 class ConfirmUploadRequest(BaseModel):
     original_filename: str
     object_key: str
+
+class ProcessUrlRequest(BaseModel):
+    url: HttpUrl
+
