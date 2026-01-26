@@ -3,7 +3,7 @@ import boto3
 from src.core.config import settings
 
 
-async def create_r2_client():
+async def get_r2_client():
     ENDPINT_URL = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
     return boto3.client(

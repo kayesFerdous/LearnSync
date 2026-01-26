@@ -33,4 +33,5 @@ dependencies = [
     "pydantic[email]>=2.11.10",
     "langgraph-checkpoint-postgres>=3.0.3",
     "langchain-docling>=1.1.0",
+    "flashrank>=0.2.10",
 ]

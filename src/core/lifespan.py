@@ -7,6 +7,7 @@ from src.services.llm_service import setup_gemini_llm, setup_groq_llm
 from src.core.logging_config import setup
 from src.core.config import settings
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from src.services.storage.r2 import get_r2_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,6 +15,7 @@ async def lifespan(app: FastAPI):
     app.state.groq_llm = await setup_groq_llm()
     app.state.gemini_llm = await setup_gemini_llm(model="gemini-2.5-flash", max_tokens=900000)
     app.state.gemini_llm_temp_0 = await setup_gemini_llm(temperature=0, max_tokens=900000)
+    app.state.r2_client = await get_r2_client()
 
     postgres_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     
