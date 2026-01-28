@@ -91,10 +91,10 @@ class File(Base):
         index=True
     )
     
-    conversation_id: Mapped[UUID] = mapped_column(
+    conversation_id: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("conversations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True
     )
     

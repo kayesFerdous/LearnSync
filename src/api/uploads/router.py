@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Request, BackgroundTasks, Depends
 from uuid import uuid4
 from fastapi.exceptions import HTTPException
-from fastapi.concurrency import run_in_threadpool
-from botocore.exceptions import ClientError
 import logging
 
 from src.api.uploads.schemas import ConfirmUploadRequest, PresignUploadRequest, PresignUploadResponse, ProcessUrlRequest
@@ -29,7 +27,11 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 @router.post("/presign", response_model=PresignUploadResponse)
-async def presign_upload(req: Request, upload_request: PresignUploadRequest):
+async def presign_upload(
+    req: Request,
+    upload_request: PresignUploadRequest,
+    _: User = Depends(get_current_user)
+):
 
     if upload_request.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(400, f"Invalid content type. Allowed: {ALLOWED_CONTENT_TYPES}")
@@ -77,27 +79,12 @@ async def confirm_upload(
     """
     Confirms the upload and triggers background processing.
     """
-    r2_client = req.app.state.r2_client
-    
-    try:
-        # Verify that the file actually exists in R2 using a HEAD request
-        # We run this in a threadpool to avoid blocking the async event loop
-        await run_in_threadpool(
-            r2_client.head_object,
-            Bucket=settings.R2_BUCKET_NAME,
-            Key=confirm_req.object_key
-        )
-    except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code")
-        if error_code == "404":
-            raise HTTPException(404, "File not found in storage. Upload may have failed or key is invalid.")
-        logger.error(f"Storage verification failed: {str(e)}")
-        raise HTTPException(500, "Failed to verify file upload.")
-
+    # process_content will download the file from R2 and handle ingestion
     background_tasks.add_task(
         process_content,
         source=confirm_req.object_key,
         user_id=str(user.user_id),
+        llm=req.app.state.gemini_llm_temp_0,
         original_filename=confirm_req.original_filename,
         is_url=False
     )
@@ -107,7 +94,8 @@ async def confirm_upload(
 
 @router.post("/process-url")
 async def process_url(
-    req: ProcessUrlRequest,
+    req: Request,
+    process_url_req: ProcessUrlRequest,
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user)
 ):
@@ -116,11 +104,12 @@ async def process_url(
     """
     background_tasks.add_task(
         process_content,
-        source=str(req.url),
+        source=str(process_url_req.url),
         user_id=str(user.user_id),
+        llm=req.app.state.gemini_llm_temp_0,
         is_url=True
     )
     
-    return {"message": "URL queued for processing", "url": str(req.url)}
+    return {"message": "URL queued for processing", "url": str(process_url_req.url)}
 
 

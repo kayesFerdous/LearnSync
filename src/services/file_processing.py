@@ -1,26 +1,60 @@
 import os
 import tempfile
 import logging
-from uuid import uuid4
-from typing import Optional
+from uuid import uuid4, UUID
+from typing import Optional, List
+from langchain_core.language_models.chat_models import BaseChatModel
+from pydantic import BaseModel, Field
+
 from src.services.storage.r2 import get_r2_client
 from src.core.config import settings
-from src.rag.ingestion import ingest_file
+from src.rag.ingestion import parse_and_chunk_file, get_vector_store
+
+from src.conversations.model import File
+from src.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
+
+class FileMetadata(BaseModel):
+    summary: str = Field(description="A comprehensive academic summary of the document, at least 3-4 paragraphs. It should cover the main concepts, definitions, and key takeaways.")
+    topics: List[str] = Field(description="List of key academic topics or concepts covered in the document.")
+    doc_type: str = Field(description="The type of document (e.g., Lecture Notes, Exam, Syllabus, Textbook Chapter, Research Paper).")
+
+async def _generate_metadata(text_content: str, llm: BaseChatModel) -> FileMetadata:
+    """
+    Generates structured academic metadata using Gemini.
+    """
+    structured_llm = llm.with_structured_output(FileMetadata)
+    
+    # Limit context to avoid excessive token usage, though Gemini handles large context well.
+    # 100k characters is roughly 25k tokens.
+    input_text = text_content[:100000]
+    
+    prompt = f"""
+    Analyze the following academic text and provide structured metadata.
+    Ensure the summary is detailed (not too small) and useful for study purposes.
+    
+    Text Content:
+    {input_text}
+    """
+    
+    return await structured_llm.ainvoke(prompt) #type:ignore
 
 async def process_content(
     source: str,
     user_id: str,
+    llm: BaseChatModel,
     original_filename: Optional[str] = None,
     is_url: bool = False
 ):
     """
     Background task to process content (File from R2 or direct URL):
     1. If R2: Download to temp.
-    2. If URL: Pass directly.
-    3. Ingest (Parse -> Chunk -> Embed -> Store).
-    4. Cleanup (if temp file used).
+    2. Parse & Chunk (Docling).
+    3. Ingest to Vector Store.
+    4. Generate Metadata (Gemini).
+    5. Save to Postgres (File table).
+    6. Cleanup.
     """
     tmp_path = None
     processing_source = source
@@ -49,15 +83,40 @@ async def process_content(
             r2.download_file(settings.R2_BUCKET_NAME, source, tmp_path)
             processing_source = tmp_path
         
-        # 2. Ingest
-        # processing_source is either a local file path or a URL string
-        logger.info(f"Ingesting content from {processing_source}...")
+        # 2. Parse & Chunk
+        logger.info(f"Parsing and chunking content from {processing_source}...")
+        documents = parse_and_chunk_file(processing_source, user_id, document_id)
         
-        await ingest_file(
-            file_path=processing_source,
-            user_id=user_id,
-            document_id=document_id
-        )
+        if not documents:
+            logger.warning(f"No content extracted from {source}")
+            return
+
+        # 3. Vector Store Ingestion
+        logger.info("Ingesting chunks into Vector Store...")
+        vector_store = await get_vector_store()
+        await vector_store.aadd_documents(documents)
+        
+        # 4. Gemini Metadata Extraction
+        logger.info("Generating academic metadata with Gemini...")
+        # Combine text from chunks for context
+        full_text = "\n\n".join([doc.page_content for doc in documents])
+        metadata = await _generate_metadata(full_text, llm)
+        
+        # 5. DB Save
+        logger.info("Saving file record to database...")
+        async with AsyncSessionLocal() as session:
+            new_file = File(
+                user_id=UUID(user_id),
+                filename=original_filename or os.path.basename(source),
+                file_path=source,
+                summary=metadata.summary,
+                topics=metadata.topics,
+                doc_type=metadata.doc_type,
+                # conversation_id and folder_id are None for direct uploads
+            )
+            session.add(new_file)
+            await session.commit()
+            logger.info(f"File saved with ID: {new_file.id}")
         
         logger.info(f"Successfully processed {source}")
         
@@ -66,7 +125,7 @@ async def process_content(
         # TODO: Here you would update the DB status to 'FAILED'
         
     finally:
-        # 3. Cleanup temp file if it exists
+        # 6. Cleanup temp file if it exists
         if tmp_path and os.path.exists(tmp_path):
             try:
                 os.remove(tmp_path)
