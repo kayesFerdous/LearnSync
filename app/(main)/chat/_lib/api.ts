@@ -67,6 +67,7 @@ export const presignUpload = async (filename: string, contentType: string): Prom
   const response = await fetch(`${API_BASE_URL}/uploads/presign`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ filename, content_type: contentType }),
   });
   if (!response.ok) throw new Error('Failed to get presigned URL');
@@ -86,6 +87,7 @@ export const confirmUpload = async (objectKey: string, originalFilename: string)
   const response = await fetch(`${API_BASE_URL}/uploads/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ object_key: objectKey, original_filename: originalFilename }),
   });
   if (!response.ok) throw new Error('Failed to confirm upload');
