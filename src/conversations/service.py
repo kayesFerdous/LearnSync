@@ -1,7 +1,8 @@
 from uuid import UUID
+from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.conversations.model import Conversation
+from src.conversations.model import Conversation, File
 
 async def create_conversation(db: AsyncSession, user_id: UUID) -> str:
     new_conv = Conversation(
@@ -51,3 +52,31 @@ async def remove_conversation(
     await db.commit()
 
     return result.rowcount > 0
+
+
+async def get_available_files_for_chat(
+    db: AsyncSession,
+    conversation_id: UUID,
+    user_id: UUID
+):
+    # Step 1: Query the conversation to check folder status
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id
+    )
+    result = await db.execute(stmt)
+    conversation = result.scalar_one_or_none()
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Step 2: Determine file scope based on folder_id
+    if conversation.folder_id:
+        # Course Mode: Fetch all files linked to this folder
+        stmt = select(File).where(File.folder_id == conversation.folder_id)
+    else:
+        # Private Mode: Fetch only files linked to this conversation
+        stmt = select(File).where(File.conversation_id == conversation_id)
+
+    result = await db.execute(stmt)
+    return result.scalars().all()
