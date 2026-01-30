@@ -51,6 +51,11 @@ async def presign_upload(
 
     response_files = []
 
+    # Calculate total size
+    total_size = sum(f.file_size for f in upload_request.files)
+    if total_size > settings.MAX_TOTAL_UPLOAD_SIZE:
+        raise HTTPException(400, f"Total upload size {total_size} exceeds maximum of {settings.MAX_TOTAL_UPLOAD_SIZE} bytes")
+
     # Validate and process all files
     for file_req in upload_request.files:
         if file_req.content_type not in ALLOWED_CONTENT_TYPES:
@@ -100,16 +105,17 @@ async def confirm_upload(
     processed_files = []
     
     for file_info in confirm_req.files:
-        background_tasks.add_task(
-            process_content,
-            source=file_info.object_key,
-            user_id=str(user.user_id),
-            llm=req.app.state.gemini_llm,
-            original_filename=file_info.original_filename,
-            is_url=False,
-            conversation_id=conversation_id
-        )
-        processed_files.append(file_info.object_key)
+        # background_tasks.add_task(
+        #     process_content,
+        #     source=file_info.object_key,
+        #     user_id=str(user.user_id),
+        #     llm=req.app.state.gemini_llm,
+        #     original_filename=file_info.original_filename,
+        #     is_url=False,
+        #     conversation_id=conversation_id
+        # )
+        # processed_files.append(file_info.object_key)
+        am = 2
     
     return {
         "message": "Files queued for processing", 

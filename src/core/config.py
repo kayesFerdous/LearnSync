@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     R2_SECRET_ACCESS_KEY: str
     R2_BUCKET_NAME: str
 
-    MAX_UPLOAD_SIZE: float = 10 * 1024 * 1024 # 10MB default
+    MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024 # 10MB
+    MAX_TOTAL_UPLOAD_SIZE: int = 20 * 1024 * 1024 # 20MB
 
     
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel, HttpUrl
 class PresignUploadRequest(BaseModel):
     filename: str
     content_type: str
-    file_size: float
+    file_size: int
 
 class BatchPresignUploadRequest(BaseModel):
     files: list[PresignUploadRequest]
