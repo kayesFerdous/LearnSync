@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from src.api.uploads.schemas import ConfirmUploadRequest, PresignUploadRequest, PresignUploadResponse, ProcessUrlRequest
+from src.api.uploads.schemas import ConfirmUploadRequest, BatchPresignUploadRequest, PresignUploadRequest, PresignUploadResponse, ProcessUrlRequest, BatchPresignUploadResponse
 from src.core.config import settings
 from src.api.dependencies import get_current_user
 from src.users.model import User
@@ -29,17 +29,13 @@ ALLOWED_CONTENT_TYPES = {
     "text/markdown"
 }
 
-@router.post("/presign", response_model=PresignUploadResponse)
+@router.post("/presign", response_model=BatchPresignUploadResponse)
 async def presign_upload(
     req: Request,
-    upload_request: PresignUploadRequest,
+    upload_request: BatchPresignUploadRequest,
     _: User = Depends(get_current_user)
 ):
-
-    if upload_request.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(400, f"Invalid content type. Allowed: {ALLOWED_CONTENT_TYPES}")
-
-    # Extract extension from content type for the object key
+    # Extension map for object keys
     ext_map = {
         "application/pdf": ".pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
@@ -52,25 +48,38 @@ async def presign_upload(
         "text/plain": ".txt",
         "text/markdown": ".md"
     }
-    file_ext = ext_map.get(upload_request.content_type, "")
-    
-    object_key = f"uploads/{uuid4()}{file_ext}"
 
-    r2_client = req.app.state.r2_client
-    url = r2_client.generate_presigned_url(
-        ClientMethod="put_object",
-        Params={
-            "Bucket": settings.R2_BUCKET_NAME,
-            "Key": object_key,
-            "ContentType": upload_request.content_type,
-        },
-        ExpiresIn=60,
-    )
+    response_files = []
 
-    return PresignUploadResponse(
-        upload_url=url,
-        object_key=object_key
-    )
+    # Validate and process all files
+    for file_req in upload_request.files:
+        if file_req.content_type not in ALLOWED_CONTENT_TYPES:
+            raise HTTPException(400, f"Invalid content type for file {file_req.filename}. Allowed: {ALLOWED_CONTENT_TYPES}")
+        
+        if file_req.file_size > settings.MAX_UPLOAD_SIZE:
+             raise HTTPException(400, f"File {file_req.filename} exceeds maximum size of {settings.MAX_UPLOAD_SIZE} bytes")
+
+        file_ext = ext_map.get(file_req.content_type, "")
+        object_key = f"uploads/{uuid4()}{file_ext}"
+
+        r2_client = req.app.state.r2_client
+        url = r2_client.generate_presigned_url(
+            ClientMethod="put_object",
+            Params={
+                "Bucket": settings.R2_BUCKET_NAME,
+                "Key": object_key,
+                "ContentType": file_req.content_type,
+            },
+            ExpiresIn=60,
+        )
+
+        response_files.append(PresignUploadResponse(
+            filename=file_req.filename,
+            upload_url=url,
+            object_key=object_key
+        ))
+
+    return BatchPresignUploadResponse(files=response_files)
 
 @router.post("/confirm")
 async def confirm_upload(
