@@ -1,5 +1,4 @@
 import json
-from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
@@ -8,10 +7,27 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.agents.runner import runner
-from src.api.conversations.schemas import ConversationRequest, FolderCreate, FolderResponse, ConversationListResponse
+from src.api.conversations.schemas import (
+    ConversationRequest, 
+    FolderCreate, 
+    FolderResponse, 
+    FolderUpdate,
+    ConversationListResponse, 
+    ConversationUpdate,
+    ConversationResponse
+)
 from src.api.dependencies import get_current_user
 from src.db.session import get_db
-from src.conversations.service import create_conversation, get_conversation, get_user_content, remove_conversation, create_folder
+from src.conversations.service import (
+    create_conversation, 
+    get_conversation, 
+    get_user_content, 
+    remove_conversation, 
+    create_folder,
+    update_conversation_title,
+    update_folder,
+    delete_folder
+)
 
 
 router = APIRouter(
@@ -191,4 +207,68 @@ async def delete_conversation(
     except Exception as e:
         print(f"Error deleting workflow state for thread {conversation_id}: {str(e)}")
 
+    return Response(status_code=204)
+
+
+@router.patch("/{conversation_id}")
+async def rename_conversation(
+    conversation_id: str,
+    update_data: ConversationUpdate,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid_id = UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+
+    updated_conversation = await update_conversation_title(db, uuid_id, user.user_id, update_data.title)
+    
+    if not updated_conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    return {"status": "success"}
+
+
+@router.patch("/folder/{folder_id}")
+async def update_existing_folder(
+    folder_id: str,
+    update_data: FolderUpdate,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid_id = UUID(folder_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid folder ID format")
+
+    updated_folder = await update_folder(
+        db, 
+        uuid_id, 
+        user.user_id, 
+        update_data.name, 
+        update_data.icon, 
+        update_data.color
+    )
+    
+    if not updated_folder:
+        raise HTTPException(status_code=404, detail="Folder not found")
+        
+    return {"status": "success"}
+
+
+@router.delete("/folder/{folder_id}", status_code=204)
+async def delete_existing_folder(
+    folder_id: str,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        uuid_id = UUID(folder_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid folder ID format")
+
+    if not await delete_folder(db, uuid_id, user.user_id):
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
     return Response(status_code=204)

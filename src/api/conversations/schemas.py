@@ -20,8 +20,18 @@ class ConversationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ConversationUpdate(BaseModel):
+    title: str
+
+
 class FolderCreate(BaseModel):
     name: str
+    icon: str | None = None
+    color: str | None = None
+
+
+class FolderUpdate(BaseModel):
+    name: str | None = None
     icon: str | None = None
     color: str | None = None
 

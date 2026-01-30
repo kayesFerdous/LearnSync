@@ -56,7 +56,7 @@ class Conversation(Base):
     
     folder_id: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey("folders.id", ondelete="SET NULL"),
+        ForeignKey("folders.id", ondelete="CASCADE"),
         nullable=True,
         index=True
     )
@@ -102,7 +102,7 @@ class File(Base):
     
     folder_id: Mapped[Optional[UUID]] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey("folders.id", ondelete="SET NULL"),
+        ForeignKey("folders.id", ondelete="CASCADE"),
         nullable=True,
         index=True
     )

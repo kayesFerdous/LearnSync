@@ -51,6 +51,26 @@ async def remove_conversation(
     return result.rowcount > 0
 
 
+async def update_conversation_title(
+    db: AsyncSession,
+    conversation_id: UUID,
+    user_id: UUID,
+    new_title: str
+) -> Conversation | None:
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id
+    )
+    result = await db.execute(stmt)
+    conversation = result.scalar_one_or_none()
+
+    if conversation:
+        conversation.title = new_title
+        await db.commit()
+    
+    return conversation
+
+
 async def get_available_files_for_chat(
     db: AsyncSession,
     conversation_id: UUID,
@@ -185,3 +205,53 @@ async def get_user_content(db: AsyncSession, user_id: UUID):
         "folders": folders,
         "conversations": conversations
     }
+
+
+async def update_folder(
+    db: AsyncSession,
+    folder_id: UUID,
+    user_id: UUID,
+    name: str | None = None,
+    icon: str | None = None,
+    color: str | None = None
+) -> Folder | None:
+    stmt = select(Folder).where(
+        Folder.id == folder_id,
+        Folder.user_id == user_id
+    )
+    result = await db.execute(stmt)
+    folder = result.scalar_one_or_none()
+
+    if folder:
+        if name is not None:
+            folder.name = name
+        if icon is not None:
+            folder.icon = icon
+        if color is not None:
+            folder.color = color
+        
+        await db.commit()
+    
+    return folder
+
+
+async def delete_folder(
+    db: AsyncSession,
+    folder_id: UUID,
+    user_id: UUID
+) -> bool:
+    """
+    Deletes a folder. 
+    Due to 'ondelete=CASCADE' in the database model, this will automatically 
+    delete all conversations and files contained within this folder.
+    """
+    result = await db.execute(
+        delete(Folder)
+        .where(
+            Folder.id == folder_id,
+            Folder.user_id == user_id
+        )
+    )
+    await db.commit()
+
+    return result.rowcount > 0
