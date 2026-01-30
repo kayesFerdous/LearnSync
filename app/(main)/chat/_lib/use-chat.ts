@@ -482,8 +482,17 @@ export function useChat() {
   const createFolderHandler = useCallback(async (name: string, icon?: string, theme?: string): Promise<{ success: boolean; folder?: Folder; error?: string }> => {
     try {
       const folder = await createFolder(name, icon, theme);
-      // Reload conversations to get the updated folder list from backend
-      await loadConversations();
+      
+      // Update local state immediately to reflect changes in UI without waiting for re-fetch
+      setFolders(prev => [{
+        ...folder,
+        conversations: folder.conversations || []
+      }, ...prev]);
+
+      // Reload conversations to sync accurately with backend
+      // We don't await because we've already updated the UI optimistically
+      loadConversations();
+      
       return { success: true, folder };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

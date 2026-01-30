@@ -181,7 +181,8 @@ export const fetchConversations = async (): Promise<ConversationListResponse> =>
   const response = await fetch(`${API_BASE_URL}/conversation/`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include'
+    credentials: 'include',
+    cache: 'no-store', // Prevent caching
   });
   if (!response.ok) throw new Error(`Failed to fetch conversations (${response.status})`);
   return response.json();

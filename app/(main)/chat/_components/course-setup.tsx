@@ -34,10 +34,12 @@ const COURSE_ICONS = [
 interface CourseSetupProps {
   onCancel: () => void;
   onComplete: (folderId: string) => void;
+  // Pass the creation logic from the parent to share state
+  onCreateCourse: (name: string, icon?: string, theme?: string) => Promise<{ success: boolean; folder?: any; error?: string }>;
 }
 
-export function CourseSetup({ onCancel, onComplete }: CourseSetupProps) {
-  const { createFolderHandler } = useChat();
+export function CourseSetup({ onCancel, onComplete, onCreateCourse }: CourseSetupProps) {
+  // REMOVE: const { createFolderHandler } = useChat();  <-- This was creating a separate state instance!
   
   const [courseName, setCourseName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COURSE_COLORS[0]);
@@ -72,7 +74,7 @@ export function CourseSetup({ onCancel, onComplete }: CourseSetupProps) {
     try {
       // Create folder with metadata (color/icon would be stored in name or separate field if backend supported)
       // For now, we just pass the name as backend only expects name
-      const result = await createFolderHandler(courseName, selectedIcon, selectedColor);
+      const result = await onCreateCourse(courseName, selectedIcon, selectedColor);
       
       if (result.success && result.folder) {
         // Here we would upload the 'global files' if backend supported folder-level uploads

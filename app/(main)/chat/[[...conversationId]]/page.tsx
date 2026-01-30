@@ -427,6 +427,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
             <CourseSetup 
               onCancel={() => startNewChat()}
               onComplete={handleCreateCourseComplete}
+              onCreateCourse={createFolderHandler}
             />
           ) : (
             <>
