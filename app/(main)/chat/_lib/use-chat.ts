@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation } from './types';
-import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData } from './api';
+import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder } from './types';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
   // Conversation thread state
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
+  const [viewState, setViewState] = useState<'chat' | 'course-setup'>('chat'); // New view state
   
   // Chat message state
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
@@ -94,13 +97,18 @@ export function useChat() {
   const loadConversations = useCallback(async () => {
     try {
       const data = await fetchConversations();
-      // Sort by updated_at (descending), fallback to created_at if updated_at is null
-      const sorted = data.sort((a, b) => {
+      // Sort root conversations by updated_at (descending), fallback to created_at if updated_at is null
+      const sortedConversations = data.conversations.sort((a, b) => {
         const timeA = a.updated_at ? new Date(a.updated_at).getTime() : new Date(a.created_at).getTime();
         const timeB = b.updated_at ? new Date(b.updated_at).getTime() : new Date(b.created_at).getTime();
         return timeB - timeA;
       });
-      setConversations(sorted);
+      // Sort folders by created_at (descending)
+      const sortedFolders = data.folders.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setConversations(sortedConversations);
+      setFolders(sortedFolders);
     } catch (error) {
       console.error('Failed to load conversations:', error);
     }
@@ -121,8 +129,17 @@ export function useChat() {
     }
   }, []);
 
-  const startNewChat = useCallback(() => {
+  const startNewChat = useCallback((folderId?: string | null) => {
     setCurrentConversationId(null);
+    setViewState('chat');
+    setActiveFolderId(folderId || null);
+    setMessages([INITIAL_MESSAGE]);
+  }, []);
+
+  const openCourseSetup = useCallback(() => {
+    setCurrentConversationId(null);
+    setActiveFolderId(null);
+    setViewState('course-setup');
     setMessages([INITIAL_MESSAGE]);
   }, []);
 
@@ -164,18 +181,42 @@ export function useChat() {
           setThinkingStatus(assistantId, 'Uploading file...');
           const { upload_url, object_key } = await presignUpload(file.name, file.type);
           await uploadToR2(upload_url, file);
-          await confirmUpload(object_key, file.name);
+          const uploadResult = await confirmUpload(object_key, file.name);
           payload.file_upload = { object_key, original_filename: file.name };
           setThinkingStatus(assistantId, 'Thinking...');
+          
+          // CRITICAL: Smart Upload Redirection
+          // If upload created/associated with a conversation and we're not in one, redirect
+          if (uploadResult.conversation_id && !currentConversationId) {
+            setCurrentConversationId(uploadResult.conversation_id);
+            window.history.replaceState(null, '', `/chat/${uploadResult.conversation_id}`);
+            
+            // Load messages for that conversation
+            try {
+              const existingMessages = await fetchMessages(uploadResult.conversation_id);
+              setMessages(existingMessages);
+              // Refresh conversations list
+              await loadConversations();
+            } catch (err) {
+              console.error('Failed to load conversation after upload:', err);
+            }
+            return; // Exit early, the conversation is already set up
+          }
         } else {
           payload.image = await fileToBase64(file);
         }
       }
 
       // Determine endpoint: POST /conversation/ for new chat, POST /conversation/{id} for existing
-      const endpoint = currentConversationId 
+      let endpoint = currentConversationId 
         ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${currentConversationId}`
         : `${BACKEND_URL.replace('/chat_bot', '')}/conversation/`;
+
+      // Append folder_id as query parameter when creating a new conversation in a folder
+      if (!currentConversationId && activeFolderId) {
+        const separator = endpoint.includes('?') ? '&' : '?';
+        endpoint += `${separator}folder_id=${encodeURIComponent(activeFolderId)}`;
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -205,6 +246,8 @@ export function useChat() {
           // CRITICAL: Handle conversation creation
           newConversationId = conversationId;
           setCurrentConversationId(conversationId);
+          // Don't clear activeFolderId yet, as we might want to keep context if needed, but usually once conversation exists, folder is part of it.
+          // setActiveFolderId(null); 
           
           // Silent URL Switch: Update URL without reloading or triggering re-fetch
           // Using window.history.replaceState to change URL to /chat/{id}
@@ -212,13 +255,26 @@ export function useChat() {
           
           // Optimistically add to sidebar (title from first 30 chars of message)
           const title = userMessage.substring(0, 30) || (file ? `📎 ${file.name}` : 'New Conversation');
+          
+          // Only add to folder if we have it locally, otherwise we'll wait for re-fetch or assume backend handles it.
+          // But for immediate UI update:
           const newConversation: Conversation = {
             id: conversationId,
             title,
             created_at: new Date().toISOString(),
             updated_at: null,
           };
-          setConversations(prev => [newConversation, ...prev]);
+
+          if (activeFolderId) {
+             setFolders(prev => prev.map(f => {
+               if (f.id === activeFolderId) {
+                 return { ...f, conversations: [newConversation, ...f.conversations] };
+               }
+               return f;
+             }));
+          } else {
+             setConversations(prev => [newConversation, ...prev]);
+          }
         },
         onRoutineApproved: (payload) => {
           setThinkingStatus(assistantId, undefined);
@@ -253,7 +309,7 @@ export function useChat() {
       setAssistantStreaming(assistantId, false);
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [currentConversationId, setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
+  }, [currentConversationId, activeFolderId, setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   // Handle routine approval
   const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData, conversationId?: string) => {
@@ -422,10 +478,27 @@ export function useChat() {
     }
   }, [currentConversationId, startNewChat]);
 
+  // Create a new folder
+  const createFolderHandler = useCallback(async (name: string, icon?: string, theme?: string): Promise<{ success: boolean; folder?: Folder; error?: string }> => {
+    try {
+      const folder = await createFolder(name, icon, theme);
+      // Reload conversations to get the updated folder list from backend
+      await loadConversations();
+      return { success: true, folder };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Create folder error:', error);
+      return { success: false, error: message };
+    }
+  }, [loadConversations]);
+
   return {
     // Conversation state
     conversations,
+    folders,
     currentConversationId,
+    activeFolderId,
+    viewState, // Export new state
     isLoading,
     
     // Chat state
@@ -435,7 +508,9 @@ export function useChat() {
     loadConversations,
     loadMessages,
     startNewChat,
+    openCourseSetup, // Export new function
     deleteConversationHandler,
+    createFolderHandler,
     
     // Chat functions
     sendMessage,

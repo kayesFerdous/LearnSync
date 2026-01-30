@@ -5,3 +5,4 @@ export { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 export { ToastContainer } from './toast-container';
 export { ResizableSplitPane } from './resizable-split-pane';
 export { ViewerContainer } from './viewer-container';
+export { CourseSetup } from './course-setup';

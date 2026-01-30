@@ -1,4 +1,4 @@
-import type { BackendStreamEvent, PresignResponse, Conversation, Message, RoutineData } from './types';
+import type { BackendStreamEvent, PresignResponse, Conversation, Message, RoutineData, Folder, ConfirmUploadResponse, ConversationListResponse } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
 const API_BASE_URL = 'http://localhost:8000';
@@ -83,7 +83,7 @@ export const uploadToR2 = async (url: string, file: File): Promise<void> => {
   if (!response.ok) throw new Error('Failed to upload file to R2');
 };
 
-export const confirmUpload = async (objectKey: string, originalFilename: string): Promise<void> => {
+export const confirmUpload = async (objectKey: string, originalFilename: string): Promise<ConfirmUploadResponse> => {
   const response = await fetch(`${API_BASE_URL}/uploads/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -91,6 +91,7 @@ export const confirmUpload = async (objectKey: string, originalFilename: string)
     body: JSON.stringify({ object_key: objectKey, original_filename: originalFilename }),
   });
   if (!response.ok) throw new Error('Failed to confirm upload');
+  return response.json();
 };
 
 /**
@@ -172,10 +173,11 @@ export const processStream = async (
 };
 
 /**
- * Fetch all conversations for the sidebar
+ * Fetch all conversations and folders for the sidebar
  * GET /conversation/
+ * Returns folders with nested conversations and root-level conversations
  */
-export const fetchConversations = async (): Promise<Conversation[]> => {
+export const fetchConversations = async (): Promise<ConversationListResponse> => {
   const response = await fetch(`${API_BASE_URL}/conversation/`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
@@ -288,4 +290,19 @@ export const deleteConversation = async (conversationId: string): Promise<void> 
   if (!response.ok) {
     throw new Error(`Failed to delete conversation (${response.status})`);
   }
+};
+
+/**
+ * Create a new folder
+ * POST /conversation/folder
+ */
+export const createFolder = async (name: string, icon?: string, theme?: string): Promise<Folder> => {
+  const response = await fetch(`${API_BASE_URL}/conversation/folder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name, icon, color: theme }) // Map theme to color for backend
+  });
+  if (!response.ok) throw new Error(`Failed to create folder (${response.status})`);
+  return response.json();
 };

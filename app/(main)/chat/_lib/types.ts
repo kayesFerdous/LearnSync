@@ -7,6 +7,20 @@ export interface Conversation {
   updated_at: string | null;
 }
 
+export interface Folder {
+  id: string;          // UUID
+  name: string;        // Folder name
+  created_at: string;  // ISO Date string
+  icon?: string;       // E.g. "📚"
+  theme?: string;      // E.g. "bg-blue-500" or hex
+  conversations: Conversation[]; // Conversations in this folder
+}
+
+export interface ConversationListResponse {
+  folders: Folder[];       // Folders with nested conversations
+  conversations: Conversation[]; // Root-level conversations (no folder)
+}
+
 export interface ClassSchedule {
   day: string;
   course_name: string;
@@ -78,4 +92,10 @@ export interface PresignResponse {
 export interface ConfirmUploadRequest {
   object_key: string;
   original_filename: string;
+}
+
+export interface ConfirmUploadResponse {
+  message: string;
+  object_key: string;
+  conversation_id: string;
 }
