@@ -388,7 +388,13 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                   }
 
                   return (
-                    <div key={conversation.id} className="group relative pr-8 bg-transparent hover:bg-transparent">
+                    <div 
+                        key={conversation.id} 
+                        className={cn(
+                            "group relative pr-8 bg-transparent hover:bg-transparent",
+                            conversationMenuOpenId === conversation.id ? "z-20" : "z-auto"
+                        )}
+                    >
                       <button
                         onClick={() => handleConversationClick(conversation.id)}
                         disabled={isLoading}
@@ -423,7 +429,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         {conversationMenuOpenId === conversation.id && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-32 bg-popover text-popover-foreground border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1">
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-background border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1 theme-shadow select-none">
                                     <button 
                                         className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
                                         onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
@@ -470,7 +476,12 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         </form>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 group pr-2 relative">
+                    <div 
+                        className={cn(
+                            "flex items-center gap-1 group pr-2 relative",
+                            folderMenuOpenId === folder.id ? "z-20" : "z-auto"
+                        )}
+                    >
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -510,7 +521,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         {folderMenuOpenId === folder.id && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setFolderMenuOpenId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-32 bg-popover text-popover-foreground border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1">
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-background border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1 theme-shadow select-none">
                                     <button 
                                         className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
                                         onClick={(e) => { e.preventDefault(); startEditingFolder(folder); }}
