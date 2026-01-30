@@ -4,7 +4,7 @@ from fastapi.exceptions import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from src.api.uploads.schemas import ConfirmUploadRequest, BatchPresignUploadRequest, PresignUploadRequest, PresignUploadResponse, ProcessUrlRequest, BatchPresignUploadResponse
+from src.api.uploads.schemas import BatchConfirmUploadRequest, BatchPresignUploadRequest, PresignUploadRequest, PresignUploadResponse, ProcessUrlRequest, BatchPresignUploadResponse
 from src.core.config import settings
 from src.api.dependencies import get_current_user
 from src.users.model import User
@@ -84,7 +84,7 @@ async def presign_upload(
 @router.post("/confirm")
 async def confirm_upload(
     req: Request,
-    confirm_req: ConfirmUploadRequest,
+    confirm_req: BatchConfirmUploadRequest,
     background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -97,19 +97,23 @@ async def confirm_upload(
         conversation_id = await create_conversation(db, user.user_id)
 
     # process_content will download the file from R2 and handle ingestion
-    background_tasks.add_task(
-        process_content,
-        source=confirm_req.object_key,
-        user_id=str(user.user_id),
-        llm=req.app.state.gemini_llm,
-        original_filename=confirm_req.original_filename,
-        is_url=False,
-        conversation_id=conversation_id
-    )
+    processed_files = []
+    
+    for file_info in confirm_req.files:
+        background_tasks.add_task(
+            process_content,
+            source=file_info.object_key,
+            user_id=str(user.user_id),
+            llm=req.app.state.gemini_llm,
+            original_filename=file_info.original_filename,
+            is_url=False,
+            conversation_id=conversation_id
+        )
+        processed_files.append(file_info.object_key)
     
     return {
-        "message": "File queued for processing", 
-        "object_key": confirm_req.object_key,
+        "message": "Files queued for processing", 
+        "processed_files": processed_files,
         "conversation_id": conversation_id
     }
 

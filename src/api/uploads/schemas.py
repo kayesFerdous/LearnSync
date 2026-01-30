@@ -22,10 +22,13 @@ class BatchPresignUploadResponse(BaseModel):
     files: list[PresignUploadResponse]
 
 
-class ConfirmUploadRequest(BaseModel):
+class UploadConfirmation(BaseModel):
     original_filename: str
     object_key: str
+
+class BatchConfirmUploadRequest(BaseModel):
     conversation_id: Optional[str] = None
+    files: list[UploadConfirmation]
 
 class ProcessUrlRequest(BaseModel):
     url: HttpUrl
