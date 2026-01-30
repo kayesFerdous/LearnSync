@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder } from './types';
-import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder } from './api';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder, updateConversationTitle, updateFolder, deleteFolder } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
@@ -501,6 +501,74 @@ export function useChat() {
     }
   }, [loadConversations]);
 
+  // Update conversation title
+  const updateConversationTitleHandler = useCallback(async (conversationId: string, title: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await updateConversationTitle(conversationId, title);
+      
+      // Update local state
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId ? { ...c, title } : c
+      ));
+      
+      setFolders(prev => prev.map(f => ({
+        ...f,
+        conversations: f.conversations.map(c => 
+          c.id === conversationId ? { ...c, title } : c
+        )
+      })));
+
+      return { success: true };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Update conversation title error:', error);
+        return { success: false, error: message };
+    }
+  }, []);
+
+  // Update folder
+  const updateFolderHandler = useCallback(async (folderId: string, data: { name?: string, color?: string, icon?: string }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await updateFolder(folderId, data);
+      
+      // Update local state manually since backend returns { status: "success" }
+      setFolders(prev => prev.map(f => 
+        f.id === folderId ? { ...f, ...data } : f
+      ));
+      
+      return { success: true };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Update folder error:', error);
+        return { success: false, error: message };
+    }
+  }, []);
+
+  // Delete folder
+  const deleteFolderHandler = useCallback(async (folderId: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await deleteFolder(folderId);
+      
+      // Optimistically remove from sidebar
+      setFolders(prev => prev.filter(f => f.id !== folderId));
+      
+      // If we were in a conversation within this folder, what should happen?
+      // Probably nothing immediate if the conversation itself wasn't deleted (backend logic depends),
+      // but usually folder deletion cascades or un-folders conversations.
+      // Assuming cascade delete for now, or just folder removal. 
+      // Safest is to reset view if we were in that folder context specifically (e.g. course view)
+      if (activeFolderId === folderId) {
+          startNewChat();
+      }
+
+      return { success: true };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Delete folder error:', error);
+        return { success: false, error: message };
+    }
+  }, [activeFolderId, startNewChat]);
+
   return {
     // Conversation state
     conversations,
@@ -520,6 +588,9 @@ export function useChat() {
     openCourseSetup, // Export new function
     deleteConversationHandler,
     createFolderHandler,
+    updateConversationTitleHandler,
+    updateFolderHandler,
+    deleteFolderHandler,
     
     // Chat functions
     sendMessage,

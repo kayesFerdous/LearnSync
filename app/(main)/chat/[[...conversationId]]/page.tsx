@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRef, useEffect, useState, use } from 'react';
-import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2, ChevronDown, ChevronRight, FolderPlus } from 'lucide-react';
+import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2, ChevronDown, ChevronRight, FolderPlus, Pencil, MoreHorizontal, Palette, Check, X } from 'lucide-react';
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
 import { useViewerState } from '@/app/(main)/chat/_lib/use-viewer-state';
@@ -28,6 +28,9 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     loadMessages,
     deleteConversationHandler,
     createFolderHandler,
+    updateConversationTitleHandler,
+    updateFolderHandler,
+    deleteFolderHandler,
   } = useChat();
 
   const router = useRouter();
@@ -46,13 +49,90 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     isOpen: boolean;
     conversationId: string | null;
     conversationTitle: string;
+    type: 'conversation' | 'course';
   }>({
     isOpen: false,
     conversationId: null,
     conversationTitle: '',
+    type: 'conversation',
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Editing state
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  
+  // Folder editing state
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
+  
+  // Conversation editing state
+  const [conversationMenuOpenId, setConversationMenuOpenId] = useState<string | null>(null);
+  
+  const [folderEditName, setFolderEditName] = useState('');
+  
   const { setBreadcrumbOverride } = useUiStore();
+
+  const startEditingConversation = (id: string, title: string) => {
+    setEditingConversationId(id);
+    setEditingTitle(title);
+    setConversationMenuOpenId(null);
+  };
+
+
+  const saveConversationTitle = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!editingConversationId || !editingTitle.trim()) return;
+    
+    await updateConversationTitleHandler(editingConversationId, editingTitle);
+    setEditingConversationId(null);
+  };
+
+  const cancelEditingConversation = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setEditingConversationId(null);
+    setEditingTitle('');
+  };
+
+  const toggleFolderMenu = (e: React.MouseEvent, folderId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFolderMenuOpenId(prev => prev === folderId ? null : folderId);
+    setConversationMenuOpenId(null);
+  };
+  
+  const toggleConversationMenu = (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setConversationMenuOpenId(prev => prev === conversationId ? null : conversationId);
+    setFolderMenuOpenId(null);
+  };
+
+  const startEditingFolder = (folder: any) => {
+    setEditingFolderId(folder.id);
+    setFolderEditName(folder.name);
+    setFolderMenuOpenId(null);
+  };
+
+  const saveFolderEdit = async (e?: React.FormEvent) => {
+     e?.preventDefault();
+     if (!editingFolderId || !folderEditName.trim()) return;
+     await updateFolderHandler(editingFolderId, { name: folderEditName });
+     setEditingFolderId(null);
+  };
+
+  const handleFolderDelete = (folderId: string, folderName: string) => {
+    setDeleteConfirmation({
+        isOpen: true,
+        conversationId: folderId, // Overloaded field, serving as ID
+        conversationTitle: folderName, // Overloaded field, serving as Name
+        type: 'course',
+    });
+    setFolderMenuOpenId(null);
+  };
+
+
   
   // Viewer state management
   const { viewerContent, splitRatio, isViewerActive, openViewer, closeViewer, setSplitRatio } = useViewerState();
@@ -122,14 +202,14 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     window.history.pushState(null, '', `/chat/${conversationId}`);
   };
 
-  const handleDeleteClick = (e: React.MouseEvent, conversationId: string, title: string) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDeleteClick = (conversationId: string, title: string) => {
     setDeleteConfirmation({
       isOpen: true,
       conversationId,
       conversationTitle: title,
+      type: 'conversation',
     });
+    setConversationMenuOpenId(null);
   };
 
   const handleConfirmDelete = async () => {
@@ -137,12 +217,22 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
     setIsDeleting(true);
     try {
-      const result = await deleteConversationHandler(deleteConfirmation.conversationId);
-      if (result.success) {
-        showSuccessToast(`Conversation "${deleteConfirmation.conversationTitle}" deleted`);
-        setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '' });
+      if (deleteConfirmation.type === 'course') {
+         const result = await deleteFolderHandler(deleteConfirmation.conversationId);
+         if (result.success) {
+            showSuccessToast(`Course "${deleteConfirmation.conversationTitle}" deleted`);
+            setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
+         } else {
+            showErrorToast(`Failed to delete course: ${result.error}`);
+         }
       } else {
-        showErrorToast(`Failed to delete conversation: ${result.error}`);
+         const result = await deleteConversationHandler(deleteConfirmation.conversationId);
+         if (result.success) {
+            showSuccessToast(`Conversation "${deleteConfirmation.conversationTitle}" deleted`);
+            setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
+         } else {
+            showErrorToast(`Failed to delete conversation: ${result.error}`);
+         }
       }
     } finally {
       setIsDeleting(false);
@@ -150,7 +240,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   };
 
   const handleCancelDelete = () => {
-    setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '' });
+    setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
   };
 
   const handleCreateCourseComplete = (folderId: string) => {
@@ -275,8 +365,30 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
               <div className="space-y-1">
                 {conversations.map((conversation) => {
                   const isActive = currentConversationId === conversation.id;
+                  const isEditing = editingConversationId === conversation.id;
+
+                  if (isEditing) {
+                    return (
+                       <div key={conversation.id} className="px-2 py-1">
+                          <form onSubmit={saveConversationTitle} className="flex items-center gap-1">
+                             <input
+                                autoFocus
+                                type="text"
+                                value={editingTitle}
+                                onChange={(e) => setEditingTitle(e.target.value)}
+                                className="flex-1 min-w-0 bg-background border border-primary rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                onBlur={() => saveConversationTitle()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') cancelEditingConversation();
+                                }}
+                             />
+                          </form>
+                       </div>
+                    );
+                  }
+
                   return (
-                    <div key={conversation.id} className="group relative">
+                    <div key={conversation.id} className="group relative pr-8 bg-transparent hover:bg-transparent">
                       <button
                         onClick={() => handleConversationClick(conversation.id)}
                         disabled={isLoading}
@@ -291,20 +403,43 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                       >
                         {conversation.title}
                       </button>
-                      <button
-                        onClick={(e) => handleDeleteClick(e, conversation.id, conversation.title)}
-                        disabled={isLoading || isDeleting}
-                        className={cn(
-                          "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200",
-                          isActive
-                            ? "hover:bg-white/20 text-primary-foreground"
-                            : "hover:bg-red-500/10 text-red-600"
+                      
+                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                        <button
+                            onClick={(e) => toggleConversationMenu(e, conversation.id)}
+                            className={cn(
+                                "p-1.5 rounded text-muted-foreground transition-all duration-200",
+                                conversationMenuOpenId === conversation.id 
+                                    ? "opacity-100 bg-accent text-foreground" 
+                                    : isActive 
+                                        ? "opacity-100 text-primary-foreground hover:bg-white/20" 
+                                        : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                            )}
+                        >
+                            <MoreHorizontal className="h-4 w-4" />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {conversationMenuOpenId === conversation.id && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-popover text-popover-foreground border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1">
+                                    <button 
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                        onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" /> Rename
+                                    </button>
+                                     <button 
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent text-red-500 hover:text-red-600 flex items-center gap-2"
+                                        onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </button>
+                                </div>
+                            </>
                         )}
-                        title="Delete conversation"
-                        aria-label={`Delete conversation "${conversation.title}"`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -314,37 +449,86 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
             {/* Folders with conversations */}
             {folders.map((folder) => {
               const isExpanded = expandedFolders.has(folder.id);
+              const isEditingVal = editingFolderId === folder.id;
               
               return (
                 <div key={folder.id} className="space-y-1">
                   {/* Folder Header */}
-                  <div className="flex items-center gap-1 group pr-2">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        toggleFolder(folder.id);
-                      }}
-                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 shrink-0" />
-                      )}
-                    </button>
-                    
-                    <Link
-                      href={`/course/${folder.id}`}
-                      className="flex-1 flex items-center justify-between py-2 text-sm font-medium text-foreground hover:bg-accent rounded-lg px-2 transition-colors duration-150 truncate"
-                    >
-                      <span className="truncate">{folder.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {folder.conversations.length}
-                      </span>
-                    </Link>
+                  {isEditingVal ? (
+                    <div className="flex items-center gap-1 px-2 py-1 ml-6">
+                        <form onSubmit={saveFolderEdit} className="flex-1">
+                            <input
+                                autoFocus
+                                value={folderEditName}
+                                onChange={e => setFolderEditName(e.target.value)}
+                                className="w-full bg-background border border-primary rounded px-2 py-1 text-sm focus:outline-none"
+                                onBlur={(e) => saveFolderEdit(e)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') setEditingFolderId(null);
+                                }}
+                            />
+                        </form>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 group pr-2 relative">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleFolder(folder.id);
+                        }}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0" />
+                        )}
+                      </button>
+                      
+                      <Link
+                        href={`/course/${folder.id}`}
+                        className="flex-1 flex items-center justify-between py-2 text-sm font-medium text-foreground hover:bg-accent rounded-lg px-2 transition-colors duration-150 truncate"
+                      >
+                        <span className="truncate">{folder.name}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {folder.conversations.length}
+                        </span>
+                      </Link>
 
-                    <div className="p-1.5 w-[26px]"></div>
-                  </div>
+                      <div className="relative">
+                        <button
+                            onClick={(e) => toggleFolderMenu(e, folder.id)}
+                            className={cn(
+                                "p-1.5 rounded text-muted-foreground transition-all duration-200",
+                                folderMenuOpenId === folder.id ? "opacity-100 bg-accent text-foreground" : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                            )}
+                        >
+                            <MoreHorizontal className="h-4 w-4" />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {folderMenuOpenId === folder.id && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setFolderMenuOpenId(null)} />
+                                <div className="absolute right-0 top-full mt-1 w-32 bg-popover text-popover-foreground border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1">
+                                    <button 
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                        onClick={(e) => { e.preventDefault(); startEditingFolder(folder); }}
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" /> Rename
+                                    </button>
+                                     <button 
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent text-red-500 hover:text-red-600 flex items-center gap-2"
+                                        onClick={(e) => { e.preventDefault(); handleFolderDelete(folder.id, folder.name); }}
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Folder Conversations */}
                   {isExpanded && (
@@ -356,8 +540,30 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                       ) : (
                         folder.conversations.map((conversation) => {
                           const isActive = currentConversationId === conversation.id;
+                          const isEditing = editingConversationId === conversation.id;
+
+                          if (isEditing) {
+                            return (
+                               <div key={conversation.id} className="px-2 py-1">
+                                  <form onSubmit={saveConversationTitle} className="flex items-center gap-1">
+                                     <input
+                                        autoFocus
+                                        type="text"
+                                        value={editingTitle}
+                                        onChange={(e) => setEditingTitle(e.target.value)}
+                                        className="flex-1 min-w-0 bg-background border border-primary rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                        onBlur={() => saveConversationTitle()}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Escape') cancelEditingConversation();
+                                        }}
+                                     />
+                                  </form>
+                               </div>
+                            );
+                          }
+
                           return (
-                            <div key={conversation.id} className="group relative">
+                            <div key={conversation.id} className="group relative pr-8 bg-transparent hover:bg-transparent">
                               <button
                                 onClick={() => handleConversationClick(conversation.id)}
                                 disabled={isLoading}
@@ -372,20 +578,43 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                               >
                                 {conversation.title}
                               </button>
-                              <button
-                                onClick={(e) => handleDeleteClick(e, conversation.id, conversation.title)}
-                                disabled={isLoading || isDeleting}
-                                className={cn(
-                                  "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all duration-200",
-                                  isActive
-                                    ? "hover:bg-white/20 text-primary-foreground"
-                                    : "hover:bg-red-500/10 text-red-600"
+                              
+                              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                                <button
+                                    onClick={(e) => toggleConversationMenu(e, conversation.id)}
+                                    className={cn(
+                                        "p-1.5 rounded text-muted-foreground transition-all duration-200",
+                                        conversationMenuOpenId === conversation.id 
+                                            ? "opacity-100 bg-accent text-foreground" 
+                                            : isActive 
+                                                ? "opacity-100 text-primary-foreground hover:bg-white/20" 
+                                                : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                                    )}
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {conversationMenuOpenId === conversation.id && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
+                                        <div className="absolute right-0 top-full mt-1 w-32 bg-popover text-popover-foreground border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1">
+                                            <button 
+                                                className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                                onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" /> Rename
+                                            </button>
+                                            <button 
+                                                className="text-left px-3 py-2 text-sm hover:bg-accent text-red-500 hover:text-red-600 flex items-center gap-2"
+                                                onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                                            </button>
+                                        </div>
+                                    </>
                                 )}
-                                title="Delete conversation"
-                                aria-label={`Delete conversation "${conversation.title}"`}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              </div>
                             </div>
                           );
                         })
@@ -527,6 +756,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         isDeleting={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
+        type={deleteConfirmation.type}
       />
 
       {/* Toast Notifications */}

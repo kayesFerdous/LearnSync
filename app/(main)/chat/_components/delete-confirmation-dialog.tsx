@@ -9,6 +9,7 @@ interface DeleteConfirmationDialogProps {
   isDeleting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  type?: 'conversation' | 'course';
 }
 
 export function DeleteConfirmationDialog({
@@ -17,8 +18,11 @@ export function DeleteConfirmationDialog({
   isDeleting,
   onConfirm,
   onCancel,
+  type = 'conversation',
 }: DeleteConfirmationDialogProps) {
   if (!isOpen) return null;
+
+  const itemLabel = type === 'course' ? 'Course' : 'Conversation';
 
   return (
     <>
@@ -46,7 +50,7 @@ export function DeleteConfirmationDialog({
               </div>
               <div>
                 <h2 id="dialog-title" className="text-lg font-semibold text-foreground">
-                  Delete Conversation?
+                  Delete {itemLabel}?
                 </h2>
                 <p id="dialog-description" className="text-sm text-muted-foreground mt-1">
                   This action cannot be undone.
@@ -70,7 +74,12 @@ export function DeleteConfirmationDialog({
               <span className="font-medium text-foreground break-words">
                 "{conversationTitle}"
               </span>
-              ? This will permanently remove the conversation and all its messages.
+              ? This will permanently remove the {itemLabel.toLowerCase()} and all its contents.
+              {type === 'course' && (
+                <span className="block mt-2 text-red-500/90 text-xs font-medium bg-red-500/10 p-2 rounded">
+                   Warning: All conversations inside this course will be lost!
+                </span>
+              )}
             </p>
           </div>
 

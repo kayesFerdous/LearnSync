@@ -307,3 +307,49 @@ export const createFolder = async (name: string, icon?: string, theme?: string):
   if (!response.ok) throw new Error(`Failed to create folder (${response.status})`);
   return response.json();
 };
+
+/**
+ * Update conversation title
+ * PATCH /conversation/{conversationId}
+ */
+export const updateConversationTitle = async (conversationId: string, title: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/conversation/${conversationId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ title })
+  });
+  if (!response.ok) throw new Error(`Failed to update conversation (${response.status})`);
+  // Backend returns { status: "success" }, we don't need the body
+};
+
+/**
+ * Update folder (rename, change icon/color)
+ * PATCH /conversation/folder/{folderId}
+ */
+export const updateFolder = async (folderId: string, data: { name?: string, color?: string, icon?: string }): Promise<void> => {
+  // Ensure we map 'theme' to 'color' if passed, though strict typing suggests 'color' is what we use in internal API calls
+  const response = await fetch(`${API_BASE_URL}/conversation/folder/${folderId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data)
+  });
+  if (!response.ok) throw new Error(`Failed to update folder (${response.status})`);
+  // Backend returns { status: "success" }
+};
+
+/**
+ * Delete a folder
+ * DELETE /conversation/folder/{folderId}
+ */
+export const deleteFolder = async (folderId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/conversation/folder/${folderId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (response.status === 204) return;
+  if (!response.ok) throw new Error(`Failed to delete folder (${response.status})`);
+};
