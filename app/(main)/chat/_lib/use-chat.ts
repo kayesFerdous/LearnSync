@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder } from './types';
-import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder, updateConversationTitle, updateFolder, deleteFolder } from './api';
+import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder, FileUploadProgress, BatchConfirmResponse } from './types';
+import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder, updateConversationTitle, updateFolder, deleteFolder, batchUploadFiles, MAX_UPLOAD_SIZE, MAX_BATCH_SIZE, calculateTotalSize } from './api';
 import { INITIAL_MESSAGE } from './constants';
 
 export function useChat() {
@@ -569,6 +569,65 @@ export function useChat() {
     }
   }, [activeFolderId, startNewChat]);
 
+  // Batch file upload handler
+  const uploadBatchFiles = useCallback(async (
+    files: File[],
+    onProgress?: (progress: FileUploadProgress[]) => void
+  ): Promise<{ success: boolean; conversationId?: string; error?: string }> => {
+    if (files.length === 0) {
+      return { success: false, error: 'No files provided' };
+    }
+
+    // Validate per-file size limits
+    for (const file of files) {
+      if (file.size > MAX_UPLOAD_SIZE) {
+        return { 
+          success: false, 
+          error: `File "${file.name}" exceeds the 10MB limit.` 
+        };
+      }
+    }
+    
+    // Validate total batch size
+    const totalSize = calculateTotalSize(files);
+    if (totalSize > MAX_BATCH_SIZE) {
+      return {
+        success: false,
+        error: 'Total upload exceeds the 20MB limit. Please remove some files.'
+      };
+    }
+
+    try {
+      const result = await batchUploadFiles(
+        files,
+        currentConversationId,
+        onProgress
+      );
+
+      // Handle conversation creation/association
+      if (result.conversation_id) {
+        // If we weren't in a conversation, redirect to the new one
+        if (!currentConversationId) {
+          setCurrentConversationId(result.conversation_id);
+          window.history.replaceState(null, '', `/chat/${result.conversation_id}`);
+          
+          // Reload messages and conversations
+          await loadMessages(result.conversation_id);
+          await loadConversations();
+        }
+      }
+
+      return { 
+        success: true, 
+        conversationId: result.conversation_id 
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Batch upload error:', error);
+      return { success: false, error: message };
+    }
+  }, [currentConversationId, loadMessages, loadConversations]);
+
   return {
     // Conversation state
     conversations,
@@ -596,5 +655,8 @@ export function useChat() {
     sendMessage,
     approveRoutine,
     rejectRoutine,
+    
+    // File upload functions
+    uploadBatchFiles,
   };
 }

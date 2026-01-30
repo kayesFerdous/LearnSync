@@ -1,7 +1,27 @@
-import type { BackendStreamEvent, PresignResponse, Conversation, Message, RoutineData, Folder, ConfirmUploadResponse, ConversationListResponse } from './types';
+import type { 
+  BackendStreamEvent, 
+  PresignResponse, 
+  Conversation, 
+  Message, 
+  RoutineData, 
+  Folder, 
+  ConfirmUploadResponse, 
+  ConversationListResponse,
+  BatchPresignFileRequest,
+  BatchPresignResponse,
+  BatchConfirmRequest,
+  BatchConfirmResponse,
+  FileUploadProgress
+} from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
 const API_BASE_URL = 'http://localhost:8000';
+
+// Maximum file size for uploads (10MB per file)
+export const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10,485,760 bytes
+
+// Maximum total batch size (20MB)
+export const MAX_BATCH_SIZE = 20 * 1024 * 1024; // 20,971,520 bytes
 
 /**
  * Parse a Server-Sent Events block into a BackendStreamEvent
@@ -42,9 +62,8 @@ export const validateImageFile = (file: File): string | null => {
   if (!validTypes.includes(file.type)) {
     return 'Please select a valid image file (JPEG, PNG, GIF, or WebP)';
   }
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  if (file.size > maxSize) {
-    return 'Image size must be less than 10MB';
+  if (file.size > MAX_UPLOAD_SIZE) {
+    return `Image size must be less than ${MAX_UPLOAD_SIZE / (1024 * 1024)}MB`;
   }
   return null;
 };
@@ -56,11 +75,51 @@ export const validatePdfFile = (file: File): string | null => {
   if (file.type !== 'application/pdf') {
     return 'Please select a valid PDF file';
   }
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  if (file.size > maxSize) {
-    return `PDF size must be less than 5MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB`;
+  if (file.size > MAX_UPLOAD_SIZE) {
+    return `PDF size must be less than ${MAX_UPLOAD_SIZE / (1024 * 1024)}MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB`;
   }
   return null;
+};
+
+/**
+ * Validate any file for size
+ */
+export const validateFileSize = (file: File): string | null => {
+  if (file.size > MAX_UPLOAD_SIZE) {
+    return `File "${file.name}" exceeds the maximum allowed size of ${MAX_UPLOAD_SIZE / (1024 * 1024)}MB`;
+  }
+  return null;
+};
+
+/**
+ * Validate multiple files for size (per-file and total batch limits)
+ * Returns an array of error messages (empty if all files are valid)
+ */
+export const validateBatchFileSize = (files: File[], existingFiles: File[] = []): string[] => {
+  const errors: string[] = [];
+  
+  // Check per-file size limit
+  for (const file of files) {
+    if (file.size > MAX_UPLOAD_SIZE) {
+      errors.push(`File "${file.name}" exceeds the 10MB limit.`);
+    }
+  }
+  
+  // Check total batch size limit (including existing files)
+  const allFiles = [...existingFiles, ...files];
+  const totalSize = allFiles.reduce((sum, file) => sum + file.size, 0);
+  if (totalSize > MAX_BATCH_SIZE) {
+    errors.push('Total upload exceeds the 20MB limit. Please remove some files.');
+  }
+  
+  return errors;
+};
+
+/**
+ * Calculate total size of files in bytes
+ */
+export const calculateTotalSize = (files: File[]): number => {
+  return files.reduce((sum, file) => sum + file.size, 0);
 };
 
 export const presignUpload = async (filename: string, contentType: string): Promise<PresignResponse> => {
@@ -92,6 +151,202 @@ export const confirmUpload = async (objectKey: string, originalFilename: string)
   });
   if (!response.ok) throw new Error('Failed to confirm upload');
   return response.json();
+};
+
+/**
+ * Request presigned URLs for multiple files in a single batch request
+ * POST /uploads/presign
+ */
+export const batchPresignUpload = async (files: BatchPresignFileRequest[]): Promise<BatchPresignResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/presign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ files }),
+  });
+  
+  if (!response.ok) {
+    if (response.status === 400) {
+      const errorData = await response.json().catch(() => ({ detail: 'File size exceeds maximum allowed size' }));
+      throw new Error(errorData.detail || 'One or more files exceed the maximum allowed size (10MB)');
+    }
+    throw new Error('Failed to get presigned URLs');
+  }
+  
+  return response.json();
+};
+
+/**
+ * Confirm multiple file uploads in a single batch request
+ * POST /uploads/confirm
+ */
+export const batchConfirmUpload = async (request: BatchConfirmRequest): Promise<BatchConfirmResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(request),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to confirm batch upload');
+  }
+  
+  return response.json();
+};
+
+/**
+ * Upload a single file to R2 using the presigned URL
+ * Returns true on success, throws on failure
+ */
+export const uploadFileToR2 = async (
+  url: string, 
+  file: File,
+  onProgress?: (progress: number) => void
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        const progress = Math.round((event.loaded / event.total) * 100);
+        onProgress(progress);
+      }
+    });
+    
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(new Error(`Failed to upload file: ${xhr.statusText}`));
+      }
+    });
+    
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during file upload'));
+    });
+    
+    xhr.addEventListener('abort', () => {
+      reject(new Error('File upload was aborted'));
+    });
+    
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.send(file);
+  });
+};
+
+/**
+ * Batch upload workflow: presign, upload to R2, and confirm
+ * Handles multiple files in a single batch operation
+ */
+export const batchUploadFiles = async (
+  files: File[],
+  conversationId: string | null = null,
+  onProgress?: (progress: FileUploadProgress[]) => void
+): Promise<BatchConfirmResponse> => {
+  // Validate per-file size limits
+  for (const file of files) {
+    if (file.size > MAX_UPLOAD_SIZE) {
+      throw new Error(`File "${file.name}" exceeds the 10MB limit.`);
+    }
+  }
+  
+  // Validate total batch size
+  const totalSize = calculateTotalSize(files);
+  if (totalSize > MAX_BATCH_SIZE) {
+    throw new Error('Total upload exceeds the 20MB limit. Please remove some files.');
+  }
+
+  // Initialize progress tracking
+  const progressMap: Map<string, FileUploadProgress> = new Map();
+  files.forEach(file => {
+    progressMap.set(file.name, {
+      filename: file.name,
+      status: 'pending',
+      progress: 0
+    });
+  });
+
+  const updateProgress = () => {
+    if (onProgress) {
+      onProgress(Array.from(progressMap.values()));
+    }
+  };
+
+  // Step 1: Request presigned URLs for all files
+  // Note: file_size must be an integer (bytes)
+  const presignRequest: BatchPresignFileRequest[] = files.map(file => ({
+    filename: file.name,
+    content_type: file.type,
+    file_size: Math.round(file.size) // Ensure integer
+  }));
+
+  const presignResponse = await batchPresignUpload(presignRequest);
+
+  // Create a map of filename to presign response for easy lookup
+  const presignMap = new Map(
+    presignResponse.files.map(f => [f.filename, f])
+  );
+
+  // Step 2: Upload each file to R2
+  const uploadPromises = files.map(async (file) => {
+    const presignData = presignMap.get(file.name);
+    if (!presignData) {
+      throw new Error(`No presigned URL found for file: ${file.name}`);
+    }
+
+    progressMap.set(file.name, {
+      filename: file.name,
+      status: 'uploading',
+      progress: 0
+    });
+    updateProgress();
+
+    try {
+      await uploadFileToR2(presignData.upload_url, file, (progress) => {
+        progressMap.set(file.name, {
+          filename: file.name,
+          status: 'uploading',
+          progress
+        });
+        updateProgress();
+      });
+
+      progressMap.set(file.name, {
+        filename: file.name,
+        status: 'uploaded',
+        progress: 100
+      });
+      updateProgress();
+
+      return {
+        original_filename: file.name,
+        object_key: presignData.object_key
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      progressMap.set(file.name, {
+        filename: file.name,
+        status: 'failed',
+        progress: 0,
+        error: errorMessage
+      });
+      updateProgress();
+      throw error;
+    }
+  });
+
+  // Wait for all uploads to complete
+  const uploadedFiles = await Promise.all(uploadPromises);
+
+  // Step 3: Confirm all uploads in a single batch request
+  const confirmRequest: BatchConfirmRequest = {
+    conversation_id: conversationId,
+    files: uploadedFiles
+  };
+
+  return batchConfirmUpload(confirmRequest);
 };
 
 /**

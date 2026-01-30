@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { 
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Folder } from '@/app/(main)/chat/_lib/types'; // Adjusted import path based on workspace
 import { cn } from '@/lib/utils';
+import { BatchUploadModal } from './batch-upload-modal';
 
 // UI Extension for this component
 export interface CourseFolder extends Folder {
@@ -45,6 +46,7 @@ export const getFolderMetadata = (id: string) => {
 
 export function CourseDashboard({ folder }: CourseDashboardProps) {
   const router = useRouter();
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
   // Use provided color/icon or fallback to generated ones
   // We check folder.theme first, then folder.color (legacy/extension), then generated
@@ -52,6 +54,11 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
   // Theme from backend is likely a color string now
   const themeColor = folder.theme || folder.color || metadata.color;
   const folderIcon = folder.icon || metadata.icon;
+
+  const handleUploadSuccess = (conversationId: string) => {
+    // Navigate to the new conversation after upload
+    router.push(`/chat/${conversationId}`);
+  };
 
   return (
     <div 
@@ -90,10 +97,10 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         />
         <QuickActionCard 
           icon={<Upload className="w-6 h-6" />}
-          title="Upload Syllabus"
+          title="Upload Documents"
           description="Add documents to knowledge base"
           themeColor={themeColor}
-          onClick={() => console.log('Upload clicked')}
+          onClick={() => setIsUploadModalOpen(true)}
         />
         <QuickActionCard 
           icon={<Settings className="w-6 h-6" />}
@@ -160,6 +167,14 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           )}
         </div>
       </section>
+
+      {/* Batch Upload Modal */}
+      <BatchUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSuccess={handleUploadSuccess}
+        themeColor={themeColor}
+      />
     </div>
   );
 }
