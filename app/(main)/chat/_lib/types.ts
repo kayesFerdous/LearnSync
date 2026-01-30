@@ -99,3 +99,49 @@ export interface ConfirmUploadResponse {
   object_key: string;
   conversation_id: string;
 }
+
+// Batch Upload Types
+
+export interface BatchPresignFileRequest {
+  filename: string;
+  content_type: string;
+  file_size: number; // bytes
+}
+
+export interface BatchPresignRequest {
+  files: BatchPresignFileRequest[];
+}
+
+export interface BatchPresignFileResponse {
+  filename: string;
+  upload_url: string;
+  object_key: string;
+}
+
+export interface BatchPresignResponse {
+  files: BatchPresignFileResponse[];
+}
+
+export interface BatchConfirmFileRequest {
+  original_filename: string;
+  object_key: string;
+}
+
+export interface BatchConfirmRequest {
+  conversation_id: string | null;
+  files: BatchConfirmFileRequest[];
+}
+
+export interface BatchConfirmResponse {
+  message: string;
+  processed_files: string[]; // list of object_key strings
+  conversation_id: string;
+}
+
+// Upload progress tracking
+export interface FileUploadProgress {
+  filename: string;
+  status: 'pending' | 'uploading' | 'uploaded' | 'failed';
+  progress?: number; // 0-100
+  error?: string;
+}
