@@ -3,13 +3,12 @@ import tempfile
 import logging
 from uuid import uuid4, UUID
 from typing import Optional, List
-from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, Field
 
 from src.services.storage.r2 import get_r2_client
 from src.core.config import settings
 from src.rag.ingestion import parse_and_chunk_file, get_vector_store
-
+from langchain_google_genai import ChatGoogleGenerativeAI
 from src.conversations.model import File
 from src.db.session import AsyncSessionLocal
 
@@ -20,7 +19,7 @@ class FileMetadata(BaseModel):
     topics: List[str] = Field(description="List of key academic topics or concepts covered in the document.")
     doc_type: str = Field(description="The type of document (e.g., Lecture Notes, Exam, Syllabus, Textbook Chapter, Research Paper).")
 
-async def _generate_metadata(text_content: str, llm: BaseChatModel) -> FileMetadata:
+async def _generate_metadata(text_content: str, llm: ChatGoogleGenerativeAI) -> FileMetadata:
     """
     Generates structured academic metadata using Gemini.
     """
@@ -38,14 +37,15 @@ async def _generate_metadata(text_content: str, llm: BaseChatModel) -> FileMetad
     {input_text}
     """
     
-    return await structured_llm.ainvoke(prompt) #type:ignore
+    return await structured_llm.invoke(prompt)
 
 async def process_content(
     source: str,
     user_id: str,
-    llm: BaseChatModel,
+    llm: ChatGoogleGenerativeAI,
     original_filename: Optional[str] = None,
-    is_url: bool = False
+    is_url: bool = False,
+    conversation_id: Optional[str] = None
 ):
     """
     Background task to process content (File from R2 or direct URL):
@@ -112,7 +112,7 @@ async def process_content(
                 summary=metadata.summary,
                 topics=metadata.topics,
                 doc_type=metadata.doc_type,
-                # conversation_id and folder_id are None for direct uploads
+                conversation_id=UUID(conversation_id) if conversation_id else None
             )
             session.add(new_file)
             await session.commit()

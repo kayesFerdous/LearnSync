@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, BackgroundTasks, Depends
 from uuid import uuid4
 from fastapi.exceptions import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from src.api.uploads.schemas import ConfirmUploadRequest, PresignUploadRequest, PresignUploadResponse, ProcessUrlRequest
@@ -8,6 +9,8 @@ from src.core.config import settings
 from src.api.dependencies import get_current_user
 from src.users.model import User
 from src.services.file_processing import process_content
+from src.db.session import get_db
+from src.conversations.service import create_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -74,22 +77,32 @@ async def confirm_upload(
     req: Request,
     confirm_req: ConfirmUploadRequest,
     background_tasks: BackgroundTasks,
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Confirms the upload and triggers background processing.
     """
+    conversation_id = confirm_req.conversation_id
+    if not conversation_id:
+        conversation_id = await create_conversation(db, user.user_id)
+
     # process_content will download the file from R2 and handle ingestion
     background_tasks.add_task(
         process_content,
         source=confirm_req.object_key,
         user_id=str(user.user_id),
-        llm=req.app.state.gemini_llm_temp_0,
+        llm=req.app.state.gemini_llm,
         original_filename=confirm_req.original_filename,
-        is_url=False
+        is_url=False,
+        conversation_id=conversation_id
     )
     
-    return {"message": "File queued for processing", "object_key": confirm_req.object_key}
+    return {
+        "message": "File queued for processing", 
+        "object_key": confirm_req.object_key,
+        "conversation_id": conversation_id
+    }
 
 
 @router.post("/process-url")
@@ -106,10 +119,8 @@ async def process_url(
         process_content,
         source=str(process_url_req.url),
         user_id=str(user.user_id),
-        llm=req.app.state.gemini_llm_temp_0,
+        llm=req.app.state.gemini_llm,
         is_url=True
     )
     
     return {"message": "URL queued for processing", "url": str(process_url_req.url)}
-
-

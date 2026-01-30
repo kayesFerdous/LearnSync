@@ -26,6 +26,8 @@ class Folder(Base):
     )
     
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    icon: Mapped[str] = mapped_column(String(255), nullable=True)
+    color: Mapped[str] = mapped_column(String(255), nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), 

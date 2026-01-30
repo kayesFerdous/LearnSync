@@ -1,26 +1,23 @@
 from uuid import UUID, uuid4
 from fastapi import HTTPException, UploadFile
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.conversations.model import Conversation, File
+from src.conversations.model import Conversation, File, Folder
 
-async def create_conversation(db: AsyncSession, user_id: UUID) -> str:
+async def create_conversation(
+    db: AsyncSession, 
+    user_id: UUID,
+    folder_id: UUID | None = None
+) -> str:
     new_conv = Conversation(
         user_id=user_id,
+        folder_id=folder_id
     )
     db.add(new_conv)
     await db.commit()
     await db.refresh(new_conv)
     return str(new_conv.id)
-
-
-async def get_user_conversations(db: AsyncSession, user_id: UUID):
-    result = await db.execute(
-        select(Conversation)
-        .where(Conversation.user_id == user_id)
-        .order_by(Conversation.updated_at.desc())
-    )
-    return result.scalars().all()
 
 
 async def get_conversation(
@@ -143,4 +140,48 @@ async def _extract_metadata_with_gemini(text: str) -> dict:
         "summary": "This is a comprehensive study guide covering the fundamental principles of Physics 101, including Newton's laws and kinematics.",
         "topics": ["Physics", "Kinematics", "Newton's Laws"],
         "doc_type": "Lecture Notes"
+    }
+
+
+async def create_folder(
+    db: AsyncSession,
+    user_id: UUID,
+    name: str,
+    icon: str | None = None,
+    color: str | None = None
+) -> Folder:
+    new_folder = Folder(
+        user_id=user_id,
+        name=name,
+        icon=icon,
+        color=color
+    )
+    db.add(new_folder)
+    await db.commit()
+    await db.refresh(new_folder)
+    return new_folder
+
+async def get_user_content(db: AsyncSession, user_id: UUID):
+    # Fetch folders with conversations
+    stmt_folders = (
+        select(Folder)
+        .options(selectinload(Folder.conversations))
+        .where(Folder.user_id == user_id)
+        .order_by(Folder.created_at.desc())
+    )
+    result_folders = await db.execute(stmt_folders)
+    folders = result_folders.scalars().all()
+
+    # Fetch root conversations (no folder)
+    stmt_convs = (
+        select(Conversation)
+        .where(Conversation.user_id == user_id, Conversation.folder_id == None)
+        .order_by(Conversation.updated_at.desc())
+    )
+    result_convs = await db.execute(stmt_convs)
+    conversations = result_convs.scalars().all()
+
+    return {
+        "folders": folders,
+        "conversations": conversations
     }
