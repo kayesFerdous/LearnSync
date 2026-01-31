@@ -1,6 +1,8 @@
 from typing import Optional
 from pydantic import BaseModel, HttpUrl
 from enum import Enum
+from datetime import datetime
+
 
 class ProcessingStatus(str, Enum):
     PENDING = "pending"
@@ -8,6 +10,29 @@ class ProcessingStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class FileType(str, Enum):
+    # Document formats
+    PDF = "pdf"
+    DOCX = "docx"
+    PPTX = "pptx"
+    XLSX = "xlsx"
+    HTML = "html"
+    MARKDOWN = "markdown"
+    # Image formats
+    PNG = "png"
+    JPEG = "jpeg"
+    TIFF = "tiff"
+    # Audio formats (ASR support)
+    WAV = "wav"
+    MP3 = "mp3"
+    # Video text tracks
+    VTT = "vtt"
+    # Web content
+    URL = "url"
+    # Fallback
+    UNKNOWN = "unknown"
 
 class PresignUploadRequest(BaseModel):
     filename: str
@@ -33,6 +58,7 @@ class BatchPresignUploadResponse(BaseModel):
 class UploadConfirmation(BaseModel):
     original_filename: str
     object_key: str
+    content_type: str  # Required to determine file_type
 
 class BatchConfirmUploadRequest(BaseModel):
     folder_id: Optional[str] = None
@@ -61,6 +87,22 @@ class BatchConfirmResponse(BaseModel):
     processed_files: list[str] # legacy
     files: list[BatchConfirmFileResponse]
     conversation_id: str
+
+
+class FolderFileResponse(BaseModel):
+    id: str
+    filename: str
+    file_type: FileType
+    status: ProcessingStatus
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FolderFilesListResponse(BaseModel):
+    files: list[FolderFileResponse]
+    total: int
 
 
 

@@ -22,6 +22,29 @@ class ProcessingStatus(str, Enum):
     FAILED = "failed"
     CANCELLED = "cancelled"
 
+
+class FileType(str, Enum):
+    # Document formats
+    PDF = "pdf"
+    DOCX = "docx"
+    PPTX = "pptx"
+    XLSX = "xlsx"
+    HTML = "html"
+    MARKDOWN = "markdown"
+    # Image formats
+    PNG = "png"
+    JPEG = "jpeg"
+    TIFF = "tiff"
+    # Audio formats (ASR support)
+    WAV = "wav"
+    MP3 = "mp3"
+    # Video text tracks
+    VTT = "vtt"
+    # Web content
+    URL = "url"
+    # Fallback
+    UNKNOWN = "unknown"
+
 class Folder(Base):
     __tablename__ = "folders"
 
@@ -118,6 +141,11 @@ class File(Base):
     
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False) # S3 path
+    file_type: Mapped[FileType] = mapped_column(
+        SQLEnum(FileType), 
+        default=FileType.UNKNOWN, 
+        nullable=False
+    )
     
     # Status tracking
     status: Mapped[ProcessingStatus] = mapped_column(

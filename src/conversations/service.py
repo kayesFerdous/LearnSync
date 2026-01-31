@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.conversations.model import Conversation, File, Folder, ProcessingStatus
+from src.conversations.model import Conversation, File, Folder, ProcessingStatus, FileType
 
 async def create_conversation(
     db: AsyncSession, 
@@ -199,7 +199,8 @@ async def create_pending_file(
     filename: str,
     file_path: str,
     folder_id: UUID | None = None,
-    conversation_id: UUID | None = None
+    conversation_id: UUID | None = None,
+    file_type: FileType = FileType.UNKNOWN
 ) -> File:
     """
     Creates a File record with PENDING status.
@@ -210,7 +211,8 @@ async def create_pending_file(
         file_path=file_path,
         status=ProcessingStatus.PENDING,
         folder_id=folder_id,
-        conversation_id=conversation_id
+        conversation_id=conversation_id,
+        file_type=file_type
     )
     db.add(new_file)
     await db.commit()
@@ -249,3 +251,38 @@ async def cancel_upload(
         await db.refresh(file_record)
         
     return file_record
+
+
+async def get_folder_files(
+    db: AsyncSession,
+    folder_id: UUID,
+    user_id: UUID
+) -> list[File]:
+    """
+    Retrieves all files for a specific folder belonging to a user.
+    Only loads columns needed for UI rendering.
+    """
+    # First verify the folder belongs to the user
+    folder_stmt = select(Folder.id).where(
+        Folder.id == folder_id,
+        Folder.user_id == user_id
+    )
+    folder_result = await db.execute(folder_stmt)
+    folder = folder_result.scalar_one_or_none()
+    
+    if not folder:
+        return None  # Folder not found or doesn't belong to user
+    
+    # Get only needed columns for UI
+    stmt = select(
+        File.id,
+        File.filename,
+        File.file_type,
+        File.status,
+        File.created_at
+    ).where(
+        File.folder_id == folder_id
+    ).order_by(File.created_at.desc())
+    
+    result = await db.execute(stmt)
+    return result.all()

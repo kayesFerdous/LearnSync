@@ -14,7 +14,10 @@ from src.api.uploads.schemas import (
     FileStatusResponse,
     ProcessingStatus,
     BatchConfirmResponse,
-    BatchConfirmFileResponse
+    BatchConfirmFileResponse,
+    FolderFileResponse,
+    FolderFilesListResponse,
+    FileType
 )
 from src.core.config import settings
 from src.api.dependencies import get_current_user
@@ -25,8 +28,10 @@ from src.conversations.service import (
     create_conversation, 
     create_pending_file, 
     get_file_status,
-    cancel_upload
+    cancel_upload,
+    get_folder_files
 )
+from src.conversations.model import FileType as ModelFileType
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -34,16 +39,44 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/uploads", tags=["Uploads"])
 
 ALLOWED_CONTENT_TYPES = {
+    # Document formats
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", # .docx
     "application/vnd.openxmlformats-officedocument.presentationml.presentation", # .pptx
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", # .xlsx
+    "text/html",
+    "text/markdown",
+    # Image formats
     "image/png",
     "image/jpeg",
     "image/tiff",
-    "text/html",
-    "text/plain",
-    "text/markdown"
+    # Audio formats (ASR support)
+    "audio/wav",
+    "audio/x-wav",
+    "audio/mpeg",  # .mp3
+    # Video text tracks
+    "text/vtt",
+}
+
+# Map content types to FileType enum
+CONTENT_TYPE_TO_FILE_TYPE = {
+    # Document formats
+    "application/pdf": ModelFileType.PDF,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ModelFileType.DOCX,
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ModelFileType.PPTX,
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ModelFileType.XLSX,
+    "text/html": ModelFileType.HTML,
+    "text/markdown": ModelFileType.MARKDOWN,
+    # Image formats
+    "image/png": ModelFileType.PNG,
+    "image/jpeg": ModelFileType.JPEG,
+    "image/tiff": ModelFileType.TIFF,
+    # Audio formats
+    "audio/wav": ModelFileType.WAV,
+    "audio/x-wav": ModelFileType.WAV,
+    "audio/mpeg": ModelFileType.MP3,
+    # Video text tracks
+    "text/vtt": ModelFileType.VTT,
 }
 
 @router.post("/presign", response_model=BatchPresignUploadResponse)
@@ -54,16 +87,23 @@ async def presign_upload(
 ):
     # Extension map for object keys
     ext_map = {
+        # Document formats
         "application/pdf": ".pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        "text/html": ".html",
+        "text/markdown": ".md",
+        # Image formats
         "image/png": ".png",
         "image/jpeg": ".jpg",
         "image/tiff": ".tiff",
-        "text/html": ".html",
-        "text/plain": ".txt",
-        "text/markdown": ".md"
+        # Audio formats
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+        "audio/mpeg": ".mp3",
+        # Video text tracks
+        "text/vtt": ".vtt",
     }
 
     response_files = []
@@ -125,6 +165,12 @@ async def confirm_upload(
     response_files = []
     
     for file_info in confirm_req.files:
+        # Determine file_type from content_type
+        file_type = CONTENT_TYPE_TO_FILE_TYPE.get(
+            file_info.content_type, 
+            ModelFileType.UNKNOWN
+        )
+        
         # Create initial PENDING record via service
         new_file = await create_pending_file(
             db=db,
@@ -132,7 +178,8 @@ async def confirm_upload(
             filename=file_info.original_filename,
             file_path=file_info.object_key,
             folder_id=UUID(confirm_req.folder_id) if confirm_req.folder_id else None,
-            conversation_id=UUID(conversation_id) if conversation_id else None
+            conversation_id=UUID(conversation_id) if conversation_id else None,
+            file_type=file_type
         )
 
         background_tasks.add_task(
@@ -170,13 +217,14 @@ async def process_url(
     """
     Triggers background processing for a directly provided URL.
     """
-    # Create initial PENDING record via service
+    # Create initial PENDING record via service with URL file_type
     new_file = await create_pending_file(
         db=db,
         user_id=user.user_id,
         filename=str(process_url_req.url),
         file_path=str(process_url_req.url),
-        folder_id=UUID(process_url_req.folder_id) if process_url_req.folder_id else None
+        folder_id=UUID(process_url_req.folder_id) if process_url_req.folder_id else None,
+        file_type=ModelFileType.URL
     )
 
     background_tasks.add_task(
@@ -239,3 +287,40 @@ async def cancel_file_upload(
         raise HTTPException(status_code=404, detail="File not found")
         
     return {"message": "Upload cancelled", "status": "cancelled"}
+
+
+@router.get("/folders/{folder_id}/files", response_model=FolderFilesListResponse)
+async def get_files_for_folder(
+    folder_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all files for a specific folder.
+    Returns file information suitable for UI rendering.
+    """
+    try:
+        uuid_folder_id = UUID(folder_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid folder ID format")
+
+    files = await get_folder_files(db, uuid_folder_id, user.user_id)
+    
+    if files is None:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    response_files = [
+        FolderFileResponse(
+            id=str(f.id),
+            filename=f.filename,
+            file_type=FileType(f.file_type.value),
+            status=ProcessingStatus(f.status.value),
+            created_at=f.created_at
+        )
+        for f in files
+    ]
+    
+    return FolderFilesListResponse(
+        files=response_files,
+        total=len(response_files)
+    )
