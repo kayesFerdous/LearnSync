@@ -13,5 +13,24 @@ class UserRead(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
 
+    class Config:
+        from_attributes = True
+
+
+class UsersListResponse(BaseModel):
+    """Response for listing users."""
+    users: list[UserRead]
+    total: int
+    skip: int
+    limit: int
+
+
 class UserDeleteRequest(BaseModel):
+    """Request to delete a user."""
+    user_id: str
+
+
+class UserDeleteResponse(BaseModel):
+    """Response after deleting a user."""
+    message: str
     user_id: str
