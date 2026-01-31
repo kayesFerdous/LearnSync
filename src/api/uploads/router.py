@@ -105,17 +105,17 @@ async def confirm_upload(
     processed_files = []
     
     for file_info in confirm_req.files:
-        # background_tasks.add_task(
-        #     process_content,
-        #     source=file_info.object_key,
-        #     user_id=str(user.user_id),
-        #     llm=req.app.state.gemini_llm,
-        #     original_filename=file_info.original_filename,
-        #     is_url=False,
-        #     conversation_id=conversation_id
-        # )
-        # processed_files.append(file_info.object_key)
-        am = 2
+        background_tasks.add_task(
+            process_content,
+            source=file_info.object_key,
+            user_id=str(user.user_id),
+            llm=req.app.state.gemini_llm,
+            original_filename=file_info.original_filename,
+            is_url=False,
+            folder_id=confirm_req.folder_id,
+            conversation_id=conversation_id
+        )
+        processed_files.append(file_info.object_key)
     
     return {
         "message": "Files queued for processing", 
@@ -139,7 +139,8 @@ async def process_url(
         source=str(process_url_req.url),
         user_id=str(user.user_id),
         llm=req.app.state.gemini_llm,
-        is_url=True
+        is_url=True,
+        folder_id=process_url_req.folder_id,
     )
     
     return {"message": "URL queued for processing", "url": str(process_url_req.url)}

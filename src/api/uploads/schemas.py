@@ -27,9 +27,11 @@ class UploadConfirmation(BaseModel):
     object_key: str
 
 class BatchConfirmUploadRequest(BaseModel):
+    folder_id: Optional[str] = None
     conversation_id: Optional[str] = None
     files: list[UploadConfirmation]
 
 class ProcessUrlRequest(BaseModel):
+    folder_id: Optional[str] = None
     url: HttpUrl
 

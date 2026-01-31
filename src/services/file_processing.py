@@ -45,6 +45,7 @@ async def process_content(
     llm: ChatGoogleGenerativeAI,
     original_filename: Optional[str] = None,
     is_url: bool = False,
+    folder_id: Optional[str] = None,
     conversation_id: Optional[str] = None
 ):
     """
@@ -85,7 +86,13 @@ async def process_content(
         
         # 2. Parse & Chunk
         logger.info(f"Parsing and chunking content from {processing_source}...")
-        documents = parse_and_chunk_file(processing_source, user_id, document_id)
+        documents = parse_and_chunk_file(
+            processing_source, 
+            user_id, 
+            document_id,
+            folder_id=str(folder_id) if folder_id else None,
+            conversation_id=str(conversation_id) if conversation_id else None
+        )
         
         if not documents:
             logger.warning(f"No content extracted from {source}")
@@ -112,6 +119,7 @@ async def process_content(
                 summary=metadata.summary,
                 topics=metadata.topics,
                 doc_type=metadata.doc_type,
+                folder_id = UUID(folder_id) if folder_id else None,
                 conversation_id=UUID(conversation_id) if conversation_id else None
             )
             session.add(new_file)

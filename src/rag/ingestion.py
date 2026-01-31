@@ -11,7 +11,9 @@ from .store import get_vector_store
 def _create_metadata_from_chunk(
     chunk: DocChunk,
     user_id: str,
-    document_id: str
+    document_id: str,
+    folder_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
 ) -> dict:
     """
     Extracts and standardizes metadata from a Docling chunk.
@@ -33,7 +35,7 @@ def _create_metadata_from_chunk(
         # label is typically an enum, converting to string and cleaning
         content_type = str(meta.doc_items[0].label).split(".")[-1].lower()
 
-    return {
+    metadata = {
         "source": filename,
         "page": page_number,
         "section": section_context,
@@ -42,16 +44,26 @@ def _create_metadata_from_chunk(
         "document_id": document_id
     }
 
+    if folder_id:
+        metadata["folder_id"] = folder_id
+    
+    if conversation_id:
+        metadata["conversation_id"] = conversation_id
+        
+    return metadata
+
 
 def _convert_chunk_to_document(
     chunk: DocChunk,
     user_id: str,
-    document_id: str
+    document_id: str,
+    folder_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
 ) -> Document:
     """
     Converts a single Docling chunk into a LangChain Document.
     """
-    metadata = _create_metadata_from_chunk(chunk, user_id, document_id)
+    metadata = _create_metadata_from_chunk(chunk, user_id, document_id, folder_id, conversation_id)
     section_context = metadata.get("section", "")
     
     # Prepend context to text for better retrieval context
@@ -64,6 +76,8 @@ def parse_and_chunk_file(
     file_path: str,
     user_id: str,
     document_id: str,
+    folder_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
     max_tokens: int = 700
 ) -> List[Document]:
     """
@@ -83,7 +97,7 @@ def parse_and_chunk_file(
     documents: List[Document] = []
     for chunk in chunk_iterator:
         # The chunker returns DocChunk objects, we convert them to LangChain Documents
-        document = _convert_chunk_to_document(chunk, user_id, document_id) #type: ignore 
+        document = _convert_chunk_to_document(chunk, user_id, document_id, folder_id, conversation_id) #type: ignore 
         documents.append(document)
 
     return documents
@@ -93,12 +107,14 @@ async def ingest_file(
     file_path: str,
     user_id: str,
     document_id: str,
+    folder_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
     collection_name: Optional[str] = None
 ) -> None:
     """
     Orchestrates the full ingestion process: Parse -> Chunk -> Index.
     """
-    documents = parse_and_chunk_file(file_path, user_id, document_id)
+    documents = parse_and_chunk_file(file_path, user_id, document_id, folder_id, conversation_id)
     if not documents:
         return
 
