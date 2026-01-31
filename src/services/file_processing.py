@@ -67,12 +67,16 @@ async def process_content(
     try:
         logger.info(f"Starting processing for: {source} (User: {user_id}, FileID: {file_id})")
         
-        # 0. Update Status to PROCESSING
+        # 0. Update Status to PROCESSING & Check Cancellation
         if file_id:
              async with AsyncSessionLocal() as session:
                 result = await session.execute(select(File).where(File.id == UUID(file_id)))
                 file_record = result.scalar_one_or_none()
                 if file_record:
+                    if file_record.status == ProcessingStatus.CANCELLED:
+                        logger.info(f"File {file_id} was cancelled before processing started.")
+                        return # Stop immediately
+                    
                     file_record.status = ProcessingStatus.PROCESSING
                     await session.commit()
         
@@ -83,6 +87,19 @@ async def process_content(
             # Handle R2 Download
             r2 = await get_r2_client()
             
+            # Check cancellation before download
+            if file_id:
+                async with AsyncSessionLocal() as session:
+                    result = await session.execute(select(File).where(File.id == UUID(file_id)))
+                    file_rec = result.scalar_one_or_none()
+                    if file_rec and file_rec.status == ProcessingStatus.CANCELLED:
+                        logger.info(f"File {file_id} cancelled. Deleting from R2.")
+                        try:
+                            r2.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=source)
+                        except Exception as e:
+                            logger.warning(f"Failed to delete R2 object {source}: {e}")
+                        return
+
             # Create a temp file to store the download
             file_ext = os.path.splitext(source)[1]
             if not file_ext and original_filename:
@@ -99,6 +116,16 @@ async def process_content(
         
         # 2. Parse & Chunk
         logger.info(f"Parsing and chunking content from {processing_source}...")
+        
+        # Check cancellation before heavy parsing
+        if file_id:
+             async with AsyncSessionLocal() as session:
+                result = await session.execute(select(File).where(File.id == UUID(file_id)))
+                file_rec = result.scalar_one_or_none()
+                if file_rec and file_rec.status == ProcessingStatus.CANCELLED:
+                     logger.info(f"File {file_id} cancelled during parsing.")
+                     return
+
         documents = parse_and_chunk_file(
             processing_source, 
             user_id, 
@@ -112,6 +139,16 @@ async def process_content(
 
         # 3. Vector Store Ingestion
         logger.info("Ingesting chunks into Vector Store...")
+        
+        # Check cancellation before embedding (expensive)
+        if file_id:
+             async with AsyncSessionLocal() as session:
+                result = await session.execute(select(File).where(File.id == UUID(file_id)))
+                file_rec = result.scalar_one_or_none()
+                if file_rec and file_rec.status == ProcessingStatus.CANCELLED:
+                     logger.info(f"File {file_id} cancelled before embedding.")
+                     return
+
         await index_documents(documents)
         
         # 4. Gemini Metadata Extraction
