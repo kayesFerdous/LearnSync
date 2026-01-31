@@ -242,12 +242,26 @@ export const useAuthStore = create<AuthState>()(
 interface UiState {
   breadcrumbOverrides: Record<string, string>;
   setBreadcrumbOverride: (segment: string, label: string) => void;
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
 }
 
-export const useUiStore = create<UiState>((set) => ({
-  breadcrumbOverrides: {},
-  setBreadcrumbOverride: (segment, label) =>
-    set((state) => ({
-      breadcrumbOverrides: { ...state.breadcrumbOverrides, [segment]: label }
-    })),
-}));
+export const useUiStore = create<UiState>()(
+  persist(
+    (set) => ({
+      breadcrumbOverrides: {},
+      setBreadcrumbOverride: (segment, label) =>
+        set((state) => ({
+          breadcrumbOverrides: { ...state.breadcrumbOverrides, [segment]: label }
+        })),
+      sidebarOpen: true,
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+    }),
+    {
+      name: 'ui-storage',
+      partialize: (state) => ({ sidebarOpen: state.sidebarOpen }),
+    }
+  )
+);
