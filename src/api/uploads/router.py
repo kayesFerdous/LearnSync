@@ -12,7 +12,9 @@ from src.api.uploads.schemas import (
     ProcessUrlRequest, 
     BatchPresignUploadResponse,
     FileStatusResponse,
-    ProcessingStatus
+    ProcessingStatus,
+    BatchConfirmResponse,
+    BatchConfirmFileResponse
 )
 from src.core.config import settings
 from src.api.dependencies import get_current_user
@@ -101,7 +103,7 @@ async def presign_upload(
 
     return BatchPresignUploadResponse(files=response_files)
 
-@router.post("/confirm")
+@router.post("/confirm", response_model=BatchConfirmResponse)
 async def confirm_upload(
     req: Request,
     confirm_req: BatchConfirmUploadRequest,
@@ -119,7 +121,8 @@ async def confirm_upload(
         conversation_id = await create_conversation(db, user.user_id)
 
     # process_content will download the file from R2 and handle ingestion
-    processed_files = []
+    processed_keys = []
+    response_files = []
     
     for file_info in confirm_req.files:
         # Create initial PENDING record via service
@@ -141,13 +144,19 @@ async def confirm_upload(
             original_filename=file_info.original_filename,
             is_url=False
         )
-        processed_files.append(file_info.object_key)
+        processed_keys.append(file_info.object_key)
+        response_files.append(BatchConfirmFileResponse(
+            filename=file_info.original_filename,
+            file_id=str(new_file.id),
+            object_key=file_info.object_key
+        ))
     
-    return {
-        "message": "Files queued for processing", 
-        "processed_files": processed_files,
-        "conversation_id": conversation_id
-    }
+    return BatchConfirmResponse(
+        message="Files queued for processing", 
+        processed_files=processed_keys,
+        files=response_files,
+        conversation_id=str(conversation_id)
+    )
 
 
 @router.post("/process-url")

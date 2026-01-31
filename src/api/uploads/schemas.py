@@ -51,3 +51,16 @@ class FileStatusResponse(BaseModel):
     filename: str
 
 
+class BatchConfirmFileResponse(BaseModel):
+    filename: str
+    file_id: str
+    object_key: str
+
+class BatchConfirmResponse(BaseModel):
+    message: str
+    processed_files: list[str] # legacy
+    files: list[BatchConfirmFileResponse]
+    conversation_id: str
+
+
+
