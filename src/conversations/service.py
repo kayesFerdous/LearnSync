@@ -229,3 +229,23 @@ async def get_file_status(
     stmt = select(File).where(File.id == file_id, File.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def cancel_upload(
+    db: AsyncSession,
+    file_id: UUID,
+    user_id: UUID
+) -> File | None:
+    """
+    Marks a file as CANCELLED.
+    """
+    stmt = select(File).where(File.id == file_id, File.user_id == user_id)
+    result = await db.execute(stmt)
+    file_record = result.scalar_one_or_none()
+    
+    if file_record:
+        file_record.status = ProcessingStatus.CANCELLED
+        await db.commit()
+        await db.refresh(file_record)
+        
+    return file_record

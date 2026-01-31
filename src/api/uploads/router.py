@@ -22,7 +22,8 @@ from src.db.session import get_db
 from src.conversations.service import (
     create_conversation, 
     create_pending_file, 
-    get_file_status
+    get_file_status,
+    cancel_upload
 )
 from uuid import UUID
 
@@ -207,3 +208,25 @@ async def get_file_status_endpoint(
         error_message=file_record.error_message,
         filename=file_record.filename
     )
+
+
+@router.post("/files/{file_id}/cancel")
+async def cancel_file_upload(
+    file_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Cancels a file upload process.
+    """
+    try:
+        uuid_id = UUID(file_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file ID format")
+
+    file_record = await cancel_upload(db, uuid_id, user.user_id)
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    return {"message": "Upload cancelled", "status": "cancelled"}

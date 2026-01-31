@@ -20,6 +20,7 @@ class ProcessingStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 class Folder(Base):
     __tablename__ = "folders"
