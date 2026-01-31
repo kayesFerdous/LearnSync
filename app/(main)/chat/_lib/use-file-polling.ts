@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProcessingStatus, FileStatusResponse, UploadedFile } from './types';
 import { fetchFileStatus } from './api';
 
-// Default polling interval (4 seconds)
-const DEFAULT_POLL_INTERVAL = 4000;
+// Default polling interval (3 seconds for responsive feedback)
+const DEFAULT_POLL_INTERVAL = 3000;
 
 export interface UseFilePollingOptions {
   /**
-   * Polling interval in milliseconds (default: 4000ms)
+   * Polling interval in milliseconds (default: 3000ms for more responsive updates)
    */
   pollInterval?: number;
   /**
@@ -20,6 +20,10 @@ export interface UseFilePollingOptions {
    * Callback when status changes to 'failed'
    */
   onFailed?: (file: FileStatusResponse) => void;
+  /**
+   * Callback when status changes to 'cancelled'
+   */
+  onCancelled?: (file: FileStatusResponse) => void;
   /**
    * Callback on any status change
    */
@@ -74,6 +78,7 @@ export function useFilePolling(
     pollInterval = DEFAULT_POLL_INTERVAL,
     onCompleted,
     onFailed,
+    onCancelled,
     onStatusChange,
     autoStart = true
   } = options;
@@ -87,6 +92,7 @@ export function useFilePolling(
   // Use refs to track latest callbacks without triggering re-renders
   const onCompletedRef = useRef(onCompleted);
   const onFailedRef = useRef(onFailed);
+  const onCancelledRef = useRef(onCancelled);
   const onStatusChangeRef = useRef(onStatusChange);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -94,8 +100,9 @@ export function useFilePolling(
   useEffect(() => {
     onCompletedRef.current = onCompleted;
     onFailedRef.current = onFailed;
+    onCancelledRef.current = onCancelled;
     onStatusChangeRef.current = onStatusChange;
-  }, [onCompleted, onFailed, onStatusChange]);
+  }, [onCompleted, onFailed, onCancelled, onStatusChange]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {
@@ -119,14 +126,18 @@ export function useFilePolling(
       // Call status change callback
       onStatusChangeRef.current?.(response);
 
-      // Handle terminal states
+      // Handle terminal states - ONLY stop polling on these states
       if (response.status === 'completed') {
         stopPolling();
         onCompletedRef.current?.(response);
       } else if (response.status === 'failed') {
         stopPolling();
         onFailedRef.current?.(response);
+      } else if (response.status === 'cancelled') {
+        stopPolling();
+        onCancelledRef.current?.(response);
       }
+      // For 'pending' and 'processing', continue polling - do NOT stop
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to fetch file status';
       setFetchError(message);
@@ -250,10 +261,14 @@ export function useMultiFilePolling(
     onFileFailedRef.current = onFileFailed;
   }, [onAllComplete, onFileComplete, onFileFailed]);
 
+  // Only poll files that are still in progress (not completed, failed, or cancelled)
   const isPolling = files.some(f => f.status === 'pending' || f.status === 'processing');
 
   const poll = useCallback(async () => {
-    const activeFiles = files.filter(f => f.status === 'pending' || f.status === 'processing');
+    // Only poll files in non-terminal states
+    const activeFiles = files.filter(f => 
+      f.status === 'pending' || f.status === 'processing'
+    );
     
     if (activeFiles.length === 0) {
       if (intervalRef.current) {
@@ -298,8 +313,10 @@ export function useMultiFilePolling(
         }
       });
 
-      // Check if all files are done
-      const allDone = newFiles.every(f => f.status === 'completed' || f.status === 'failed');
+      // Check if all files are done (completed, failed, or cancelled)
+      const allDone = newFiles.every(f => 
+        f.status === 'completed' || f.status === 'failed' || f.status === 'cancelled'
+      );
       if (allDone && newFiles.length > 0) {
         onAllCompleteRef.current?.(newFiles);
       }

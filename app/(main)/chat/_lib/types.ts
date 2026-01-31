@@ -147,7 +147,7 @@ export interface FileUploadProgress {
 }
 
 // File Processing Status Types (async polling mechanism)
-export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
 
 export interface FileStatusResponse {
   id: string;

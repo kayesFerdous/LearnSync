@@ -662,3 +662,27 @@ export const processUrl = async (url: string, conversationId?: string | null): P
   
   return response.json();
 };
+
+/**
+ * Cancel file processing
+ * POST /uploads/files/{file_id}/cancel
+ * Stops processing, deletes file from storage, marks as cancelled
+ */
+export const cancelFileProcessing = async (fileId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/files/${fileId}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('File not found');
+    }
+    if (response.status === 400) {
+      const errorData = await response.json().catch(() => ({ detail: 'Cannot cancel file' }));
+      throw new Error(errorData.detail || 'Cannot cancel file in current state');
+    }
+    throw new Error(`Failed to cancel file processing (${response.status})`);
+  }
+};

@@ -21,7 +21,8 @@ import {
   MAX_UPLOAD_SIZE,
   MAX_BATCH_SIZE,
   processUrl,
-  fetchFileStatus
+  fetchFileStatus,
+  cancelFileProcessing
 } from '@/app/(main)/chat/_lib/api';
 import type { FileUploadProgress, ProcessingStatus, UploadedFile } from '@/app/(main)/chat/_lib/types';
 
@@ -83,23 +84,29 @@ export function BatchUploadModal({
             : item
         ));
 
-        // Stop polling on terminal states
-        if (response.status === 'completed' || response.status === 'failed') {
+        // Stop polling ONLY on terminal states (completed, failed, cancelled)
+        // Keep polling for 'pending' and 'processing' - even if it takes 60+ seconds
+        if (response.status === 'completed' || response.status === 'failed' || response.status === 'cancelled') {
           const intervalId = pollingIntervalRef.current.get(fileId);
           if (intervalId) {
             clearInterval(intervalId);
             pollingIntervalRef.current.delete(fileId);
           }
+          
+          // Auto-remove cancelled items from the list
+          if (response.status === 'cancelled') {
+            setUrlItems(prev => prev.filter(item => item.id !== fileId));
+          }
         }
       } catch (err) {
         console.error('Polling error:', err);
-        // Don't stop polling on transient errors
+        // Don't stop polling on transient errors - keep trying
       }
     };
 
-    // Poll immediately, then every 4 seconds
+    // Poll immediately, then every 3 seconds for responsive updates
     poll();
-    const intervalId = setInterval(poll, 4000);
+    const intervalId = setInterval(poll, 3000);
     pollingIntervalRef.current.set(fileId, intervalId);
   }, []);
 
@@ -168,6 +175,33 @@ export function BatchUploadModal({
       pollingIntervalRef.current.delete(fileId);
     }
     setUrlItems(prev => prev.filter(item => item.id !== fileId));
+  }, []);
+
+  // Cancel a file that is currently processing
+  const handleCancelFile = useCallback(async (fileId: string) => {
+    try {
+      // Call the cancel endpoint
+      await cancelFileProcessing(fileId);
+      
+      // Stop polling for this file
+      const intervalId = pollingIntervalRef.current.get(fileId);
+      if (intervalId) {
+        clearInterval(intervalId);
+        pollingIntervalRef.current.delete(fileId);
+      }
+      
+      // Remove from the UI immediately
+      setUrlItems(prev => prev.filter(item => item.id !== fileId));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to cancel';
+      console.error('Cancel error:', message);
+      // Update the item to show the error
+      setUrlItems(prev => prev.map(item => 
+        item.id === fileId 
+          ? { ...item, error_message: message }
+          : item
+      ));
+    }
   }, []);
 
   const handleFileSelect = useCallback((files: FileList | File[]) => {
@@ -279,6 +313,8 @@ export function BatchUploadModal({
         return <CheckCircle2 className="w-5 h-5 text-green-600" />;
       case 'failed':
         return <AlertCircle className="w-5 h-5 text-destructive" />;
+      case 'cancelled':
+        return <X className="w-5 h-5 text-muted-foreground" />;
     }
   };
 
@@ -293,6 +329,8 @@ export function BatchUploadModal({
         return 'Complete';
       case 'failed':
         return 'Failed';
+      case 'cancelled':
+        return 'Cancelled';
     }
   };
 
@@ -500,6 +538,20 @@ export function BatchUploadModal({
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusIcon(item.status)}
+                    {/* Cancel button for pending/processing items */}
+                    {(item.status === 'pending' || item.status === 'processing') && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCancelFile(item.id);
+                        }}
+                        className="p-1 hover:bg-destructive/10 rounded transition-all"
+                        title="Cancel processing"
+                      >
+                        <X className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    )}
+                    {/* Remove button for completed/failed items */}
                     {(item.status === 'completed' || item.status === 'failed') && (
                       <button
                         onClick={(e) => {
