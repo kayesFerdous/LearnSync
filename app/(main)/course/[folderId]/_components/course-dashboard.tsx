@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { 
@@ -11,9 +11,22 @@ import {
   Clock,
   BookOpen,
   FileText,
-  MoreVertical
+  FileImage,
+  FileAudio,
+  FileSpreadsheet,
+  FileType,
+  Presentation,
+  Globe,
+  Code,
+  File,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  FolderOpen
 } from 'lucide-react';
-import { Folder } from '@/app/(main)/chat/_lib/types'; // Adjusted import path based on workspace
+import { Folder, FolderFile, FolderFileType, ProcessingStatus } from '@/app/(main)/chat/_lib/types';
+import { fetchFolderFiles } from '@/app/(main)/chat/_lib/api';
 import { cn } from '@/lib/utils';
 import { BatchUploadModal } from './batch-upload-modal';
 
@@ -27,6 +40,33 @@ export interface CourseFolder extends Folder {
 interface CourseDashboardProps {
   folder: CourseFolder;
 }
+
+// File type configuration with icons and colors
+const fileTypeConfig: Record<FolderFileType, { icon: React.ElementType; color: string; label: string }> = {
+  pdf: { icon: FileText, color: '#ef4444', label: 'PDF' },
+  docx: { icon: FileType, color: '#2563eb', label: 'Word' },
+  pptx: { icon: Presentation, color: '#f97316', label: 'PowerPoint' },
+  xlsx: { icon: FileSpreadsheet, color: '#22c55e', label: 'Excel' },
+  html: { icon: Code, color: '#8b5cf6', label: 'HTML' },
+  markdown: { icon: FileText, color: '#6b7280', label: 'Markdown' },
+  png: { icon: FileImage, color: '#ec4899', label: 'PNG' },
+  jpeg: { icon: FileImage, color: '#ec4899', label: 'JPEG' },
+  tiff: { icon: FileImage, color: '#ec4899', label: 'TIFF' },
+  wav: { icon: FileAudio, color: '#06b6d4', label: 'WAV' },
+  mp3: { icon: FileAudio, color: '#06b6d4', label: 'MP3' },
+  vtt: { icon: FileText, color: '#14b8a6', label: 'VTT' },
+  url: { icon: Globe, color: '#3b82f6', label: 'URL' },
+  unknown: { icon: File, color: '#9ca3af', label: 'File' }
+};
+
+// Status configuration
+const statusConfig: Record<ProcessingStatus, { icon: React.ElementType; color: string; label: string; bgColor: string }> = {
+  pending: { icon: Clock, color: '#f59e0b', label: 'Pending', bgColor: 'bg-amber-500/10' },
+  processing: { icon: Loader2, color: '#3b82f6', label: 'Processing', bgColor: 'bg-blue-500/10' },
+  completed: { icon: CheckCircle2, color: '#22c55e', label: 'Completed', bgColor: 'bg-emerald-500/10' },
+  failed: { icon: XCircle, color: '#ef4444', label: 'Failed', bgColor: 'bg-red-500/10' },
+  cancelled: { icon: AlertCircle, color: '#6b7280', label: 'Cancelled', bgColor: 'bg-gray-500/10' }
+};
 
 // Temporary helper if backend data is missing
 export const getFolderMetadata = (id: string) => {
@@ -47,6 +87,9 @@ export const getFolderMetadata = (id: string) => {
 export function CourseDashboard({ folder }: CourseDashboardProps) {
   const router = useRouter();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [files, setFiles] = useState<FolderFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(true);
+  const [filesError, setFilesError] = useState<string | null>(null);
   
   // Use provided color/icon or fallback to generated ones
   // We check folder.theme first, then folder.color (legacy/extension), then generated
@@ -55,9 +98,30 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
   const themeColor = folder.theme || folder.color || metadata.color;
   const folderIcon = folder.icon || metadata.icon;
 
+  // Fetch folder files on mount
+  useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        setFilesLoading(true);
+        setFilesError(null);
+        const response = await fetchFolderFiles(folder.id);
+        setFiles(response.files);
+      } catch (error) {
+        console.error('Failed to fetch folder files:', error);
+        setFilesError(error instanceof Error ? error.message : 'Failed to load files');
+      } finally {
+        setFilesLoading(false);
+      }
+    };
+    
+    loadFiles();
+  }, [folder.id]);
+
   const handleUploadSuccess = (conversationId: string) => {
     // Navigate to the new conversation after upload
     router.push(`/chat/${conversationId}`);
+    // Also refresh the files list
+    fetchFolderFiles(folder.id).then(response => setFiles(response.files)).catch(console.error);
   };
 
   return (
@@ -168,11 +232,66 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         </div>
       </section>
 
+      {/* Knowledge Base Files */}
+      <section className="max-w-5xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Knowledge Base</h2>
+            {!filesLoading && files.length > 0 && (
+              <span className="text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                {files.length} {files.length === 1 ? 'file' : 'files'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-card/50 backdrop-blur-sm border rounded-xl overflow-hidden shadow-sm">
+          {filesLoading ? (
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 animate-spin" style={{ color: themeColor }} />
+              <p>Loading files...</p>
+            </div>
+          ) : filesError ? (
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
+              <div className="p-4 rounded-full bg-red-500/10">
+                <XCircle className="w-8 h-8 text-red-500" />
+              </div>
+              <p>{filesError}</p>
+            </div>
+          ) : files.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+              {files.map((file) => (
+                <FileCard key={file.id} file={file} themeColor={themeColor} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
+              <div 
+                className="p-4 rounded-full bg-muted/50"
+                style={{ color: themeColor }}
+              >
+                <Upload className="w-8 h-8 opacity-50" />
+              </div>
+              <p>No files uploaded yet. Upload documents to build your knowledge base!</p>
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="mt-2 px-4 py-2 rounded-lg text-white text-sm font-medium transition-all hover:opacity-90"
+                style={{ backgroundColor: themeColor }}
+              >
+                Upload Files
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Batch Upload Modal */}
       <BatchUploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onSuccess={handleUploadSuccess}
+        folderId={folder.id}
         themeColor={themeColor}
       />
     </div>
@@ -212,5 +331,79 @@ function QuickActionCard({ icon, title, description, themeColor, onClick }: Quic
         {description}
       </p>
     </button>
+  );
+}
+
+interface FileCardProps {
+  file: FolderFile;
+  themeColor: string;
+}
+
+function FileCard({ file, themeColor }: FileCardProps) {
+  const typeConfig = fileTypeConfig[file.file_type] || fileTypeConfig.unknown;
+  const status = statusConfig[file.status] || statusConfig.pending;
+  const FileIcon = typeConfig.icon;
+  const StatusIcon = status.icon;
+  
+  // Truncate filename if too long
+  const displayName = file.filename.length > 28 
+    ? file.filename.slice(0, 25) + '...' 
+    : file.filename;
+  
+  return (
+    <div 
+      className={cn(
+        "group relative flex flex-col p-4 rounded-xl border bg-card transition-all duration-300",
+        "hover:shadow-md hover:border-[var(--theme-color)]/30 hover:-translate-y-0.5"
+      )}
+      style={{ '--theme-color': themeColor } as React.CSSProperties}
+    >
+      {/* File Type Icon */}
+      <div className="flex items-start justify-between mb-3">
+        <div 
+          className="p-2.5 rounded-lg transition-transform group-hover:scale-105 duration-300"
+          style={{ backgroundColor: `${typeConfig.color}15` }}
+        >
+          <FileIcon className="w-5 h-5" style={{ color: typeConfig.color }} />
+        </div>
+        
+        {/* Status Badge */}
+        <div 
+          className={cn(
+            "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+            status.bgColor
+          )}
+        >
+          <StatusIcon 
+            className={cn("w-3 h-3", file.status === 'processing' && "animate-spin")} 
+            style={{ color: status.color }} 
+          />
+          <span style={{ color: status.color }}>{status.label}</span>
+        </div>
+      </div>
+      
+      {/* File Info */}
+      <div className="flex-1 min-w-0">
+        <h4 
+          className="font-medium text-sm text-foreground truncate mb-1 group-hover:text-[var(--theme-color)] transition-colors"
+          title={file.filename}
+        >
+          {displayName}
+        </h4>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span 
+            className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
+            style={{ 
+              backgroundColor: `${typeConfig.color}15`, 
+              color: typeConfig.color 
+            }}
+          >
+            {typeConfig.label}
+          </span>
+          <span className="text-muted-foreground/60">•</span>
+          <span>{format(new Date(file.created_at), 'MMM d, yyyy')}</span>
+        </div>
+      </div>
+    </div>
   );
 }

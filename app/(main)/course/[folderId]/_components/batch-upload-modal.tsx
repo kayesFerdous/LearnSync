@@ -42,6 +42,7 @@ interface BatchUploadModalProps {
   onSuccess?: (conversationId: string) => void;
   onFilesProcessed?: () => void; // Called when files finish processing (for folder context - no navigation)
   conversationId?: string | null;
+  folderId?: string | null; // Folder ID for uploads within a folder context
   themeColor?: string;
   folderContext?: boolean; // If true, don't navigate on success - stay on folder page
 }
@@ -52,6 +53,7 @@ export function BatchUploadModal({
   onSuccess,
   onFilesProcessed,
   conversationId = null,
+  folderId = null,
   themeColor = '#3b82f6',
   folderContext = true // Default to folder context (no navigation)
 }: BatchUploadModalProps) {
@@ -209,7 +211,7 @@ export function BatchUploadModal({
     setError(null);
 
     try {
-      const response = await processUrl(url, conversationId);
+      const response = await processUrl(url, conversationId, folderId);
       
       // Extract filename from URL for display
       const urlObj = new URL(url);
@@ -236,7 +238,7 @@ export function BatchUploadModal({
     } finally {
       setIsProcessingUrl(false);
     }
-  }, [urlInput, conversationId, startPolling]);
+  }, [urlInput, conversationId, folderId, startPolling]);
 
   // Remove a URL item
   const removeUrlItem = useCallback((fileId: string) => {
@@ -332,7 +334,8 @@ export function BatchUploadModal({
       const result = await batchUploadFiles(
         selectedFiles,
         conversationId,
-        setUploadProgress
+        setUploadProgress,
+        folderId
       );
 
       // Store conversation ID for later navigation (after processing completes)
@@ -374,7 +377,7 @@ export function BatchUploadModal({
     } finally {
       setIsUploading(false);
     }
-  }, [selectedFiles, conversationId, onSuccess, startPolling]);
+  }, [selectedFiles, conversationId, folderId, onSuccess, startPolling]);
 
   const handleClose = useCallback(() => {
     if (!isUploading && !isProcessingUrl) {

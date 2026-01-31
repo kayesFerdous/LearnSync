@@ -128,6 +128,7 @@ export interface BatchConfirmFileRequest {
 }
 
 export interface BatchConfirmRequest {
+  folder_id: string | null;
   conversation_id: string | null;
   files: BatchConfirmFileRequest[];
 }
@@ -177,4 +178,34 @@ export interface ProcessUrlResponse {
   message: string;
   url: string;
   file_id: string;
+}
+
+// Folder Files API Types
+export type FolderFileType = 
+  | 'pdf' 
+  | 'docx' 
+  | 'pptx' 
+  | 'xlsx' 
+  | 'html' 
+  | 'markdown' 
+  | 'png' 
+  | 'jpeg' 
+  | 'tiff' 
+  | 'wav' 
+  | 'mp3' 
+  | 'vtt' 
+  | 'url' 
+  | 'unknown';
+
+export interface FolderFile {
+  id: string;
+  filename: string;
+  file_type: FolderFileType;
+  status: ProcessingStatus;
+  created_at: string;
+}
+
+export interface FolderFilesResponse {
+  files: FolderFile[];
+  total: number;
 }

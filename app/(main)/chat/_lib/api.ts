@@ -15,7 +15,8 @@ import type {
   FileStatusResponse,
   ProcessUrlResponse,
   ProcessingStatus,
-  UploadedFile
+  UploadedFile,
+  FolderFilesResponse
 } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
@@ -247,7 +248,8 @@ export const uploadFileToR2 = async (
 export const batchUploadFiles = async (
   files: File[],
   conversationId: string | null = null,
-  onProgress?: (progress: FileUploadProgress[]) => void
+  onProgress?: (progress: FileUploadProgress[]) => void,
+  folderId: string | null = null
 ): Promise<BatchConfirmResponse> => {
   // Validate per-file size limits
   for (const file of files) {
@@ -346,6 +348,7 @@ export const batchUploadFiles = async (
 
   // Step 3: Confirm all uploads in a single batch request
   const confirmRequest: BatchConfirmRequest = {
+    folder_id: folderId,
     conversation_id: conversationId,
     files: uploadedFiles
   };
@@ -642,10 +645,17 @@ export const fetchFileStatus = async (fileId: string): Promise<FileStatusRespons
  * Process a URL and return the file_id for polling
  * POST /uploads/process-url
  */
-export const processUrl = async (url: string, conversationId?: string | null): Promise<ProcessUrlResponse> => {
-  const body: { url: string; conversation_id?: string } = { url };
+export const processUrl = async (
+  url: string, 
+  conversationId?: string | null,
+  folderId?: string | null
+): Promise<ProcessUrlResponse> => {
+  const body: { url: string; conversation_id?: string; folder_id?: string } = { url };
   if (conversationId) {
     body.conversation_id = conversationId;
+  }
+  if (folderId) {
+    body.folder_id = folderId;
   }
   
   const response = await fetch(`${API_BASE_URL}/uploads/process-url`, {
@@ -685,4 +695,30 @@ export const cancelFileProcessing = async (fileId: string): Promise<void> => {
     }
     throw new Error(`Failed to cancel file processing (${response.status})`);
   }
+};
+
+// ============================================
+// Folder Files API
+// ============================================
+
+/**
+ * Fetch all files in a folder
+ * GET /uploads/folders/{folderId}/files
+ * Returns files sorted by created_at desc from backend
+ */
+export const fetchFolderFiles = async (folderId: string): Promise<FolderFilesResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/folders/${folderId}/files`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Folder not found');
+    }
+    throw new Error(`Failed to fetch folder files (${response.status})`);
+  }
+  
+  return response.json();
 };
