@@ -19,22 +19,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create the enum type first. We need to handle 'checkfirst' carefully.
-    # In PostgreSQL, enums are types.
-    connection = op.get_bind()
+    # Create the enum type safely using raw SQL to handle existence check within the transaction.
+    # This avoids "current transaction is aborted" errors if we use try/except on sa.Enum.create().
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'processingstatus') THEN
+                CREATE TYPE processingstatus AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+            END IF;
+        END $$;
+    """)
+
+    # Define the Enum object for the column definition (SQLAlchemy needs this metadata)
     processing_status = sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='processingstatus')
-    
-    # Check if type exists (Postgres specific check usually, but Alembic can handle create if not exists)
-    # Ideally for portability, we just try to create it, but 'checkfirst' isn't standard in raw SQL generation.
-    # We'll use a safer pattern for Postgres Enums:
-    try:
-        processing_status.create(connection)
-    except Exception:
-        # Assuming it exists if creation fails (e.g. reused from deleted document table)
-        pass
 
     # Add columns to files table
-    # Note: We must supply the enum object itself for the column type
     op.add_column('files', sa.Column('status', processing_status, nullable=False, server_default='PENDING'))
     op.add_column('files', sa.Column('error_message', sa.Text(), nullable=True))
 
@@ -43,10 +41,11 @@ def downgrade() -> None:
     op.drop_column('files', 'error_message')
     op.drop_column('files', 'status')
     
-    connection = op.get_bind()
-    processing_status = sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', name='processingstatus')
-    
-    try:
-        processing_status.drop(connection)
-    except Exception:
-        pass
+    # Safe drop of the enum type
+    op.execute("""
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'processingstatus') THEN
+                DROP TYPE processingstatus;
+            END IF;
+        END $$;
+    """)
