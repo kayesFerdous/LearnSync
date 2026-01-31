@@ -78,7 +78,7 @@ def parse_and_chunk_file(
     document_id: str,
     folder_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
-    max_tokens: int = 700
+    max_tokens: int = 500
 ) -> List[Document]:
     """
     Loads a file, converts it using Docling, splits it into chunks, 
