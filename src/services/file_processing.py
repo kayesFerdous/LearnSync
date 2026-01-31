@@ -44,7 +44,7 @@ async def _generate_metadata(text_content: str, filename: str, llm: BaseChatMode
     </document_text>
     """
     
-    return await structured_llm.invoke(prompt) #type: ignore
+    return await structured_llm.ainvoke(prompt) #type: ignore
 
 
 async def process_content(
