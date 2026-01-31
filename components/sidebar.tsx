@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, Calendar, Settings, ChevronLeft, ChevronRight, Sparkles, FileText, Shield } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Calendar, Settings, ChevronLeft, ChevronRight, Sparkles, FileText, Shield, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/editor', label: 'Text Editor', icon: FileText },
   { href: '/calendar', label: 'Calendar', icon: Calendar },
+  { href: '/profile', label: 'Profile', icon: User },
   { href: '/admin', label: 'Admin', icon: Shield },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
