@@ -79,6 +79,33 @@ CONTENT_TYPE_TO_FILE_TYPE = {
     "text/vtt": ModelFileType.VTT,
 }
 
+# Map file extensions to FileType enum
+EXTENSION_TO_FILE_TYPE = {
+    ".pdf": ModelFileType.PDF,
+    ".docx": ModelFileType.DOCX,
+    ".pptx": ModelFileType.PPTX,
+    ".xlsx": ModelFileType.XLSX,
+    ".html": ModelFileType.HTML,
+    ".htm": ModelFileType.HTML,
+    ".md": ModelFileType.MARKDOWN,
+    ".markdown": ModelFileType.MARKDOWN,
+    ".png": ModelFileType.PNG,
+    ".jpg": ModelFileType.JPEG,
+    ".jpeg": ModelFileType.JPEG,
+    ".tiff": ModelFileType.TIFF,
+    ".tif": ModelFileType.TIFF,
+    ".wav": ModelFileType.WAV,
+    ".mp3": ModelFileType.MP3,
+    ".vtt": ModelFileType.VTT,
+}
+
+
+def get_file_type_from_filename(filename: str) -> ModelFileType:
+    """Infer FileType from filename extension."""
+    import os
+    ext = os.path.splitext(filename)[1].lower()
+    return EXTENSION_TO_FILE_TYPE.get(ext, ModelFileType.UNKNOWN)
+
 @router.post("/presign", response_model=BatchPresignUploadResponse)
 async def presign_upload(
     req: Request,
@@ -165,11 +192,14 @@ async def confirm_upload(
     response_files = []
     
     for file_info in confirm_req.files:
-        # Determine file_type from content_type
-        file_type = CONTENT_TYPE_TO_FILE_TYPE.get(
-            file_info.content_type, 
-            ModelFileType.UNKNOWN
-        )
+        # Determine file_type from content_type or filename extension
+        if file_info.content_type:
+            file_type = CONTENT_TYPE_TO_FILE_TYPE.get(
+                file_info.content_type, 
+                ModelFileType.UNKNOWN
+            )
+        else:
+            file_type = get_file_type_from_filename(file_info.original_filename)
         
         # Create initial PENDING record via service
         new_file = await create_pending_file(

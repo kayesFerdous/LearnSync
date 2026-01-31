@@ -58,7 +58,7 @@ class BatchPresignUploadResponse(BaseModel):
 class UploadConfirmation(BaseModel):
     original_filename: str
     object_key: str
-    content_type: str  # Required to determine file_type
+    content_type: Optional[str] = None  # Optional - file_type can be inferred from filename
 
 class BatchConfirmUploadRequest(BaseModel):
     folder_id: Optional[str] = None
