@@ -145,3 +145,29 @@ export interface FileUploadProgress {
   progress?: number; // 0-100
   error?: string;
 }
+
+// File Processing Status Types (async polling mechanism)
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface FileStatusResponse {
+  id: string;
+  status: ProcessingStatus;
+  error_message: string | null;
+  filename: string;
+}
+
+// Uploaded file with processing status
+export interface UploadedFile {
+  id: string;
+  filename: string;
+  status: ProcessingStatus;
+  error_message?: string;
+  object_key?: string;
+}
+
+// Process URL Response (new async flow)
+export interface ProcessUrlResponse {
+  message: string;
+  url: string;
+  file_id: string;
+}

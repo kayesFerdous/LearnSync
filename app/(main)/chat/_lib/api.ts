@@ -11,7 +11,11 @@ import type {
   BatchPresignResponse,
   BatchConfirmRequest,
   BatchConfirmResponse,
-  FileUploadProgress
+  FileUploadProgress,
+  FileStatusResponse,
+  ProcessUrlResponse,
+  ProcessingStatus,
+  UploadedFile
 } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
@@ -607,4 +611,54 @@ export const deleteFolder = async (folderId: string): Promise<void> => {
   
   if (response.status === 204) return;
   if (!response.ok) throw new Error(`Failed to delete folder (${response.status})`);
+};
+
+// ============================================
+// File Status Polling API (Async Processing)
+// ============================================
+
+/**
+ * Fetch the processing status of a specific file
+ * GET /uploads/files/{file_id}
+ */
+export const fetchFileStatus = async (fileId: string): Promise<FileStatusResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/files/${fileId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('File not found');
+    }
+    throw new Error(`Failed to fetch file status (${response.status})`);
+  }
+  
+  return response.json();
+};
+
+/**
+ * Process a URL and return the file_id for polling
+ * POST /uploads/process-url
+ */
+export const processUrl = async (url: string, conversationId?: string | null): Promise<ProcessUrlResponse> => {
+  const body: { url: string; conversation_id?: string } = { url };
+  if (conversationId) {
+    body.conversation_id = conversationId;
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/uploads/process-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body)
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to process URL' }));
+    throw new Error(errorData.detail || 'Failed to process URL');
+  }
+  
+  return response.json();
 };

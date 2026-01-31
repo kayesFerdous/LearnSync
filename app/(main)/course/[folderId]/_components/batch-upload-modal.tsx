@@ -9,7 +9,9 @@ import {
   AlertCircle, 
   Loader2,
   File as FileIcon,
-  Trash2
+  Trash2,
+  Link as LinkIcon,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
@@ -17,9 +19,20 @@ import {
   validateBatchFileSize, 
   calculateTotalSize,
   MAX_UPLOAD_SIZE,
-  MAX_BATCH_SIZE
+  MAX_BATCH_SIZE,
+  processUrl,
+  fetchFileStatus
 } from '@/app/(main)/chat/_lib/api';
-import type { FileUploadProgress } from '@/app/(main)/chat/_lib/types';
+import type { FileUploadProgress, ProcessingStatus, UploadedFile } from '@/app/(main)/chat/_lib/types';
+
+// URL item being processed
+interface UrlUploadItem {
+  id: string;           // file_id from backend
+  url: string;
+  filename: string;
+  status: ProcessingStatus;
+  error_message?: string;
+}
 
 interface BatchUploadModalProps {
   isOpen: boolean;
@@ -42,6 +55,120 @@ export function BatchUploadModal({
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // URL processing state
+  const [urlInput, setUrlInput] = useState('');
+  const [urlItems, setUrlItems] = useState<UrlUploadItem[]>([]);
+  const [isProcessingUrl, setIsProcessingUrl] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const pollingIntervalRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Start polling for a specific file ID
+  const startPolling = useCallback((fileId: string) => {
+    // Don't duplicate polling
+    if (pollingIntervalRef.current.has(fileId)) return;
+
+    const poll = async () => {
+      try {
+        const response = await fetchFileStatus(fileId);
+        
+        setUrlItems(prev => prev.map(item => 
+          item.id === fileId 
+            ? { 
+                ...item, 
+                status: response.status, 
+                error_message: response.error_message || undefined,
+                filename: response.filename || item.filename
+              }
+            : item
+        ));
+
+        // Stop polling on terminal states
+        if (response.status === 'completed' || response.status === 'failed') {
+          const intervalId = pollingIntervalRef.current.get(fileId);
+          if (intervalId) {
+            clearInterval(intervalId);
+            pollingIntervalRef.current.delete(fileId);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+        // Don't stop polling on transient errors
+      }
+    };
+
+    // Poll immediately, then every 4 seconds
+    poll();
+    const intervalId = setInterval(poll, 4000);
+    pollingIntervalRef.current.set(fileId, intervalId);
+  }, []);
+
+  // Stop all polling on unmount or close
+  const stopAllPolling = useCallback(() => {
+    pollingIntervalRef.current.forEach(intervalId => clearInterval(intervalId));
+    pollingIntervalRef.current.clear();
+  }, []);
+
+  // Add URL for processing
+  const handleAddUrl = useCallback(async () => {
+    if (!urlInput.trim()) return;
+
+    // Basic URL validation
+    let url = urlInput.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
+    try {
+      new URL(url); // Validate URL format
+    } catch {
+      setError('Please enter a valid URL');
+      return;
+    }
+
+    setIsProcessingUrl(true);
+    setError(null);
+
+    try {
+      const response = await processUrl(url, conversationId);
+      
+      // Extract filename from URL for display
+      const urlObj = new URL(url);
+      const filename = urlObj.pathname.split('/').pop() || urlObj.hostname;
+      
+      // Add placeholder item with pending status
+      const newItem: UrlUploadItem = {
+        id: response.file_id,
+        url: url,
+        filename: filename,
+        status: 'pending'
+      };
+      
+      setUrlItems(prev => [...prev, newItem]);
+      setUrlInput('');
+      setShowUrlInput(false);
+      
+      // Start polling for this file
+      startPolling(response.file_id);
+      
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to process URL';
+      setError(message);
+    } finally {
+      setIsProcessingUrl(false);
+    }
+  }, [urlInput, conversationId, startPolling]);
+
+  // Remove a URL item
+  const removeUrlItem = useCallback((fileId: string) => {
+    // Stop polling for this file
+    const intervalId = pollingIntervalRef.current.get(fileId);
+    if (intervalId) {
+      clearInterval(intervalId);
+      pollingIntervalRef.current.delete(fileId);
+    }
+    setUrlItems(prev => prev.filter(item => item.id !== fileId));
+  }, []);
 
   const handleFileSelect = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
@@ -123,19 +250,50 @@ export function BatchUploadModal({
   }, [selectedFiles, conversationId, onSuccess, onClose]);
 
   const handleClose = useCallback(() => {
-    if (!isUploading) {
+    if (!isUploading && !isProcessingUrl) {
+      stopAllPolling();
       setSelectedFiles([]);
       setUploadProgress([]);
+      setUrlItems([]);
+      setUrlInput('');
+      setShowUrlInput(false);
       setError(null);
       onClose();
     }
-  }, [isUploading, onClose]);
+  }, [isUploading, isProcessingUrl, stopAllPolling, onClose]);
 
   const getFileIcon = (file: File) => {
     if (file.type === 'application/pdf') {
       return <FileText className="w-5 h-5" />;
     }
     return <FileIcon className="w-5 h-5" />;
+  };
+
+  // Get status icon for URL items based on processing status
+  const getStatusIcon = (status: ProcessingStatus) => {
+    switch (status) {
+      case 'pending':
+      case 'processing':
+        return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+      case 'completed':
+        return <CheckCircle2 className="w-5 h-5 text-green-600" />;
+      case 'failed':
+        return <AlertCircle className="w-5 h-5 text-destructive" />;
+    }
+  };
+
+  // Get status label text
+  const getStatusLabel = (status: ProcessingStatus) => {
+    switch (status) {
+      case 'pending':
+        return 'Queued...';
+      case 'processing':
+        return 'Processing...';
+      case 'completed':
+        return 'Complete';
+      case 'failed':
+        return 'Failed';
+    }
   };
 
   const getProgressStatus = (filename: string): FileUploadProgress | undefined => {
@@ -227,11 +385,135 @@ export function BatchUploadModal({
             </p>
           </div>
 
+          {/* Add from URL Section */}
+          <div className="space-y-2">
+            {showUrlInput ? (
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="url"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddUrl();
+                      } else if (e.key === 'Escape') {
+                        setShowUrlInput(false);
+                        setUrlInput('');
+                      }
+                    }}
+                    placeholder="Enter URL (e.g., https://example.com/document.pdf)"
+                    className="w-full pl-9 pr-4 py-2 text-sm border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    disabled={isProcessingUrl}
+                    autoFocus
+                  />
+                </div>
+                <button
+                  onClick={handleAddUrl}
+                  disabled={!urlInput.trim() || isProcessingUrl}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium rounded-lg text-white transition-all flex items-center gap-1.5",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                  style={{ backgroundColor: themeColor }}
+                >
+                  {isProcessingUrl ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4" />
+                      Add
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowUrlInput(false);
+                    setUrlInput('');
+                  }}
+                  disabled={isProcessingUrl}
+                  className="p-2 rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowUrlInput(true)}
+                disabled={isUploading}
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 text-sm border border-dashed border-muted-foreground/30 rounded-lg hover:border-primary/50 hover:bg-muted/30 transition-colors disabled:opacity-50"
+              >
+                <LinkIcon className="w-4 h-4" />
+                Add from URL
+              </button>
+            )}
+          </div>
+
           {/* Error Message */}
           {error && (
             <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span className="whitespace-pre-wrap">{error}</span>
+            </div>
+          )}
+
+          {/* URL Items List */}
+          {urlItems.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                URLs ({urlItems.length})
+              </p>
+              {urlItems.map((item) => (
+                <div 
+                  key={item.id}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg group",
+                    item.status === 'failed' ? "bg-destructive/10" : "bg-muted/50"
+                  )}
+                >
+                  <div className="text-muted-foreground">
+                    <LinkIcon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.filename}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground truncate max-w-[200px]" title={item.url}>
+                        {item.url}
+                      </p>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <p className={cn(
+                        "text-xs",
+                        item.status === 'completed' && "text-green-600",
+                        item.status === 'failed' && "text-destructive",
+                        (item.status === 'pending' || item.status === 'processing') && "text-primary"
+                      )}>
+                        {getStatusLabel(item.status)}
+                      </p>
+                    </div>
+                    {item.status === 'failed' && item.error_message && (
+                      <p className="text-xs text-destructive mt-1 line-clamp-2" title={item.error_message}>
+                        {item.error_message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(item.status)}
+                    {(item.status === 'completed' || item.status === 'failed') && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeUrlItem(item.id);
+                        }}
+                        className="p-1 opacity-0 group-hover:opacity-100 hover:bg-muted rounded transition-all"
+                      >
+                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
