@@ -128,13 +128,21 @@ export interface BatchConfirmFileRequest {
 }
 
 export interface BatchConfirmRequest {
+  folder_id: string | null;
   conversation_id: string | null;
   files: BatchConfirmFileRequest[];
 }
 
+export interface BatchConfirmFileResponse {
+  filename: string;
+  file_id: string;
+  object_key: string;
+}
+
 export interface BatchConfirmResponse {
   message: string;
-  processed_files: string[]; // list of object_key strings
+  processed_files: string[]; // list of object_key strings (legacy)
+  files: BatchConfirmFileResponse[]; // new: includes file_ids for polling
   conversation_id: string;
 }
 
@@ -144,4 +152,60 @@ export interface FileUploadProgress {
   status: 'pending' | 'uploading' | 'uploaded' | 'failed';
   progress?: number; // 0-100
   error?: string;
+}
+
+// File Processing Status Types (async polling mechanism)
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+
+export interface FileStatusResponse {
+  id: string;
+  status: ProcessingStatus;
+  error_message: string | null;
+  filename: string;
+}
+
+// Uploaded file with processing status
+export interface UploadedFile {
+  id: string;
+  filename: string;
+  status: ProcessingStatus;
+  error_message?: string;
+  object_key?: string;
+}
+
+// Process URL Response (new async flow)
+export interface ProcessUrlResponse {
+  message: string;
+  url: string;
+  file_id: string;
+}
+
+// Folder Files API Types
+export type FolderFileType = 
+  | 'pdf' 
+  | 'docx' 
+  | 'pptx' 
+  | 'xlsx' 
+  | 'html' 
+  | 'markdown' 
+  | 'png' 
+  | 'jpeg' 
+  | 'tiff' 
+  | 'wav' 
+  | 'mp3' 
+  | 'vtt' 
+  | 'url' 
+  | 'unknown';
+
+export interface FolderFile {
+  id: string;
+  filename: string;
+  file_type: FolderFileType;
+  status: ProcessingStatus;
+  created_at: string;
+}
+
+export interface FolderFilesResponse {
+  files: FolderFile[];
+  total: number;
 }

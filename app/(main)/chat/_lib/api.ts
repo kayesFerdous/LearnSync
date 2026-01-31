@@ -11,7 +11,12 @@ import type {
   BatchPresignResponse,
   BatchConfirmRequest,
   BatchConfirmResponse,
-  FileUploadProgress
+  FileUploadProgress,
+  FileStatusResponse,
+  ProcessUrlResponse,
+  ProcessingStatus,
+  UploadedFile,
+  FolderFilesResponse
 } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
@@ -243,7 +248,8 @@ export const uploadFileToR2 = async (
 export const batchUploadFiles = async (
   files: File[],
   conversationId: string | null = null,
-  onProgress?: (progress: FileUploadProgress[]) => void
+  onProgress?: (progress: FileUploadProgress[]) => void,
+  folderId: string | null = null
 ): Promise<BatchConfirmResponse> => {
   // Validate per-file size limits
   for (const file of files) {
@@ -342,6 +348,7 @@ export const batchUploadFiles = async (
 
   // Step 3: Confirm all uploads in a single batch request
   const confirmRequest: BatchConfirmRequest = {
+    folder_id: folderId,
     conversation_id: conversationId,
     files: uploadedFiles
   };
@@ -607,4 +614,111 @@ export const deleteFolder = async (folderId: string): Promise<void> => {
   
   if (response.status === 204) return;
   if (!response.ok) throw new Error(`Failed to delete folder (${response.status})`);
+};
+
+// ============================================
+// File Status Polling API (Async Processing)
+// ============================================
+
+/**
+ * Fetch the processing status of a specific file
+ * GET /uploads/files/{file_id}
+ */
+export const fetchFileStatus = async (fileId: string): Promise<FileStatusResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/files/${fileId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('File not found');
+    }
+    throw new Error(`Failed to fetch file status (${response.status})`);
+  }
+  
+  return response.json();
+};
+
+/**
+ * Process a URL and return the file_id for polling
+ * POST /uploads/process-url
+ */
+export const processUrl = async (
+  url: string, 
+  conversationId?: string | null,
+  folderId?: string | null
+): Promise<ProcessUrlResponse> => {
+  const body: { url: string; conversation_id?: string; folder_id?: string } = { url };
+  if (conversationId) {
+    body.conversation_id = conversationId;
+  }
+  if (folderId) {
+    body.folder_id = folderId;
+  }
+  
+  const response = await fetch(`${API_BASE_URL}/uploads/process-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body)
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to process URL' }));
+    throw new Error(errorData.detail || 'Failed to process URL');
+  }
+  
+  return response.json();
+};
+
+/**
+ * Cancel file processing
+ * POST /uploads/files/{file_id}/cancel
+ * Stops processing, deletes file from storage, marks as cancelled
+ */
+export const cancelFileProcessing = async (fileId: string): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/files/${fileId}/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('File not found');
+    }
+    if (response.status === 400) {
+      const errorData = await response.json().catch(() => ({ detail: 'Cannot cancel file' }));
+      throw new Error(errorData.detail || 'Cannot cancel file in current state');
+    }
+    throw new Error(`Failed to cancel file processing (${response.status})`);
+  }
+};
+
+// ============================================
+// Folder Files API
+// ============================================
+
+/**
+ * Fetch all files in a folder
+ * GET /uploads/folders/{folderId}/files
+ * Returns files sorted by created_at desc from backend
+ */
+export const fetchFolderFiles = async (folderId: string): Promise<FolderFilesResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/folders/${folderId}/files`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Folder not found');
+    }
+    throw new Error(`Failed to fetch folder files (${response.status})`);
+  }
+  
+  return response.json();
 };
