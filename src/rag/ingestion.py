@@ -103,6 +103,25 @@ def parse_and_chunk_file(
     return documents
 
 
+async def index_documents(
+    documents: List[Document],
+    collection_name: Optional[str] = None
+) -> None:
+    """
+    Indexes a list of documents into the vector store.
+    """
+    if not documents:
+        return
+
+    # Pass collection_name if provided, otherwise get_vector_store uses its default
+    if collection_name:
+        vector_store = await get_vector_store(collection_name=collection_name)
+    else:
+        vector_store = await get_vector_store()
+        
+    await vector_store.aadd_documents(documents)
+
+
 async def ingest_file(
     file_path: str,
     user_id: str,
@@ -115,13 +134,4 @@ async def ingest_file(
     Orchestrates the full ingestion process: Parse -> Chunk -> Index.
     """
     documents = parse_and_chunk_file(file_path, user_id, document_id, folder_id, conversation_id)
-    if not documents:
-        return
-
-    # Pass collection_name if provided, otherwise get_vector_store uses its default
-    if collection_name:
-        vector_store = await get_vector_store(collection_name=collection_name)
-    else:
-        vector_store = await get_vector_store()
-        
-    await vector_store.aadd_documents(documents)
+    await index_documents(documents, collection_name)

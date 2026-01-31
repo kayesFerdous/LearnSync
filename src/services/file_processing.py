@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from src.services.storage.r2 import get_r2_client
 from src.core.config import settings
-from src.rag.ingestion import parse_and_chunk_file, get_vector_store
+from src.rag.ingestion import parse_and_chunk_file, index_documents
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.conversations.model import File
 from src.db.session import AsyncSessionLocal
@@ -100,8 +100,7 @@ async def process_content(
 
         # 3. Vector Store Ingestion
         logger.info("Ingesting chunks into Vector Store...")
-        vector_store = await get_vector_store()
-        await vector_store.aadd_documents(documents)
+        await index_documents(documents)
         
         # 4. Gemini Metadata Extraction
         logger.info("Generating academic metadata with Gemini...")
