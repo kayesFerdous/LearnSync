@@ -1,5 +1,12 @@
 from typing import Optional
 from pydantic import BaseModel, HttpUrl
+from enum import Enum
+
+class ProcessingStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 class PresignUploadRequest(BaseModel):
     filename: str
@@ -33,5 +40,13 @@ class BatchConfirmUploadRequest(BaseModel):
 
 class ProcessUrlRequest(BaseModel):
     folder_id: Optional[str] = None
+    conversation_id: Optional[str] = None
     url: HttpUrl
+
+class FileStatusResponse(BaseModel):
+    id: str
+    status: ProcessingStatus
+    error_message: Optional[str] = None
+    filename: str
+
 

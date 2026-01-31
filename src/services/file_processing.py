@@ -10,8 +10,9 @@ from src.services.storage.r2 import get_r2_client
 from src.core.config import settings
 from src.rag.ingestion import parse_and_chunk_file, index_documents
 from langchain_google_genai import ChatGoogleGenerativeAI
-from src.conversations.model import File
+from src.conversations.model import File, ProcessingStatus
 from src.db.session import AsyncSessionLocal
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -52,25 +53,30 @@ async def process_content(
     llm: ChatGoogleGenerativeAI,
     original_filename: Optional[str] = None,
     is_url: bool = False,
+    file_id: Optional[str] = None,
     folder_id: Optional[str] = None,
     conversation_id: Optional[str] = None
 ):
     """
-    Background task to process content (File from R2 or direct URL):
-    1. If R2: Download to temp.
-    2. Parse & Chunk (Docling).
-    3. Ingest to Vector Store.
-    4. Generate Metadata (Gemini).
-    5. Save to Postgres (File table).
-    6. Cleanup.
+    Background task to process content.
+    Expects 'file_id' to update existing record.
     """
     tmp_path = None
     processing_source = source
     
     try:
-        logger.info(f"Starting processing for: {source} (User: {user_id}, URL: {is_url})")
+        logger.info(f"Starting processing for: {source} (User: {user_id}, FileID: {file_id})")
         
-        # Generate a document ID
+        # 0. Update Status to PROCESSING
+        if file_id:
+             async with AsyncSessionLocal() as session:
+                result = await session.execute(select(File).where(File.id == UUID(file_id)))
+                file_record = result.scalar_one_or_none()
+                if file_record:
+                    file_record.status = ProcessingStatus.PROCESSING
+                    await session.commit()
+        
+        # Generate a document ID (for RAG metadata)
         document_id = str(uuid4())
 
         if not is_url:
@@ -102,8 +108,7 @@ async def process_content(
         )
         
         if not documents:
-            logger.warning(f"No content extracted from {source}")
-            return
+            raise ValueError(f"No content extracted from {source}")
 
         # 3. Vector Store Ingestion
         logger.info("Ingesting chunks into Vector Store...")
@@ -116,28 +121,49 @@ async def process_content(
         current_filename = original_filename or os.path.basename(source)
         metadata = await _generate_metadata(full_text, current_filename, llm)
         
-        # 5. DB Save
+        # 5. DB Save / Update
         logger.info("Saving file record to database...")
         async with AsyncSessionLocal() as session:
-            new_file = File(
-                user_id=UUID(user_id),
-                filename=original_filename or os.path.basename(source),
-                file_path=source,
-                summary=metadata.summary,
-                topics=metadata.topics,
-                doc_type=metadata.doc_type,
-                folder_id = UUID(folder_id) if folder_id else None,
-                conversation_id=UUID(conversation_id) if conversation_id else None
-            )
-            session.add(new_file)
-            await session.commit()
-            logger.info(f"File saved with ID: {new_file.id}")
+            if file_id:
+                # Update existing record
+                result = await session.execute(select(File).where(File.id == UUID(file_id)))
+                file_record = result.scalar_one_or_none()
+                if file_record:
+                    file_record.summary = metadata.summary
+                    file_record.topics = metadata.topics
+                    file_record.doc_type = metadata.doc_type
+                    file_record.status = ProcessingStatus.COMPLETED
+                    await session.commit()
+                    logger.info(f"File {file_id} marked as COMPLETED")
+            else:
+                # Create new record (Legacy fallback for process_url if not updated)
+                new_file = File(
+                    user_id=UUID(user_id),
+                    filename=original_filename or os.path.basename(source),
+                    file_path=source,
+                    summary=metadata.summary,
+                    topics=metadata.topics,
+                    doc_type=metadata.doc_type,
+                    status=ProcessingStatus.COMPLETED,
+                    folder_id = UUID(folder_id) if folder_id else None,
+                    conversation_id=UUID(conversation_id) if conversation_id else None
+                )
+                session.add(new_file)
+                await session.commit()
+                logger.info(f"Created new file record with ID: {new_file.id}")
         
         logger.info(f"Successfully processed {source}")
         
     except Exception as e:
         logger.error(f"Error processing {source}: {e}", exc_info=True)
-        # TODO: Here you would update the DB status to 'FAILED'
+        if file_id:
+             async with AsyncSessionLocal() as session:
+                result = await session.execute(select(File).where(File.id == UUID(file_id)))
+                file_record = result.scalar_one_or_none()
+                if file_record:
+                    file_record.status = ProcessingStatus.FAILED
+                    file_record.error_message = str(e)
+                    await session.commit()
         
     finally:
         # 6. Cleanup temp file if it exists

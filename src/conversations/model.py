@@ -1,17 +1,25 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID, uuid4
+from enum import Enum
 from sqlalchemy import (
     DateTime, 
     ForeignKey, 
     String, 
     Text,
-    func
+    func,
+    Enum as SQLEnum
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
+
+class ProcessingStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 class Folder(Base):
     __tablename__ = "folders"
@@ -110,6 +118,14 @@ class File(Base):
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False) # S3 path
     
+    # Status tracking
+    status: Mapped[ProcessingStatus] = mapped_column(
+        SQLEnum(ProcessingStatus), 
+        default=ProcessingStatus.PENDING, 
+        nullable=False
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Metadata for RAG
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     topics: Mapped[Optional[List[str]]] = mapped_column(ARRAY(String), nullable=True)

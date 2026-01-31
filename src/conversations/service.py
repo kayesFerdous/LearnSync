@@ -1,9 +1,9 @@
 from uuid import UUID, uuid4
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.conversations.model import Conversation, File, Folder
+from src.conversations.model import Conversation, File, Folder, ProcessingStatus
 
 async def create_conversation(
     db: AsyncSession, 
@@ -99,70 +99,6 @@ async def get_available_files_for_chat(
     return result.scalars().all()
 
 
-async def upload_and_process_file(
-    db: AsyncSession,
-    user_id: UUID,
-    conversation_id: UUID,
-    file: UploadFile
-) -> File:
-    """
-    Handles file upload, scope determination, AI processing, and DB insertion.
-    """
-    # 1. Check Scope / Get Folder ID
-    stmt = select(Conversation).where(
-        Conversation.id == conversation_id,
-        Conversation.user_id == user_id
-    )
-    result = await db.execute(stmt)
-    conversation = result.scalar_one_or_none()
-    
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-        
-    folder_id = conversation.folder_id
-    
-    # 2. Upload to S3 (Mocked)
-    file_path = await _upload_file_to_storage(file)
-    
-    # 3. AI Extraction (Mocked)
-    # In a real scenario, we would read the file content here.
-    # content = await file.read()
-    # For now, we simulate extraction.
-    metadata = await _extract_metadata_with_gemini("mock_text_content")
-    
-    # 4. Database Insert
-    new_file = File(
-        user_id=user_id,
-        conversation_id=conversation_id,
-        folder_id=folder_id,
-        filename=file.filename or "unknown_file",
-        file_path=file_path,
-        summary=metadata.get("summary"),
-        topics=metadata.get("topics", []),
-        doc_type=metadata.get("doc_type")
-    )
-    
-    db.add(new_file)
-    await db.commit()
-    await db.refresh(new_file)
-    
-    return new_file
-
-
-async def _upload_file_to_storage(file: UploadFile) -> str:
-    # Mocking S3 upload
-    return f"s3://bucket/uploads/{uuid4()}/{file.filename}"
-
-
-async def _extract_metadata_with_gemini(text: str) -> dict:
-    # Mocking LLM extraction
-    return {
-        "summary": "This is a comprehensive study guide covering the fundamental principles of Physics 101, including Newton's laws and kinematics.",
-        "topics": ["Physics", "Kinematics", "Newton's Laws"],
-        "doc_type": "Lecture Notes"
-    }
-
-
 async def create_folder(
     db: AsyncSession,
     user_id: UUID,
@@ -255,3 +191,41 @@ async def delete_folder(
     await db.commit()
 
     return result.rowcount > 0
+
+
+async def create_pending_file(
+    db: AsyncSession,
+    user_id: UUID,
+    filename: str,
+    file_path: str,
+    folder_id: UUID | None = None,
+    conversation_id: UUID | None = None
+) -> File:
+    """
+    Creates a File record with PENDING status.
+    """
+    new_file = File(
+        user_id=user_id,
+        filename=filename,
+        file_path=file_path,
+        status=ProcessingStatus.PENDING,
+        folder_id=folder_id,
+        conversation_id=conversation_id
+    )
+    db.add(new_file)
+    await db.commit()
+    await db.refresh(new_file)
+    return new_file
+
+
+async def get_file_status(
+    db: AsyncSession,
+    file_id: UUID,
+    user_id: UUID
+) -> File | None:
+    """
+    Retrieves a file by ID and user ID to check status.
+    """
+    stmt = select(File).where(File.id == file_id, File.user_id == user_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
