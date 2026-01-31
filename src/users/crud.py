@@ -209,3 +209,32 @@ async def update_user_settings(user_id: str, settings_data: dict, db: AsyncSessi
         await db.rollback()
         logger.error(f"Error updating settings for user {user_id}: {e}")
         raise
+
+
+async def update_user_profile(user_id: str, update_data: dict, db: AsyncSession) -> User | None:
+    """
+    Update user profile fields (username, picture).
+    """
+    try:
+        uuid_id = UUID(user_id)
+        query = select(User).where(User.user_id == uuid_id)
+        result = await db.execute(query)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            logger.warning(f"User not found for ID {user_id} during profile update")
+            return None
+
+        # Update fields
+        for key, value in update_data.items():
+            if value is not None and hasattr(user, key):
+                setattr(user, key, value)
+        
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error updating profile for user {user_id}: {e}")
+        raise
