@@ -3,6 +3,7 @@ import tempfile
 import logging
 from uuid import uuid4, UUID
 from typing import Optional, List
+from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import BaseModel, Field
 
 from src.services.storage.r2 import get_r2_client
@@ -14,30 +15,36 @@ from src.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
+
 class FileMetadata(BaseModel):
     summary: str = Field(description="A comprehensive academic summary of the document, at least 3-4 paragraphs. It should cover the main concepts, definitions, and key takeaways.")
     topics: List[str] = Field(description="List of key academic topics or concepts covered in the document.")
     doc_type: str = Field(description="The type of document (e.g., Lecture Notes, Exam, Syllabus, Textbook Chapter, Research Paper).")
 
-async def _generate_metadata(text_content: str, llm: ChatGoogleGenerativeAI) -> FileMetadata:
+
+async def _generate_metadata(text_content: str, filename: str, llm: BaseChatModel) -> FileMetadata:
     """
     Generates structured academic metadata using Gemini.
     """
     structured_llm = llm.with_structured_output(FileMetadata)
     
-    # Limit context to avoid excessive token usage, though Gemini handles large context well.
+    # Limit context to avoid excessive token usage.
     # 100k characters is roughly 25k tokens.
     input_text = text_content[:100000]
     
     prompt = f"""
-    Analyze the following academic text and provide structured metadata.
-    Ensure the summary is detailed (not too small) and useful for study purposes.
+    You are an expert academic assistant helping a student organize their study materials.
+    Analyze the document content provided below to generate structured metadata.
     
-    Text Content:
+    Filename: {filename}
+    
+    <document_text>
     {input_text}
+    </document_text>
     """
     
-    return await structured_llm.invoke(prompt)
+    return await structured_llm.invoke(prompt) #type: ignore
+
 
 async def process_content(
     source: str,
@@ -106,7 +113,8 @@ async def process_content(
         logger.info("Generating academic metadata with Gemini...")
         # Combine text from chunks for context
         full_text = "\n\n".join([doc.page_content for doc in documents])
-        metadata = await _generate_metadata(full_text, llm)
+        current_filename = original_filename or os.path.basename(source)
+        metadata = await _generate_metadata(full_text, current_filename, llm)
         
         # 5. DB Save
         logger.info("Saving file record to database...")
