@@ -140,17 +140,15 @@ export default function AdminPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      year: '2-digit',
     });
   };
 
   const SortIcon = ({ field }: { field: SortByField }) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-    return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+    if (sortBy !== field) return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
   return (
@@ -263,10 +261,10 @@ export default function AdminPage() {
         {/* Users Table */}
         <div className="bg-card rounded-xl border border-border theme-shadow overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left p-4">
+                  <th className="text-left px-4 py-3 w-[200px] max-w-[200px]">
                     <button
                       onClick={() => handleSort('username')}
                       className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
@@ -275,7 +273,7 @@ export default function AdminPage() {
                       <SortIcon field="username" />
                     </button>
                   </th>
-                  <th className="text-left p-4 hidden md:table-cell">
+                  <th className="text-left px-4 py-3">
                     <button
                       onClick={() => handleSort('email')}
                       className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
@@ -284,10 +282,10 @@ export default function AdminPage() {
                       <SortIcon field="email" />
                     </button>
                   </th>
-                  <th className="text-left p-4 hidden lg:table-cell">
+                  <th className="text-left px-4 py-3 w-[100px] hidden lg:table-cell">
                     <span className="text-sm font-semibold text-foreground">Status</span>
                   </th>
-                  <th className="text-left p-4 hidden xl:table-cell">
+                  <th className="text-left px-4 py-3 w-[120px] hidden xl:table-cell">
                     <button
                       onClick={() => handleSort('created_at')}
                       className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
@@ -296,7 +294,7 @@ export default function AdminPage() {
                       <SortIcon field="created_at" />
                     </button>
                   </th>
-                  <th className="text-right p-4">
+                  <th className="text-center px-6 py-3 w-[100px]">
                     <span className="text-sm font-semibold text-foreground">Actions</span>
                   </th>
                 </tr>
@@ -306,27 +304,22 @@ export default function AdminPage() {
                   // Loading skeleton
                   Array.from({ length: 5 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="p-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-muted" />
-                          <div className="space-y-2">
-                            <div className="h-4 w-24 bg-muted rounded" />
-                            <div className="h-3 w-16 bg-muted rounded md:hidden" />
-                          </div>
+                          <div className="h-9 w-9 rounded-full bg-muted" />
+                          <div className="h-4 w-24 bg-muted rounded" />
                         </div>
                       </td>
-                      <td className="p-4 hidden md:table-cell">
+                      <td className="px-4 py-3">
                         <div className="h-4 w-40 bg-muted rounded" />
                       </td>
-                      <td className="p-4 hidden lg:table-cell">
-                        <div className="flex gap-2">
-                          <div className="h-6 w-16 bg-muted rounded-full" />
-                        </div>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <div className="h-6 w-14 bg-muted rounded-full" />
                       </td>
-                      <td className="p-4 hidden xl:table-cell">
-                        <div className="h-4 w-32 bg-muted rounded" />
+                      <td className="px-4 py-3 hidden xl:table-cell">
+                        <div className="h-4 w-20 bg-muted rounded" />
                       </td>
-                      <td className="p-4">
+                      <td className="px-4 py-3">
                         <div className="h-8 w-8 bg-muted rounded ml-auto" />
                       </td>
                     </tr>
@@ -353,68 +346,71 @@ export default function AdminPage() {
                   users.map((user) => (
                     <tr 
                       key={user.user_id} 
-                      className="hover:bg-accent/50 transition-colors"
+                      className="hover:bg-accent/50 transition-colors group"
                     >
-                      <td className="p-4">
+                      <td className="px-4 py-3 max-w-[200px]">
                         <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
-                            user.is_admin 
-                              ? "bg-amber-500/10 text-amber-500 ring-2 ring-amber-500/20" 
-                              : "bg-primary/10 text-primary"
-                          )}>
-                            {user.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-foreground truncate">{user.username}</p>
+                          {user.picture ? (
+                            <img 
+                              src={user.picture} 
+                              alt={user.username}
+                              className={cn(
+                                "h-9 w-9 rounded-full object-cover shrink-0",
+                                user.is_admin && "ring-2 ring-amber-500/50"
+                              )}
+                            />
+                          ) : (
+                            <div className={cn(
+                              "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
+                              user.is_admin 
+                                ? "bg-amber-500/10 text-amber-500 ring-2 ring-amber-500/30" 
+                                : "bg-primary/10 text-primary"
+                            )}>
+                              {user.username.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-foreground truncate" title={user.username}>{user.username}</p>
                               {user.is_admin && (
-                                <Crown className="h-4 w-4 text-amber-500 shrink-0" />
+                                <Crown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground truncate md:hidden">{user.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 hidden md:table-cell">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Mail className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{user.email}</span>
-                        </div>
+                      <td className="px-4 py-3">
+                        <p className="text-muted-foreground truncate" title={user.email}>{user.email}</p>
                       </td>
-                      <td className="p-4 hidden lg:table-cell">
-                        <div className="flex flex-wrap gap-2">
-                          {user.is_admin && (
-                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <div className="flex gap-1.5">
+                          {user.is_admin ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600">
                               Admin
                             </span>
-                          )}
-                          {user.subscribed ? (
-                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                              Subscribed
+                          ) : user.subscribed ? (
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600">
+                              Pro
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                               Free
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className="p-4 hidden xl:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4 shrink-0" />
-                          <span>{formatDate(user.created_at)}</span>
-                        </div>
+                      <td className="px-4 py-3 hidden xl:table-cell">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(user.created_at)}</span>
                       </td>
-                      <td className="p-4">
-                        <div className="flex justify-end">
+                      <td className="px-6 py-3">
+                        <div className="flex justify-center">
                           <button
                             onClick={() => openDeleteDialog(user)}
                             disabled={user.is_admin}
                             className={cn(
                               "p-2 rounded-lg transition-colors",
                               user.is_admin 
-                                ? "text-muted-foreground/50 cursor-not-allowed" 
+                                ? "text-muted-foreground/30 cursor-not-allowed" 
                                 : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
                             )}
                             title={user.is_admin ? "Cannot delete admin users" : "Delete user"}
