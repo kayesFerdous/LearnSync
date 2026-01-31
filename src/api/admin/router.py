@@ -8,6 +8,7 @@ from .schemas import UserRead, UserDeleteRequest, UserDeleteResponse, UsersListR
 
 
 router = APIRouter(
+    prefix="/admin",
     tags=["Admin"]
 )
 
