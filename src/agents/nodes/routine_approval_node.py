@@ -33,7 +33,7 @@ def make_routine_approval_node():
 
             approved_routine = ApprovedWeeklyRoutine.model_validate(user_dicision.get("data")) 
             # Create and add the parent Routine first
-            new_routine = Routine(title=approved_routine.title)
+            new_routine = Routine(title=approved_routine.title, user_id=user_id)
             db.add(new_routine)
             await db.flush() # Generates the ID for new_routine
 

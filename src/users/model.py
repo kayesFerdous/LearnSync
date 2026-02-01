@@ -1,5 +1,6 @@
 from datetime import datetime
 from uuid import UUID, uuid4
+from typing import List
 from sqlalchemy import (Boolean, 
     DateTime, 
     ForeignKey, 
@@ -38,6 +39,13 @@ class User(Base):
         "UserSettings",
         back_populates="user",
         uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    routines: Mapped[List["Routine"]] = relationship(
+        "Routine",
+        back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

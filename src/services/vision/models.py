@@ -17,6 +17,11 @@ class Routine(Base):
     __tablename__ = "routines"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False
+    )
     title: Mapped[str] = mapped_column(String, default="Weekly Class Schedule")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now())
@@ -28,6 +33,8 @@ class Routine(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+    user: Mapped["User"] = relationship("User", back_populates="routines")
 
 class ClassSession(Base):
     __tablename__ = "class_sessions"
