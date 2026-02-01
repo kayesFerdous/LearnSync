@@ -1,13 +1,14 @@
-from langchain_core.messages import AIMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
+from sqlalchemy import select
 from langgraph.types import interrupt
+from langchain_core.runnables import RunnableConfig
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from langchain_core.messages import AIMessage, SystemMessage
 
-from src.services.vision.schema import WeeklyRoutine, ApprovedWeeklyRoutine
-from src.services.vision.models import ClassSession, Routine
 from src.agents.model import AgentState
-from src.core.integrations.google.calendar_service import sync_routine_to_google_calendar
+from src.services.vision.schema import ApprovedWeeklyRoutine
+from src.services.vision.models import ClassSession, Routine
 from src.core.integrations.google.auth_utils import get_service_and_timezone
+from src.core.integrations.google.calendar_service import sync_routine_to_google_calendar
 
 
 def make_routine_approval_node():
@@ -30,6 +31,15 @@ def make_routine_approval_node():
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
             db: AsyncSession = config["configurable"]["db"] #type: ignore
             user_id = state['user_id']
+
+            # Check if user already has a routine and delete it (replace logic)
+            stmt = select(Routine).where(Routine.user_id == user_id)
+            result = await db.execute(stmt)
+            existing_routine = result.scalars().first()
+
+            if existing_routine:
+                await db.delete(existing_routine)
+                await db.flush() # Ensure deletion happens before insertion
 
             approved_routine = ApprovedWeeklyRoutine.model_validate(user_dicision.get("data")) 
             # Create and add the parent Routine first
