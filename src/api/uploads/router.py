@@ -7,7 +7,6 @@ import logging
 from src.api.uploads.schemas import (
     BatchConfirmUploadRequest, 
     BatchPresignUploadRequest, 
-    PresignUploadRequest, 
     PresignUploadResponse, 
     ProcessUrlRequest, 
     BatchPresignUploadResponse,

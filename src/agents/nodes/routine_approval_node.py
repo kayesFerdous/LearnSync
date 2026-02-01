@@ -13,10 +13,6 @@ def make_routine_approval_node():
         """
         Extract routine and interrupt for human approval
         """
-        # Retrieve the DB session from the runtime config
-        # This assumes the caller puts 'db' into config['configurable']
-        db: AsyncSession = config["configurable"]["db"] #type: ignore
-
         extracted_routine = state['scratchpad'].get('extracted_routine')
         print("\n\nextracted routine:\n", extracted_routine)
 
@@ -30,8 +26,9 @@ def make_routine_approval_node():
         messages = []
 
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
-            approved_routine = WeeklyRoutine.model_validate(user_dicision.get("data")) 
+            db: AsyncSession = config["configurable"]["db"] #type: ignore
 
+            approved_routine = WeeklyRoutine.model_validate(user_dicision.get("data")) 
             # Create and add the parent Routine first
             new_routine = Routine(title=approved_routine.title)
             db.add(new_routine)

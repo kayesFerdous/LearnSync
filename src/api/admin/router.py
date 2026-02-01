@@ -36,7 +36,7 @@ async def get_all_users(
         sort_order=sort_order
     )
     return UsersListResponse(
-        users=users,
+        users=[UserRead.model_validate(u) for u in users],
         total=len(users),
         skip=skip,
         limit=limit
