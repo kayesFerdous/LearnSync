@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from src.core.integrations.google.calendar_service import get_users_calendar_tools
 
 async def build_calendar_agent(user_id: str, llm: BaseChatModel, db: AsyncSession):
-    tools = await get_users_calendar_tools(user_id, db)
+    # Retrieve tools AND timezone
+    tools, timezone = await get_users_calendar_tools(user_id, db)
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a helpful and efficient Google Calendar assistant."),
@@ -16,7 +17,7 @@ async def build_calendar_agent(user_id: str, llm: BaseChatModel, db: AsyncSessio
         ("placeholder", "{agent_scratchpad}"),
     ])
     
-    agent = create_tool_calling_agent(llm,tools, prompt)
+    agent = create_tool_calling_agent(llm, tools, prompt)
 
-    return AgentExecutor(agent=agent, tools=tools, verbose=True)
+    return AgentExecutor(agent=agent, tools=tools, verbose=True), timezone
 

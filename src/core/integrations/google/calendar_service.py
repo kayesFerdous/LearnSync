@@ -7,7 +7,7 @@ from langchain_google_community.calendar.search_events import CalendarSearchEven
 from langchain_google_community.calendar.get_calendars_info import GetCalendarsInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.integrations.google.auth_utils import get_google_calendar_service
+from src.core.integrations.google.auth_utils import get_google_calendar_service, get_service_and_timezone
 
 def sanitize_json_string(s: str) -> str:
     """Removes or escapes control characters that break JSON parsing."""
@@ -68,10 +68,11 @@ class SafeCalendarSearchEvents(CalendarSearchEvents):
 
 
 async def get_users_calendar_tools(user_id: str, db: AsyncSession):
-    service = await get_google_calendar_service(user_id, db)
+    # Retrieve service AND timezone in one efficient query
+    service, timezone = await get_service_and_timezone(user_id, db)
         
     if not service:
-        return []
+        return [], "UTC"
 
     try:
         toolkit = CalendarToolkit(api_resource=service)
@@ -87,8 +88,8 @@ async def get_users_calendar_tools(user_id: str, db: AsyncSession):
             elif tool.name != "get_current_datetime":
                 final_tools.append(tool)
         
-        return final_tools
+        return final_tools, timezone
         
     except Exception as e:
         print(f"Error creating user tools: {e}")
-        return []
+        return [], "UTC"

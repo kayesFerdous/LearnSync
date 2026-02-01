@@ -1,6 +1,7 @@
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
+from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from src.core.calendar_toolkit import get_current_time_context
 from src.agents.model import AgentState
@@ -16,7 +17,9 @@ def make_calendar_node(llm: BaseChatModel):
         # Build the executor dynamically for this user
         try:
             db: AsyncSession = config["configurable"]["db"] #type: ignore
-            agent_executor = await build_calendar_agent(user_id, llm, db)
+            # Now receiving both the agent and the timezone efficiently
+            agent_executor, timezone = await build_calendar_agent(user_id, llm, db)
+            
         except Exception as e:
             print(f"Error building calendar agent: {e}")
             return {'messages': [AIMessage(content="I'm having trouble accessing your calendar tools right now.")]}
@@ -30,7 +33,7 @@ def make_calendar_node(llm: BaseChatModel):
             ])
 
         current_query = history[-1].content if history else ""
-        time_context = await get_current_time_context()
+        time_context = await get_current_time_context(timezone)
         
         # Create a comprehensive input for the agent
         agent_input = f"""

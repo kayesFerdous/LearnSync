@@ -185,6 +185,31 @@ async def get_user_identity(user_id: str, db: AsyncSession) -> UserIdentity | No
         raise
 
 
+async def get_identity_and_timezone(user_id: str, db: AsyncSession) -> tuple[UserIdentity | None, str]:
+    """
+    Fetches UserIdentity and their Timezone in a single query.
+    Returns (Identity, Timezone). Timezone defaults to 'UTC' if not found.
+    """
+    try:
+        query = (
+            select(UserIdentity, UserSettingsModel.timezone)
+            .join(UserSettingsModel, UserIdentity.user_id == UserSettingsModel.user_id, isouter=True)
+            .where(UserIdentity.user_id == user_id)
+        )
+        result = await db.execute(query)
+        row = result.first()
+        
+        if not row:
+            return None, "UTC"
+            
+        identity, timezone = row
+        return identity, timezone or "UTC"
+
+    except Exception as e:
+        logger.error(f"Error fetching identity and timezone for {user_id}: {e}")
+        raise
+
+
 async def update_user_settings(user_id: str, settings_data: dict, db: AsyncSession) -> UserSettingsModel | None:
     try:
         # Fetch existing settings for the user
