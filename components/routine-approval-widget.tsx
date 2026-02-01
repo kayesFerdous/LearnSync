@@ -103,15 +103,14 @@ function getNextOccurrenceOfDay(dayName: string, afterDate: Date = new Date()): 
 /**
  * Generates individual recurrence pattern for a single class
  * Creates a weekly recurring event starting from the class's first actual occurrence
+ * Uses date-based ending (UNTIL) for student routines
  * @param classItem The class schedule
- * @param endType 'count' or 'date' - how the recurrence should end
- * @param endValue Either a count number or a date string (ISO format)
+ * @param endDate ISO date string for when the recurrence should end
  * @returns Updated class with corrected dates and RRULE for this specific class
  */
 function generateRecurrenceForClass(
   classItem: ClassSchedule,
-  endType: 'count' | 'date' = 'count',
-  endValue: number | string = 16
+  endDate: string
 ): ClassSchedule | null {
   try {
     const dayMap: Record<string, string> = {
@@ -145,14 +144,13 @@ function generateRecurrenceForClass(
     const correctedStartISO = `${dateStr}T${startTimeStr}`;
     const correctedEndISO = `${dateStr}T${endTimeStr}`;
 
-    // Create RRULE with user-specified end type
+    // Create RRULE with UNTIL (date-based ending)
     const state: RRuleFormState = {
       frequency: 'WEEKLY',
       interval: 1,
       daysOfWeek: [byDay],
-      endType: endType === 'date' ? 'until' : 'count',
-      count: endType === 'count' ? (typeof endValue === 'number' ? endValue : 16) : undefined,
-      untilDate: endType === 'date' ? new Date(typeof endValue === 'string' ? endValue : new Date()) : undefined,
+      endType: 'until',
+      untilDate: new Date(endDate),
     };
 
     // Generate RRULE string
@@ -174,17 +172,21 @@ function generateRecurrenceForClass(
 /**
  * Automatically generates recurrence patterns for all classes
  * Each class gets corrected dates matching its day of week and per-class recurrence
+ * Uses date-based ending (UNTIL) for student routines
  * @param classes Array of class schedules
- * @param endType 'count' or 'date' - how the recurrence should end
- * @param endValue Either a count number or a date string (ISO format)
+ * @param _endType Deprecated - kept for backwards compatibility, always uses 'date'
+ * @param endDate ISO date string for when the recurrence should end
  * @returns Updated classes array with corrected dates and per-class recurrence
  */
 function generateAutoRecurrence(
   classes: ClassSchedule[],
-  endType: 'count' | 'date' = 'count',
-  endValue: number | string = 16
+  _endType: 'count' | 'date' = 'date',
+  endDate: number | string = new Date(new Date().getTime() + 16 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 ): ClassSchedule[] {
   if (!classes || classes.length === 0) return classes;
+  
+  // Ensure endDate is a string
+  const endDateStr = typeof endDate === 'string' ? endDate : new Date(new Date().getTime() + 16 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   try {
     return classes.map(classItem => {
@@ -194,7 +196,7 @@ function generateAutoRecurrence(
       }
 
       // Generate recurrence and corrected dates for this specific class
-      const updated = generateRecurrenceForClass(classItem, endType, endValue);
+      const updated = generateRecurrenceForClass(classItem, endDateStr);
       
       return updated || classItem;
     });
@@ -233,35 +235,37 @@ export default function RoutineApprovalWidget({
   }));
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
-  // Recurrence end type state
-  const [recurrenceEndType, setRecurrenceEndType] = useState<'count' | 'date'>('count');
-  const [recurrenceCount, setRecurrenceCount] = useState<number>(16);
+  // Recurrence end date state (always use date-based ending for student routines)
   const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>(
     new Date(new Date().getTime() + 16 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
 
   const isEditable = !isLocked && status === 'pending';
 
-  // Auto-generate per-class recurrence patterns when data loads or end type changes
+  // Auto-generate per-class recurrence patterns when data loads or end date changes
   useEffect(() => {
-    // Only auto-generate if:
+    // Generate/regenerate recurrence for all classes when:
     // 1. Not already locked/processing
     // 2. There are classes to work with
-    // 3. At least one class doesn't have recurrence yet
     if (isEditable && editedData.classes.length > 0) {
-      const hasAnyWithoutRecurrence = editedData.classes.some(
-        c => !c.recurrence || c.recurrence.length === 0
-      );
-
-      if (hasAnyWithoutRecurrence) {
-        const updatedClasses = generateAutoRecurrence(editedData.classes, recurrenceEndType, recurrenceEndType === 'count' ? recurrenceCount : recurrenceEndDate);
+      // Always regenerate to apply the current end date
+      const classesWithoutRecurrence = editedData.classes.map(c => ({
+        ...c,
+        recurrence: undefined // Clear existing recurrence to force regeneration
+      }));
+      const updatedClasses = generateAutoRecurrence(classesWithoutRecurrence, 'date', recurrenceEndDate);
+      
+      // Only update if there's an actual change to prevent infinite loops
+      const currentRrule = editedData.classes[0]?.recurrence?.[0] || '';
+      const newRrule = updatedClasses[0]?.recurrence?.[0] || '';
+      if (currentRrule !== newRrule) {
         setEditedData(prev => ({
           ...prev,
           classes: updatedClasses,
         }));
       }
     }
-  }, [isEditable, editedData.classes.length, recurrenceEndType, recurrenceCount, recurrenceEndDate]); // Include recurrence end settings in dependencies
+  }, [isEditable, editedData.classes.length, recurrenceEndDate]); // Regenerate when end date changes
 
   const handleTitleChange = (newTitle: string) => {
     setEditedData(prev => ({ ...prev, title: newTitle }));
@@ -535,79 +539,18 @@ export default function RoutineApprovalWidget({
               Recurrence Settings
             </div>
             
-            {/* Recurrence End Type Selection */}
+            {/* End Date Selection */}
             {isEditable && (
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <label className="flex-1 relative">
-                    <input
-                      type="radio"
-                      name="recurrence-end"
-                      value="count"
-                      checked={recurrenceEndType === 'count'}
-                      onChange={(e) => setRecurrenceEndType(e.target.value as 'count' | 'date')}
-                      className="sr-only"
-                    />
-                    <div className={cn(
-                      "px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-all",
-                      recurrenceEndType === 'count'
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                    )}>
-                      After N weeks
-                    </div>
-                  </label>
-                  <label className="flex-1 relative">
-                    <input
-                      type="radio"
-                      name="recurrence-end"
-                      value="date"
-                      checked={recurrenceEndType === 'date'}
-                      onChange={(e) => setRecurrenceEndType(e.target.value as 'count' | 'date')}
-                      className="sr-only"
-                    />
-                    <div className={cn(
-                      "px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-all",
-                      recurrenceEndType === 'date'
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                    )}>
-                      End on Date
-                    </div>
-                  </label>
-                </div>
-                
-                {/* Count Input */}
-                {recurrenceEndType === 'count' && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">
-                      Number of Weeks
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="52"
-                      value={recurrenceCount}
-                      onChange={(e) => setRecurrenceCount(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
-                    />
-                  </div>
-                )}
-                
-                {/* Date Input */}
-                {recurrenceEndType === 'date' && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={recurrenceEndDate}
-                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
-                      className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
-                    />
-                  </div>
-                )}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">
+                  Repeat Until
+                </label>
+                <input
+                  type="date"
+                  value={recurrenceEndDate}
+                  onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg outline-none focus:border-primary/50"
+                />
               </div>
             )}
             
@@ -618,14 +561,11 @@ export default function RoutineApprovalWidget({
                   {editedData.classes[0]?.recurrence?.[0] ? parseRRuleToHumanReadable(editedData.classes[0].recurrence[0]) : 'No recurrence'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {recurrenceEndType === 'count' 
-                    ? `All events will occur for ${recurrenceCount} weeks`
-                    : `All events will occur until ${new Date(recurrenceEndDate).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}`
-                  }
+                  All events will repeat until {new Date(recurrenceEndDate).toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Applied to all {editedData.classes.length} class{editedData.classes.length !== 1 ? 'es' : ''}
