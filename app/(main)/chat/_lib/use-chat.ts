@@ -12,7 +12,7 @@ export function useChat() {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   const [viewState, setViewState] = useState<'chat' | 'course-setup'>('chat'); // New view state
-  
+
   // Chat message state
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
   const [isLoading, setIsLoading] = useState(false);
@@ -104,7 +104,7 @@ export function useChat() {
         return timeB - timeA;
       });
       // Sort folders by created_at (descending)
-      const sortedFolders = data.folders.sort((a, b) => 
+      const sortedFolders = data.folders.sort((a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setConversations(sortedConversations);
@@ -184,13 +184,13 @@ export function useChat() {
           const uploadResult = await confirmUpload(object_key, file.name);
           payload.file_upload = { object_key, original_filename: file.name };
           setThinkingStatus(assistantId, 'Thinking...');
-          
+
           // CRITICAL: Smart Upload Redirection
           // If upload created/associated with a conversation and we're not in one, redirect
           if (uploadResult.conversation_id && !currentConversationId) {
             setCurrentConversationId(uploadResult.conversation_id);
             window.history.replaceState(null, '', `/chat/${uploadResult.conversation_id}`);
-            
+
             // Load messages for that conversation
             try {
               const existingMessages = await fetchMessages(uploadResult.conversation_id);
@@ -208,7 +208,7 @@ export function useChat() {
       }
 
       // Determine endpoint: POST /conversation/ for new chat, POST /conversation/{id} for existing
-      let endpoint = currentConversationId 
+      let endpoint = currentConversationId
         ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${currentConversationId}`
         : `${BACKEND_URL.replace('/chat_bot', '')}/conversation/`;
 
@@ -248,14 +248,14 @@ export function useChat() {
           setCurrentConversationId(conversationId);
           // Don't clear activeFolderId yet, as we might want to keep context if needed, but usually once conversation exists, folder is part of it.
           // setActiveFolderId(null); 
-          
+
           // Silent URL Switch: Update URL without reloading or triggering re-fetch
           // Using window.history.replaceState to change URL to /chat/{id}
           window.history.replaceState(null, '', `/chat/${conversationId}`);
-          
+
           // Optimistically add to sidebar (title from first 30 chars of message)
           const title = userMessage.substring(0, 30) || (file ? `📎 ${file.name}` : 'New Conversation');
-          
+
           // Only add to folder if we have it locally, otherwise we'll wait for re-fetch or assume backend handles it.
           // But for immediate UI update:
           const newConversation: Conversation = {
@@ -266,14 +266,14 @@ export function useChat() {
           };
 
           if (activeFolderId) {
-             setFolders(prev => prev.map(f => {
-               if (f.id === activeFolderId) {
-                 return { ...f, conversations: [newConversation, ...f.conversations] };
-               }
-               return f;
-             }));
+            setFolders(prev => prev.map(f => {
+              if (f.id === activeFolderId) {
+                return { ...f, conversations: [newConversation, ...f.conversations] };
+              }
+              return f;
+            }));
           } else {
-             setConversations(prev => [newConversation, ...prev]);
+            setConversations(prev => [newConversation, ...prev]);
           }
         },
         onRoutineApproved: (payload) => {
@@ -325,7 +325,7 @@ export function useChat() {
 
     try {
       // Use conversation endpoint with the target conversation ID
-      const endpoint = targetConversationId 
+      const endpoint = targetConversationId
         ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${targetConversationId}`
         : BACKEND_URL;
 
@@ -398,7 +398,7 @@ export function useChat() {
 
     try {
       // Use conversation endpoint with the target conversation ID
-      const endpoint = targetConversationId 
+      const endpoint = targetConversationId
         ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${targetConversationId}`
         : BACKEND_URL;
 
@@ -412,6 +412,7 @@ export function useChat() {
           tag: 'routine_generator',
           user_input: 'CANCEL',
         }),
+        credentials: 'include'
       });
 
       if (!response.ok) throw new Error(`Backend error (${response.status})`);
@@ -460,16 +461,16 @@ export function useChat() {
   const deleteConversationHandler = useCallback(async (conversationId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       await deleteConversation(conversationId);
-      
+
       // Optimistically remove from sidebar
       setConversations(prev => prev.filter(c => c.id !== conversationId));
-      
+
       // If we were viewing the deleted conversation, navigate to new chat
       if (currentConversationId === conversationId) {
         startNewChat();
         window.history.pushState(null, '', '/chat');
       }
-      
+
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -482,7 +483,7 @@ export function useChat() {
   const createFolderHandler = useCallback(async (name: string, icon?: string, theme?: string): Promise<{ success: boolean; folder?: Folder; error?: string }> => {
     try {
       const folder = await createFolder(name, icon, theme);
-      
+
       // Update local state immediately to reflect changes in UI without waiting for re-fetch
       setFolders(prev => [{
         ...folder,
@@ -492,7 +493,7 @@ export function useChat() {
       // Reload conversations to sync accurately with backend
       // We don't await because we've already updated the UI optimistically
       loadConversations();
-      
+
       return { success: true, folder };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -505,24 +506,24 @@ export function useChat() {
   const updateConversationTitleHandler = useCallback(async (conversationId: string, title: string): Promise<{ success: boolean; error?: string }> => {
     try {
       await updateConversationTitle(conversationId, title);
-      
+
       // Update local state
-      setConversations(prev => prev.map(c => 
+      setConversations(prev => prev.map(c =>
         c.id === conversationId ? { ...c, title } : c
       ));
-      
+
       setFolders(prev => prev.map(f => ({
         ...f,
-        conversations: f.conversations.map(c => 
+        conversations: f.conversations.map(c =>
           c.id === conversationId ? { ...c, title } : c
         )
       })));
 
       return { success: true };
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Update conversation title error:', error);
-        return { success: false, error: message };
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Update conversation title error:', error);
+      return { success: false, error: message };
     }
   }, []);
 
@@ -530,17 +531,17 @@ export function useChat() {
   const updateFolderHandler = useCallback(async (folderId: string, data: { name?: string, color?: string, icon?: string }): Promise<{ success: boolean; error?: string }> => {
     try {
       await updateFolder(folderId, data);
-      
+
       // Update local state manually since backend returns { status: "success" }
-      setFolders(prev => prev.map(f => 
+      setFolders(prev => prev.map(f =>
         f.id === folderId ? { ...f, ...data } : f
       ));
-      
+
       return { success: true };
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Update folder error:', error);
-        return { success: false, error: message };
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Update folder error:', error);
+      return { success: false, error: message };
     }
   }, []);
 
@@ -548,24 +549,24 @@ export function useChat() {
   const deleteFolderHandler = useCallback(async (folderId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       await deleteFolder(folderId);
-      
+
       // Optimistically remove from sidebar
       setFolders(prev => prev.filter(f => f.id !== folderId));
-      
+
       // If we were in a conversation within this folder, what should happen?
       // Probably nothing immediate if the conversation itself wasn't deleted (backend logic depends),
       // but usually folder deletion cascades or un-folders conversations.
       // Assuming cascade delete for now, or just folder removal. 
       // Safest is to reset view if we were in that folder context specifically (e.g. course view)
       if (activeFolderId === folderId) {
-          startNewChat();
+        startNewChat();
       }
 
       return { success: true };
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Delete folder error:', error);
-        return { success: false, error: message };
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Delete folder error:', error);
+      return { success: false, error: message };
     }
   }, [activeFolderId, startNewChat]);
 
@@ -581,13 +582,13 @@ export function useChat() {
     // Validate per-file size limits
     for (const file of files) {
       if (file.size > MAX_UPLOAD_SIZE) {
-        return { 
-          success: false, 
-          error: `File "${file.name}" exceeds the 10MB limit.` 
+        return {
+          success: false,
+          error: `File "${file.name}" exceeds the 10MB limit.`
         };
       }
     }
-    
+
     // Validate total batch size
     const totalSize = calculateTotalSize(files);
     if (totalSize > MAX_BATCH_SIZE) {
@@ -610,16 +611,16 @@ export function useChat() {
         if (!currentConversationId) {
           setCurrentConversationId(result.conversation_id);
           window.history.replaceState(null, '', `/chat/${result.conversation_id}`);
-          
+
           // Reload messages and conversations
           await loadMessages(result.conversation_id);
           await loadConversations();
         }
       }
 
-      return { 
-        success: true, 
-        conversationId: result.conversation_id 
+      return {
+        success: true,
+        conversationId: result.conversation_id
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
@@ -636,10 +637,10 @@ export function useChat() {
     activeFolderId,
     viewState, // Export new state
     isLoading,
-    
+
     // Chat state
     messages,
-    
+
     // Conversation functions
     loadConversations,
     loadMessages,
@@ -650,12 +651,12 @@ export function useChat() {
     updateConversationTitleHandler,
     updateFolderHandler,
     deleteFolderHandler,
-    
+
     // Chat functions
     sendMessage,
     approveRoutine,
     rejectRoutine,
-    
+
     // File upload functions
     uploadBatchFiles,
   };

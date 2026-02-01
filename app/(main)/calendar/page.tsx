@@ -332,7 +332,7 @@ export default function CalendarPage() {
   };
 
   return (
-  <div className="h-full flex flex-col m-2 border border-border rounded-lg shadow-md overflow-hidden" ref={containerRef}>
+  <div className="absolute inset-0 flex flex-col m-2 border border-border rounded-lg shadow-md overflow-hidden" ref={containerRef}>
       <div className="flex-1 bg-card overflow-hidden flex flex-col rounded-[calc(var(--radius)-2px)]">
         <style jsx global>{`
           .fc {

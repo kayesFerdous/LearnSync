@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { 
@@ -26,9 +26,10 @@ import {
   FolderOpen
 } from 'lucide-react';
 import { Folder, FolderFile, FolderFileType, ProcessingStatus } from '@/app/(main)/chat/_lib/types';
-import { fetchFolderFiles } from '@/app/(main)/chat/_lib/api';
+import { fetchFolderFiles, updateFolder } from '@/app/(main)/chat/_lib/api';
 import { cn } from '@/lib/utils';
 import { BatchUploadModal } from './batch-upload-modal';
+import { CourseSettingsModal } from './course-settings-modal';
 
 // UI Extension for this component
 export interface CourseFolder extends Folder {
@@ -87,16 +88,22 @@ export const getFolderMetadata = (id: string) => {
 export function CourseDashboard({ folder }: CourseDashboardProps) {
   const router = useRouter();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [files, setFiles] = useState<FolderFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [filesError, setFilesError] = useState<string | null>(null);
+  
+  // Local state for folder customization (updates after save)
+  const [folderName, setFolderName] = useState(folder.name);
+  const [folderIcon, setFolderIcon] = useState<string | undefined>(folder.icon);
+  const [folderTheme, setFolderTheme] = useState<string | undefined>(folder.theme);
   
   // Use provided color/icon or fallback to generated ones
   // We check folder.theme first, then folder.color (legacy/extension), then generated
   const metadata = getFolderMetadata(folder.id);
   // Theme from backend is likely a color string now
-  const themeColor = folder.theme || folder.color || metadata.color;
-  const folderIcon = folder.icon || metadata.icon;
+  const themeColor = folderTheme || folder.color || metadata.color;
+  const displayIcon = folderIcon || metadata.icon;
 
   // Fetch folder files on mount
   useEffect(() => {
@@ -124,6 +131,19 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
     fetchFolderFiles(folder.id).then(response => setFiles(response.files)).catch(console.error);
   };
 
+  // Handle folder settings save
+  const handleSettingsSave = useCallback(async (data: { name?: string; icon?: string; color?: string }) => {
+    await updateFolder(folder.id, data);
+    
+    // Update local state after successful save
+    if (data.name) setFolderName(data.name);
+    if (data.icon) setFolderIcon(data.icon);
+    if (data.color) setFolderTheme(data.color);
+    
+    // Trigger a soft refresh to update sidebar, etc.
+    router.refresh();
+  }, [folder.id, router]);
+
   return (
     <div 
       className="min-h-screen p-6 space-y-8 transition-colors duration-500"
@@ -138,11 +158,11 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           className="w-24 h-24 flex items-center justify-center rounded-2xl text-6xl shadow-xl bg-background border-2 transition-transform hover:scale-105 duration-300"
           style={{ borderColor: themeColor }}
         >
-          {folderIcon}
+          {displayIcon}
         </div>
         <div className="space-y-3">
           <h1 className="text-4xl font-bold tracking-tight text-foreground">
-            {folder.name}
+            {folderName}
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             {folder.description || "Course Dashboard"}
@@ -169,9 +189,9 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         <QuickActionCard 
           icon={<Settings className="w-6 h-6" />}
           title="Course Settings"
-          description="Manage preferences and tools"
+          description="Customize appearance and name"
           themeColor={themeColor}
-          onClick={() => console.log('Settings clicked')}
+          onClick={() => setIsSettingsModalOpen(true)}
         />
       </section>
 
@@ -293,6 +313,16 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         onSuccess={handleUploadSuccess}
         folderId={folder.id}
         themeColor={themeColor}
+      />
+
+      {/* Course Settings Modal */}
+      <CourseSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onSave={handleSettingsSave}
+        currentName={folderName}
+        currentIcon={displayIcon}
+        currentColor={themeColor}
       />
     </div>
   );

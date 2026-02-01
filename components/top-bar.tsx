@@ -1,14 +1,15 @@
 "use client";
 
 import { useAuthStore, useUiStore } from "@/lib/store";
-import { User, LogIn, LogOut, ChevronRight, Home } from "lucide-react";
+import { User, LogIn, LogOut, ChevronRight, Home, Menu, PanelLeftClose, PanelLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 export function TopBar() {
   const { user, isAuthenticated, logout, fetchUser } = useAuthStore();
-  const { breadcrumbOverrides } = useUiStore();
+  const { breadcrumbOverrides, sidebarOpen, toggleSidebar } = useUiStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -33,81 +34,126 @@ export function TopBar() {
   });
 
   return (
-    <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-14 flex items-center px-4 justify-between sticky top-0 z-50 w-full">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/dashboard" className="hover:text-foreground transition-colors">
-          <Home className="h-4 w-4" />
-        </Link>
-        {breadcrumbs.length > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
-        {breadcrumbs.map((crumb, index) => (
-          <div key={crumb.href} className="flex items-center gap-2">
-            {crumb.isLast ? (
-              <span className="font-medium text-foreground">{crumb.label}</span>
+    <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 h-16 flex items-center px-4 justify-between sticky top-0 z-40 w-full">
+      <div className="flex items-center gap-3">
+        {/* Hamburger Menu Button */}
+        <button
+          onClick={toggleSidebar}
+          className={cn(
+            "relative flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-200",
+            "hover:bg-accent text-muted-foreground hover:text-foreground",
+            "active:scale-95"
+          )}
+          aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+        >
+          <div className="relative">
+            {sidebarOpen ? (
+              <PanelLeftClose className="h-5 w-5" />
             ) : (
-              <Link href={crumb.href} className="hover:text-foreground transition-colors">
-                {crumb.label}
-              </Link>
+              <PanelLeft className="h-5 w-5" />
             )}
-            {!crumb.isLast && <ChevronRight className="h-4 w-4 text-muted-foreground/50" />}
           </div>
-        ))}
+        </button>
+
+        {/* Divider */}
+        <div className="h-6 w-px bg-border/50 hidden sm:block" />
+        
+        {/* Breadcrumbs */}
+        <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+          <Link href="/dashboard" className="hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50">
+            <Home className="h-4 w-4" />
+          </Link>
+          {breadcrumbs.length > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/40" />}
+          {breadcrumbs.map((crumb, index) => (
+            <div key={crumb.href} className="flex items-center gap-2">
+              {crumb.isLast ? (
+                <span className="font-medium text-foreground px-2 py-1 rounded-lg bg-accent/50">{crumb.label}</span>
+              ) : (
+                <Link href={crumb.href} className="hover:text-foreground transition-colors px-2 py-1 rounded-lg hover:bg-accent/50">
+                  {crumb.label}
+                </Link>
+              )}
+              {!crumb.isLast && <ChevronRight className="h-4 w-4 text-muted-foreground/40" />}
+            </div>
+          ))}
+        </div>
       </div>
       
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {isAuthenticated && user ? (
           <div className="relative">
             <button 
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              className={cn(
+                "flex items-center gap-3 px-2 py-1.5 rounded-xl transition-all duration-200",
+                "hover:bg-accent/80",
+                isProfileOpen && "bg-accent"
+              )}
             >
               <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-sm font-medium">{user.username}</span>
+                <span className="text-sm font-medium text-foreground">{user.username}</span>
+                <span className="text-[10px] text-muted-foreground">Online</span>
               </div>
-              <div className="h-8 w-8 rounded-full overflow-hidden border bg-muted flex items-center justify-center">
-                {user.picture ? (
-                  <img 
-                    src={user.picture} 
-                    alt={user.username} 
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <User className="h-4 w-4" />
-                )}
+              <div className="relative">
+                <div className="h-9 w-9 rounded-xl overflow-hidden border-2 border-border/50 bg-muted flex items-center justify-center ring-2 ring-transparent hover:ring-primary/20 transition-all">
+                  {user.picture ? (
+                    <img 
+                      src={user.picture} 
+                      alt={user.username} 
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+                {/* Online indicator */}
+                <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
               </div>
             </button>
 
             {/* Profile Dropdown */}
             {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-56 rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95">
-                <div className="px-2 py-1.5 text-sm font-semibold">
-                  Profile
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsProfileOpen(false)} 
+                />
+                <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-border/50 bg-popover/95 backdrop-blur-xl p-2 text-popover-foreground shadow-xl z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
+                  <div className="px-3 py-2">
+                    <p className="text-sm font-semibold text-foreground">{user.username}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  <div className="h-px bg-border/50 my-1" />
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsProfileOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl hover:bg-accent transition-colors"
+                  >
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span>View Profile</span>
+                  </Link>
+                  <button
+                    onClick={async () => {
+                      await logout();
+                      setIsProfileOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm rounded-xl hover:bg-destructive/10 text-destructive transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Log out</span>
+                  </button>
                 </div>
-                <div className="h-px bg-muted my-1" />
-                <div className="px-2 py-1.5 text-sm">
-                  <p className="font-medium">{user.username}</p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                </div>
-                <div className="h-px bg-muted my-1" />
-                <button
-                  onClick={async () => {
-                    await logout();
-                    setIsProfileOpen(false);
-                  }}
-                  className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </button>
-              </div>
+              </>
             )}
           </div>
         ) : (
           <Link
             href="/auth"
-            className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors px-4 py-2 rounded-md hover:bg-accent"
+            className="flex items-center gap-2 text-sm font-medium px-4 py-2.5 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95"
           >
             <LogIn className="h-4 w-4" />
-            Login
+            <span>Login</span>
           </Link>
         )}
       </div>

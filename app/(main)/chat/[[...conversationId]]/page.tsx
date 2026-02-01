@@ -334,32 +334,46 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     <div className="absolute inset-0 flex w-full overflow-hidden">
       {/* Conversations Sidebar */}
       <div className={cn(
-        "h-full border-r border-border bg-card flex flex-col overflow-hidden transition-all duration-300 ease-in-out",
-        sidebarOpen ? "w-64" : "w-0 border-r-0"
+        "h-full border-r border-border/50 bg-gradient-to-b from-card to-card/80 flex flex-col overflow-hidden transition-all duration-300 ease-in-out relative",
+        sidebarOpen ? "w-72" : "w-0 border-r-0"
       )}>
+        {/* Decorative top gradient */}
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+        
         {/* Header */}
-        <div className="p-4 border-b border-border shrink-0 space-y-2">
+        <div className="relative p-4 border-b border-border/30 shrink-0 space-y-2">
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors duration-200"
+            className="w-full group flex items-center justify-center gap-2.5 h-11 px-4 rounded-xl bg-gradient-to-r from-primary to-primary/90 text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           >
-            <Plus className="h-4 w-4" />
+            <div className="p-1 rounded-lg bg-primary-foreground/20">
+              <Plus className="h-4 w-4" />
+            </div>
             <span>New Chat</span>
           </button>
           <button
             onClick={openCourseSetup}
-            className="w-full flex items-center justify-center gap-2 h-10 px-4 rounded-lg bg-secondary text-secondary-foreground font-medium hover:bg-secondary/90 transition-colors duration-200"
+            className="w-full group flex items-center justify-center gap-2.5 h-11 px-4 rounded-xl bg-accent/80 text-foreground font-medium border border-border/50 hover:bg-accent hover:border-primary/30 hover:shadow-md active:scale-[0.98] transition-all duration-200"
           >
-            <FolderPlus className="h-4 w-4" />
+            <div className="p-1 rounded-lg bg-primary/10">
+              <FolderPlus className="h-4 w-4 text-primary" />
+            </div>
             <span>New Course</span>
           </button>
         </div>
 
-        {/* Removed inline Folder Creation Input */}
-
         {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto scrollbar-custom">
-          <div className="p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <div className="p-3 space-y-1">
+            {/* Section Label for Chats */}
+            {conversations.length > 0 && (
+              <div className="px-3 pt-2 pb-3">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Recent Chats
+                </span>
+              </div>
+            )}
+            
             {/* Root-level conversations (no folder) */}
             {conversations.length > 0 && (
               <div className="space-y-1">
@@ -376,7 +390,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                                 type="text"
                                 value={editingTitle}
                                 onChange={(e) => setEditingTitle(e.target.value)}
-                                className="flex-1 min-w-0 bg-background border border-primary rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                className="flex-1 min-w-0 bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 onBlur={() => saveConversationTitle()}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Escape') cancelEditingConversation();
@@ -391,7 +405,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     <div 
                         key={conversation.id} 
                         className={cn(
-                            "group relative pr-8 bg-transparent hover:bg-transparent",
+                            "group relative",
                             conversationMenuOpenId === conversation.id ? "z-20" : "z-auto"
                         )}
                     >
@@ -399,10 +413,10 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         onClick={() => handleConversationClick(conversation.id)}
                         disabled={isLoading}
                         className={cn(
-                          'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate',
+                          'w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all duration-200 truncate',
                           isActive
-                            ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-foreground hover:bg-accent',
+                            ? 'bg-primary text-primary-foreground font-medium shadow-md shadow-primary/20'
+                            : 'text-foreground hover:bg-accent/80',
                           'disabled:opacity-50'
                         )}
                         title={conversation.title}
@@ -410,15 +424,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         {conversation.title}
                       </button>
                       
-                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                         <button
                             onClick={(e) => toggleConversationMenu(e, conversation.id)}
                             className={cn(
-                                "p-1.5 rounded text-muted-foreground transition-all duration-200",
+                                "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
                                 conversationMenuOpenId === conversation.id 
                                     ? "opacity-100 bg-accent text-foreground" 
                                     : isActive 
-                                        ? "opacity-100 text-primary-foreground hover:bg-white/20" 
+                                        ? "opacity-100 text-primary-foreground hover:bg-primary-foreground/20" 
                                         : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
                             )}
                         >
@@ -429,15 +443,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         {conversationMenuOpenId === conversation.id && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-32 bg-background border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1 theme-shadow select-none">
+                                <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
                                     <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
                                         onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
                                     >
-                                        <Pencil className="h-3.5 w-3.5" /> Rename
+                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
                                     </button>
                                      <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-accent text-red-500 hover:text-red-600 flex items-center gap-2"
+                                        className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
                                         onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -453,6 +467,14 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
             )}
 
             {/* Folders with conversations */}
+            {folders.length > 0 && (
+              <div className="px-3 pt-4 pb-3">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Courses
+                </span>
+              </div>
+            )}
+            
             {folders.map((folder) => {
               const isExpanded = expandedFolders.has(folder.id);
               const isEditingVal = editingFolderId === folder.id;
@@ -461,13 +483,13 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                 <div key={folder.id} className="space-y-1">
                   {/* Folder Header */}
                   {isEditingVal ? (
-                    <div className="flex items-center gap-1 px-2 py-1 ml-6">
+                    <div className="flex items-center gap-1 px-2 py-1">
                         <form onSubmit={saveFolderEdit} className="flex-1">
                             <input
                                 autoFocus
                                 value={folderEditName}
                                 onChange={e => setFolderEditName(e.target.value)}
-                                className="w-full bg-background border border-primary rounded px-2 py-1 text-sm focus:outline-none"
+                                className="w-full bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 onBlur={(e) => saveFolderEdit(e)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Escape') setEditingFolderId(null);
@@ -478,8 +500,8 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                   ) : (
                     <div 
                         className={cn(
-                            "flex items-center gap-1 group pr-2 relative",
-                            folderMenuOpenId === folder.id ? "z-20" : "z-auto"
+                            "group flex items-center gap-1 relative rounded-xl transition-colors hover:bg-accent/50",
+                            folderMenuOpenId === folder.id ? "z-20 bg-accent/50" : "z-auto"
                         )}
                     >
                       <button
@@ -487,30 +509,34 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                           e.preventDefault();
                           toggleFolder(folder.id);
                         }}
-                        className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        className="p-2 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
                       >
-                        {isExpanded ? (
+                        <div className={cn(
+                          "transition-transform duration-200",
+                          isExpanded ? "rotate-0" : "-rotate-90"
+                        )}>
                           <ChevronDown className="h-4 w-4 shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 shrink-0" />
-                        )}
+                        </div>
                       </button>
                       
                       <Link
                         href={`/course/${folder.id}`}
-                        className="flex-1 flex items-center justify-between py-2 text-sm font-medium text-foreground hover:bg-accent rounded-lg px-2 transition-colors duration-150 truncate"
+                        className="flex-1 flex items-center gap-3 py-2.5 pr-2 text-sm font-medium text-foreground rounded-lg transition-colors duration-150 truncate"
                       >
-                        <span className="truncate">{folder.name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">
+                        <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center">
+                          <FolderPlus className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <span className="truncate flex-1">{folder.name}</span>
+                        <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
                           {folder.conversations.length}
                         </span>
                       </Link>
 
-                      <div className="relative">
+                      <div className="relative pr-1">
                         <button
                             onClick={(e) => toggleFolderMenu(e, folder.id)}
                             className={cn(
-                                "p-1.5 rounded text-muted-foreground transition-all duration-200",
+                                "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
                                 folderMenuOpenId === folder.id ? "opacity-100 bg-accent text-foreground" : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
                             )}
                         >
@@ -521,15 +547,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         {folderMenuOpenId === folder.id && (
                             <>
                                 <div className="fixed inset-0 z-40" onClick={() => setFolderMenuOpenId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-32 bg-background border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1 theme-shadow select-none">
+                                <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
                                     <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
                                         onClick={(e) => { e.preventDefault(); startEditingFolder(folder); }}
                                     >
-                                        <Pencil className="h-3.5 w-3.5" /> Rename
+                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
                                     </button>
                                      <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-accent text-red-500 hover:text-red-600 flex items-center gap-2"
+                                        className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
                                         onClick={(e) => { e.preventDefault(); handleFolderDelete(folder.id, folder.name); }}
                                     >
                                         <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -543,10 +569,11 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                   
                   {/* Folder Conversations */}
                   {isExpanded && (
-                    <div className="ml-4 space-y-1">
+                    <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-1">
                       {folder.conversations.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-muted-foreground italic">
-                          No conversations
+                        <div className="px-3 py-3 text-xs text-muted-foreground italic flex items-center gap-2">
+                          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                          No conversations yet
                         </div>
                       ) : (
                         folder.conversations.map((conversation) => {
@@ -562,7 +589,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                                         type="text"
                                         value={editingTitle}
                                         onChange={(e) => setEditingTitle(e.target.value)}
-                                        className="flex-1 min-w-0 bg-background border border-primary rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                        className="flex-1 min-w-0 bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                         onBlur={() => saveConversationTitle()}
                                         onKeyDown={(e) => {
                                           if (e.key === 'Escape') cancelEditingConversation();
@@ -574,15 +601,18 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                           }
 
                           return (
-                            <div key={conversation.id} className="group relative pr-8 bg-transparent hover:bg-transparent">
+                            <div key={conversation.id} className={cn(
+                              "group relative",
+                              conversationMenuOpenId === conversation.id ? "z-20" : "z-auto"
+                            )}>
                               <button
                                 onClick={() => handleConversationClick(conversation.id)}
                                 disabled={isLoading}
                                 className={cn(
-                                  'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors duration-150 truncate',
+                                  'w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all duration-200 truncate',
                                   isActive
-                                    ? 'bg-primary text-primary-foreground font-medium'
-                                    : 'text-foreground hover:bg-accent',
+                                    ? 'bg-primary text-primary-foreground font-medium shadow-md shadow-primary/20'
+                                    : 'text-foreground hover:bg-accent/80',
                                   'disabled:opacity-50'
                                 )}
                                 title={conversation.title}
@@ -590,15 +620,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                                 {conversation.title}
                               </button>
                               
-                              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center">
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                                 <button
                                     onClick={(e) => toggleConversationMenu(e, conversation.id)}
                                     className={cn(
-                                        "p-1.5 rounded text-muted-foreground transition-all duration-200",
+                                        "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
                                         conversationMenuOpenId === conversation.id 
                                             ? "opacity-100 bg-accent text-foreground" 
                                             : isActive 
-                                                ? "opacity-100 text-primary-foreground hover:bg-white/20" 
+                                                ? "opacity-100 text-primary-foreground hover:bg-primary-foreground/20" 
                                                 : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
                                     )}
                                 >
@@ -609,15 +639,15 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                                 {conversationMenuOpenId === conversation.id && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
-                                        <div className="absolute right-0 top-full mt-1 w-32 bg-popover text-popover-foreground border border-border shadow-md rounded-lg overflow-hidden z-50 flex flex-col py-1">
+                                        <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
                                             <button 
-                                                className="text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                                                className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
                                                 onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
                                             >
-                                                <Pencil className="h-3.5 w-3.5" /> Rename
+                                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
                                             </button>
                                             <button 
-                                                className="text-left px-3 py-2 text-sm hover:bg-accent text-red-500 hover:text-red-600 flex items-center gap-2"
+                                                className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
                                                 onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -638,8 +668,12 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
             {/* Empty state */}
             {conversations.length === 0 && folders.length === 0 && (
-              <div className="px-3 py-8 text-center text-muted-foreground text-sm">
-                No conversations yet. Start with a new chat!
+              <div className="px-4 py-12 text-center">
+                <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                  <Sparkles className="h-8 w-8 text-primary" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">No conversations yet</p>
+                <p className="text-xs text-muted-foreground">Start with a new chat to get going!</p>
               </div>
             )}
           </div>
