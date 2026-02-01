@@ -1,21 +1,21 @@
-import json
 import re
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import Optional, Type, Any, List
+from typing import Optional, Type, Any, Dict, List, Union
 from pydantic import BaseModel, Field
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.search_events import CalendarSearchEvents, SearchEventsSchema
 from langchain_google_community.calendar.get_calendars_info import GetCalendarsInfo
 from sqlalchemy.ext.asyncio import AsyncSession
+import json
 
 from src.core.integrations.google.auth_utils import get_service_and_timezone
 from src.services.vision.schema import ApprovedWeeklyRoutine
 from src.calendar.google_client import GoogleCalendarClient
 from src.calendar.schemas import EventCreate, CalendarTime
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) 
 
 def sanitize_json_string(s: str) -> str:
     """Removes or escapes control characters that break JSON parsing."""

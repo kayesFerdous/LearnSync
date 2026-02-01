@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Sequence
 from datetime import datetime
 from pydantic import BaseModel
 
@@ -82,7 +82,7 @@ class GoogleCalendarClient:
             print(f"Error creating event: {e}")
             raise e
 
-    async def batch_create_events(self, events_data: List[Union[EventCreate, Dict[str, Any]]], calendar_id: str = 'primary') -> None:
+    async def batch_create_events(self, events_data: Sequence[Union[EventCreate, Dict[str, Any]]], calendar_id: str = 'primary') -> None:
         """
         Creates multiple events in a batch request.
         """
