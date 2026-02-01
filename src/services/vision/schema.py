@@ -37,3 +37,10 @@ class WeeklyRoutine(BaseModel):
     title: str = Field(description="Title of the routine", default="Weekly Class Schedule")
     classes: List[ClassSession] = Field(description="List of all extracted classes/sessions")
 
+
+class ApprovedClassSession(ClassSession):
+    recurrence: Optional[List[str]] = Field(default=None, description="RRULE for calendar recurrence")
+
+class ApprovedWeeklyRoutine(WeeklyRoutine):
+    classes: List[ApprovedClassSession] = Field(description="List of all approved classes/sessions") #type: ignore
+

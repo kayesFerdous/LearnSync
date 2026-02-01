@@ -1,13 +1,21 @@
 import json
 import re
-from typing import Optional, Type, Any
+import logging
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from typing import Optional, Type, Any, List
 from pydantic import BaseModel, Field
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.search_events import CalendarSearchEvents, SearchEventsSchema
 from langchain_google_community.calendar.get_calendars_info import GetCalendarsInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.integrations.google.auth_utils import get_google_calendar_service, get_service_and_timezone
+from src.core.integrations.google.auth_utils import get_service_and_timezone
+from src.services.vision.schema import ApprovedWeeklyRoutine
+from src.calendar.google_client import GoogleCalendarClient
+from src.calendar.schemas import EventCreate, CalendarTime
+
+logger = logging.getLogger(__name__)
 
 def sanitize_json_string(s: str) -> str:
     """Removes or escapes control characters that break JSON parsing."""
@@ -93,3 +101,95 @@ async def get_users_calendar_tools(user_id: str, db: AsyncSession):
     except Exception as e:
         print(f"Error creating user tools: {e}")
         return [], "UTC"
+
+
+def get_next_weekday_date(day_name: str, timezone: str) -> datetime:
+    """Calculates the date of the next occurrence (or today) of the given day."""
+    try:
+        tz = ZoneInfo(timezone)
+    except Exception:
+        tz = ZoneInfo("UTC") # Fallback
+        
+    now = datetime.now(tz)
+    
+    days_map = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6
+    }
+    
+    target_day = days_map.get(day_name.lower())
+    if target_day is None:
+        # Fallback to today if day name is invalid, though validation should catch this
+        return now
+
+    current_day = now.weekday()
+    days_ahead = (target_day - current_day) % 7
+    
+    return now + timedelta(days=days_ahead)
+
+
+async def sync_routine_to_google_calendar(service, routine: ApprovedWeeklyRoutine, timezone: str):
+    """
+    Adds all classes from the approved routine to Google Calendar using GoogleCalendarClient.
+    """
+    logger.info(f"Starting sync of routine '{routine.title}' to Google Calendar (TZ: {timezone})")
+    
+    client = GoogleCalendarClient(service)
+
+    rrule_days = {
+        "monday": "MO", "tuesday": "TU", "wednesday": "WE", "thursday": "TH",
+        "friday": "FR", "saturday": "SA", "sunday": "SU"
+    }
+
+    # Prepare list of events to insert
+    events_to_create: List[EventCreate] = []
+
+    for session in routine.classes:
+        if not session.start.dateTime or not session.end.dateTime:
+            continue
+
+        # Calculate the correct start date for this session's day
+        start_date = get_next_weekday_date(session.day, timezone)
+        
+        # Combine date with time
+        start_time = session.start.dateTime.time()
+        end_time = session.end.dateTime.time()
+        
+        # Create timezone-aware datetimes
+        try:
+            tz = ZoneInfo(timezone)
+        except:
+            tz = ZoneInfo("UTC")
+
+        # Easier: Construct naive datetime from date and time, then replace info
+        dt_start_naive = datetime.combine(start_date.date(), start_time)
+        dt_end_naive = datetime.combine(start_date.date(), end_time)
+        
+        # Make them aware
+        dt_start = dt_start_naive.replace(tzinfo=tz)
+        dt_end = dt_end_naive.replace(tzinfo=tz)
+        
+        # Handle case where end time is before start time (e.g. crossing midnight)
+        if dt_end < dt_start:
+            dt_end += timedelta(days=1)
+
+        recurrence = session.recurrence
+        if not recurrence:
+            day_code = rrule_days.get(session.day.lower())
+            if day_code:
+                recurrence = [f"RRULE:FREQ=WEEKLY;BYDAY={day_code}"]
+        
+        event = EventCreate(
+            summary=session.course_name,
+            description=f"Part of routine: {routine.title}",
+            start=CalendarTime(dateTime=dt_start, timeZone=timezone),
+            end=CalendarTime(dateTime=dt_end, timeZone=timezone),
+            recurrence=recurrence
+        )
+        events_to_create.append(event)
+
+    if not events_to_create:
+        return
+
+    # Use batch creation from the client
+    await client.batch_create_events(events_to_create)

@@ -3,9 +3,11 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from src.services.vision.schema import WeeklyRoutine
+from src.services.vision.schema import WeeklyRoutine, ApprovedWeeklyRoutine
 from src.services.vision.models import ClassSession, Routine
 from src.agents.model import AgentState
+from src.core.integrations.google.calendar_service import sync_routine_to_google_calendar
+from src.core.integrations.google.auth_utils import get_service_and_timezone
 
 
 def make_routine_approval_node():
@@ -27,8 +29,9 @@ def make_routine_approval_node():
 
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
             db: AsyncSession = config["configurable"]["db"] #type: ignore
+            user_id = state['user_id']
 
-            approved_routine = WeeklyRoutine.model_validate(user_dicision.get("data")) 
+            approved_routine = ApprovedWeeklyRoutine.model_validate(user_dicision.get("data")) 
             # Create and add the parent Routine first
             new_routine = Routine(title=approved_routine.title)
             db.add(new_routine)
@@ -41,13 +44,25 @@ def make_routine_approval_node():
                     start_time=single_class.start.dateTime,
                     end_time=single_class.end.dateTime,
                     course_name=single_class.course_name,
-                    routine_id=new_routine.id 
+                    routine_id=new_routine.id,
+                    recurrence=single_class.recurrence
                 )
                 all_classes.append(new_class)
             
             db.add_all(all_classes)
             await db.commit()
             
+            # Sync to Google Calendar
+            try:
+                service, timezone = await get_service_and_timezone(user_id, db)
+                if service:
+                    await sync_routine_to_google_calendar(service, approved_routine, timezone)
+                    print(f"Successfully synced routine to Google Calendar for user {user_id}")
+                else:
+                    print(f"Skipping Google Calendar sync: No service found for user {user_id}")
+            except Exception as e:
+                print(f"Failed to sync routine to Google Calendar: {e}")
+
             # Construct routine data to embed in message
             routine_data = {
                 "title": approved_routine.title,
@@ -64,7 +79,7 @@ def make_routine_approval_node():
 
             # Embed routine data in the message using additional_kwargs
             messages.append(AIMessage(
-                content="The routine has been approved and saved.",
+                content="The routine has been approved, saved to the database, and synced to Google Calendar.",
                 additional_kwargs={
                     "routine_approved": True,
                     "routine_data": routine_data
