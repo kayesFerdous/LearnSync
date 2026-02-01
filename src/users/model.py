@@ -43,7 +43,7 @@ class User(Base):
         passive_deletes=True,
     )
 
-    routines: Mapped[List["Routine"]] = relationship(
+    routines: Mapped[List["Routine"]] = relationship( #type: ignore
         "Routine",
         back_populates="user",
         cascade="all, delete-orphan",

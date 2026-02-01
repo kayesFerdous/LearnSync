@@ -82,33 +82,52 @@ class GoogleCalendarClient:
             print(f"Error creating event: {e}")
             raise e
 
-    async def batch_create_events(self, events_data: Sequence[Union[EventCreate, Dict[str, Any]]], calendar_id: str = 'primary') -> None:
+    async def batch_create_events(self, events_data: Sequence[Union[EventCreate, Dict[str, Any]]], calendar_id: str = 'primary') -> List[Optional[Event]]:
         """
-        Creates multiple events in a batch request.
+        Creates multiple events in a batch request and returns the created events.
         """
         try:
             def _do_batch():
                 batch = self.service.new_batch_http_request()
+                created_events: List[Optional[Event]] = [None] * len(events_data)
                 
-                # We can collect responses if needed, but for now we just log errors
                 def callback(request_id, response, exception):
                     if exception:
                         print(f"Error in batch item {request_id}: {exception}")
+                    else:
+                        # Request ID is usually "1", "2", etc. corresponding to order added?
+                        # Actually googleapiclient might randomize IDs or use custom ones.
+                        # It's safer to rely on order if we implement a custom callback closure or just append to a list
+                        # BUT batch callbacks are async/threaded potentially? No, execute() is blocking.
+                        # Let's rely on the fact that we can pass a unique callback for each item
+                        pass
+
+                # We need to map results back to the input order.
+                # A closure for each item is the safest way.
                 
                 for i, event_data in enumerate(events_data):
                     if isinstance(event_data, (EventCreate, BaseModel)):
                         body = event_data.model_dump(exclude_none=True, mode='json')
                     else:
                         body = event_data
+                    
+                    def make_callback(index):
+                        def _cb(request_id, response, exception):
+                            if exception:
+                                print(f"Error in batch item {index}: {exception}")
+                            else:
+                                created_events[index] = Event.model_validate(response)
+                        return _cb
                         
                     batch.add(
                         self.service.events().insert(calendarId=calendar_id, body=body),
-                        callback=callback
+                        callback=make_callback(i)
                     )
                 
                 batch.execute()
+                return created_events
 
-            await asyncio.to_thread(_do_batch)
+            return await asyncio.to_thread(_do_batch)
         except Exception as e:
             print(f"Error in batch creation: {e}")
             raise e
