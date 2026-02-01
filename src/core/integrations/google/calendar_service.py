@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.search_events import CalendarSearchEvents, SearchEventsSchema
 from langchain_google_community.calendar.get_calendars_info import GetCalendarsInfo
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.integrations.google.auth_utils import get_google_calendar_service
 
@@ -21,7 +22,7 @@ class SafeGetCalendarsInfo(GetCalendarsInfo):
 
     def _run(self, run_manager: Optional[Any] = None) -> str:
         try:
-            calendars = self.api_resource.calendarList().list().execute()
+            calendars = self.api_resource.calendarList().list().execute() #type: ignore
             data = []
             for item in calendars.get("items", []):
                 data.append({
@@ -34,19 +35,19 @@ class SafeGetCalendarsInfo(GetCalendarsInfo):
             raise Exception(f"An error occurred in SafeGetCalendarsInfo: {error}")
 
 class SafeSearchEventsSchema(SearchEventsSchema):
-    calendars_info: Optional[str] = Field(
+    calendars_info: Optional[str] = Field( #type: ignore
         default=None,
         description="Information about calendars. If not provided, it will be fetched automatically."
     )
 
 class SafeCalendarSearchEvents(CalendarSearchEvents):
-    args_schema: Type[BaseModel] = SafeSearchEventsSchema
+    args_schema: Type[BaseModel] = SafeSearchEventsSchema #type: ignore
 
-    def _run(self, calendars_info: Optional[str] = None, **kwargs: Any) -> Any:
+    def _run(self, calendars_info: Optional[str] = None, **kwargs: Any) -> Any: #type: ignore
         # If the LLM didn't provide it, or if it's broken, we fetch it ourselves
         if not calendars_info:
             try:
-                calendars = self.api_resource.calendarList().list().execute()
+                calendars = self.api_resource.calendarList().list().execute()  #type: ignore
                 data = []
                 for item in calendars.get("items", []):
                     data.append({
@@ -66,8 +67,8 @@ class SafeCalendarSearchEvents(CalendarSearchEvents):
 
 
 
-async def get_users_calendar_tools(user_id: str):
-    service = await get_google_calendar_service(user_id)
+async def get_users_calendar_tools(user_id: str, db: AsyncSession):
+    service = await get_google_calendar_service(user_id, db)
         
     if not service:
         return []

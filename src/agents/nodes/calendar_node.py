@@ -1,3 +1,4 @@
+from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -6,7 +7,7 @@ from src.agents.model import AgentState
 from src.agents.registry import build_calendar_agent
 
 def make_calendar_node(llm: BaseChatModel):
-    async def node(state: AgentState):
+    async def node(state: AgentState, config: RunnableConfig):
         
         user_id = state.get("user_id")
         if not user_id:
@@ -14,7 +15,8 @@ def make_calendar_node(llm: BaseChatModel):
 
         # Build the executor dynamically for this user
         try:
-            agent_executor = await build_calendar_agent(user_id, llm)
+            db: AsyncSession = config["configurable"]["db"] #type: ignore
+            agent_executor = await build_calendar_agent(user_id, llm, db)
         except Exception as e:
             print(f"Error building calendar agent: {e}")
             return {'messages': [AIMessage(content="I'm having trouble accessing your calendar tools right now.")]}
