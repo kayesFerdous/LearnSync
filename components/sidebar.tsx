@@ -11,7 +11,8 @@ import {
   FileText, 
   Shield, 
   User,
-  X
+  X,
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUiStore } from '@/lib/store';
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/chat', label: 'Chat', icon: MessageSquare, description: 'AI conversations' },
   { href: '/editor', label: 'Text Editor', icon: FileText, description: 'Create documents' },
   { href: '/calendar', label: 'Calendar', icon: Calendar, description: 'Schedule & events' },
+  { href: '/routines', label: 'Class Schedule', icon: Clock, description: 'Weekly routines' },
   { href: '/profile', label: 'Profile', icon: User, description: 'Your account' },
   { href: '/admin', label: 'Admin', icon: Shield, description: 'System management' },
   { href: '/settings', label: 'Settings', icon: Settings, description: 'Preferences' },
