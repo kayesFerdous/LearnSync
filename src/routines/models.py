@@ -34,7 +34,7 @@ class Routine(Base):
         passive_deletes=True,
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="routines")
+    user: Mapped["User"] = relationship("User", back_populates="routines") #type: ignore
 
 class ClassSession(Base):
     __tablename__ = "class_sessions"
@@ -50,6 +50,7 @@ class ClassSession(Base):
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     course_name: Mapped[str] = mapped_column(String, nullable=False)
     recurrence: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    google_event_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Relationships
     routine: Mapped["Routine"] = relationship(

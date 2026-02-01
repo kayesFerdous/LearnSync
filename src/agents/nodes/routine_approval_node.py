@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from langgraph.types import interrupt
 from langchain_core.runnables import RunnableConfig
 from sqlalchemy.ext.asyncio.session import AsyncSession
@@ -6,9 +7,9 @@ from langchain_core.messages import AIMessage, SystemMessage
 
 from src.agents.model import AgentState
 from src.services.vision.schema import ApprovedWeeklyRoutine
-from src.services.vision.models import ClassSession, Routine
+from src.routines.models import ClassSession, Routine
 from src.core.integrations.google.auth_utils import get_service_and_timezone
-from src.core.integrations.google.calendar_service import sync_routine_to_google_calendar
+from src.core.integrations.google.calendar_service import sync_db_routine_to_google, delete_google_events_for_routine
 
 
 def make_routine_approval_node():
@@ -31,13 +32,20 @@ def make_routine_approval_node():
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
             db: AsyncSession = config["configurable"]["db"] #type: ignore
             user_id = state['user_id']
+            
+            # Get Google Service once
+            service, timezone = await get_service_and_timezone(user_id, db)
 
             # Check if user already has a routine and delete it (replace logic)
-            stmt = select(Routine).where(Routine.user_id == user_id)
+            stmt = select(Routine).where(Routine.user_id == user_id).options(selectinload(Routine.classes))
             result = await db.execute(stmt)
             existing_routine = result.scalars().first()
 
             if existing_routine:
+                # Cleanup Google Calendar events for the old routine
+                if service:
+                    await delete_google_events_for_routine(service, existing_routine)
+                
                 await db.delete(existing_routine)
                 await db.flush() # Ensure deletion happens before insertion
 
@@ -61,12 +69,13 @@ def make_routine_approval_node():
             
             db.add_all(all_classes)
             await db.commit()
+            await db.refresh(new_routine, attribute_names=["classes"])
             
             # Sync to Google Calendar
             try:
-                service, timezone = await get_service_and_timezone(user_id, db)
                 if service:
-                    await sync_routine_to_google_calendar(service, approved_routine, timezone)
+                    # Use the DB sync function to save IDs
+                    await sync_db_routine_to_google(service, new_routine, all_classes, timezone, db)
                     print(f"Successfully synced routine to Google Calendar for user {user_id}")
                 else:
                     print(f"Skipping Google Calendar sync: No service found for user {user_id}")

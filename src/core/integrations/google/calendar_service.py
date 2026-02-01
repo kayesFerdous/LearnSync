@@ -2,16 +2,17 @@ import re
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from typing import Optional, Type, Any, Dict, List, Union
+from typing import Optional, Type, Any, List
 from pydantic import BaseModel, Field
 from langchain_google_community import CalendarToolkit
 from langchain_google_community.calendar.search_events import CalendarSearchEvents, SearchEventsSchema
 from langchain_google_community.calendar.get_calendars_info import GetCalendarsInfo
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 import json
 
 from src.core.integrations.google.auth_utils import get_service_and_timezone
-from src.services.vision.schema import ApprovedWeeklyRoutine
+from src.routines.models import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
 from src.calendar.schemas import EventCreate, CalendarTime
 
@@ -74,7 +75,6 @@ class SafeCalendarSearchEvents(CalendarSearchEvents):
         return super()._run(calendars_info=sanitized_info, **kwargs)
 
 
-
 async def get_users_calendar_tools(user_id: str, db: AsyncSession):
     # Retrieve service AND timezone in one efficient query
     service, timezone = await get_service_and_timezone(user_id, db)
@@ -128,9 +128,9 @@ def get_next_weekday_date(day_name: str, timezone: str) -> datetime:
     return now + timedelta(days=days_ahead)
 
 
-async def sync_routine_to_google_calendar(service, routine: ApprovedWeeklyRoutine, timezone: str):
+async def sync_db_routine_to_google(service, routine: Routine, classes: List[ClassSession], timezone: str, db: AsyncSession):
     """
-    Adds all classes from the approved routine to Google Calendar using GoogleCalendarClient.
+    Adds all classes from the DB routine to Google Calendar and updates DB with Event IDs.
     """
     logger.info(f"Starting sync of routine '{routine.title}' to Google Calendar (TZ: {timezone})")
     
@@ -143,33 +143,31 @@ async def sync_routine_to_google_calendar(service, routine: ApprovedWeeklyRoutin
 
     # Prepare list of events to insert
     events_to_create: List[EventCreate] = []
+    # Keep track of which class corresponds to which event for mapping IDs back
+    class_mapping: List[ClassSession] = []
 
-    for session in routine.classes:
-        if not session.start.dateTime or not session.end.dateTime:
+    for session in classes:
+        if not session.start_time or not session.end_time:
             continue
 
-        # Calculate the correct start date for this session's day
         start_date = get_next_weekday_date(session.day, timezone)
         
-        # Combine date with time
-        start_time = session.start.dateTime.time()
-        end_time = session.end.dateTime.time()
+        # Use DB datetime objects directly
+        # If they are naive, assume they are relative to the day
+        start_time = session.start_time.time()
+        end_time = session.end_time.time()
         
-        # Create timezone-aware datetimes
         try:
             tz = ZoneInfo(timezone)
         except:
             tz = ZoneInfo("UTC")
 
-        # Easier: Construct naive datetime from date and time, then replace info
         dt_start_naive = datetime.combine(start_date.date(), start_time)
         dt_end_naive = datetime.combine(start_date.date(), end_time)
         
-        # Make them aware
         dt_start = dt_start_naive.replace(tzinfo=tz)
         dt_end = dt_end_naive.replace(tzinfo=tz)
         
-        # Handle case where end time is before start time (e.g. crossing midnight)
         if dt_end < dt_start:
             dt_end += timedelta(days=1)
 
@@ -187,9 +185,41 @@ async def sync_routine_to_google_calendar(service, routine: ApprovedWeeklyRoutin
             recurrence=recurrence
         )
         events_to_create.append(event)
+        class_mapping.append(session)
 
     if not events_to_create:
         return
 
-    # Use batch creation from the client
-    await client.batch_create_events(events_to_create)
+    # Create events
+    created_events = await client.batch_create_events(events_to_create)
+    
+    # Update DB with IDs
+    for session, event in zip(class_mapping, created_events):
+        if event and event.id:
+            session.google_event_id = event.id
+            
+    await db.commit()
+
+
+async def delete_google_events_for_routine(service, routine: Routine):
+    """
+    Deletes all Google Calendar events associated with the routine's classes.
+    """
+    client = GoogleCalendarClient(service)
+    
+    # Collect all event IDs
+    event_ids = [cls.google_event_id for cls in routine.classes if cls.google_event_id]
+    
+    if not event_ids:
+        return
+
+    # Delete events in parallel or batch
+    # Currently client doesn't support batch delete, so we loop parallel
+    async def _safe_delete(eid):
+        try:
+            await client.delete_event(eid)
+        except Exception as e:
+            logger.warning(f"Failed to delete event {eid}: {e}")
+
+    await asyncio.gather(*[_safe_delete(eid) for eid in event_ids])
+
