@@ -169,7 +169,7 @@ class GoogleCalendarClient:
         calendar_id: str = 'primary'
     ) -> Event:
         """
-        Updates an existing event.
+        Updates an existing event using PUT (replaces all fields).
         """
         try:
             def _do_update():
@@ -188,6 +188,34 @@ class GoogleCalendarClient:
             return await asyncio.to_thread(_do_update)
         except Exception as e:
             print(f"Error updating event: {e}")
+            raise e
+
+    async def patch_event(
+        self, 
+        event_id: str, 
+        event_data: Union[EventUpdate, Dict[str, Any]], 
+        calendar_id: str = 'primary'
+    ) -> Event:
+        """
+        Partially updates an existing event using PATCH.
+        """
+        try:
+            def _do_patch():
+                if isinstance(event_data, (EventUpdate, BaseModel)):
+                     body = event_data.model_dump(exclude_none=True, mode='json')
+                else:
+                    body = event_data
+
+                event = self.service.events().patch(
+                    calendarId=calendar_id,
+                    eventId=event_id,
+                    body=body
+                ).execute()
+                return Event.model_validate(event)
+
+            return await asyncio.to_thread(_do_patch)
+        except Exception as e:
+            print(f"Error patching event: {e}")
             raise e
 
     async def delete_event(self, event_id: str, calendar_id: str = 'primary') -> None:

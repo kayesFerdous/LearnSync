@@ -1,5 +1,6 @@
 from uuid import UUID
 from typing import Optional, List
+from datetime import datetime, timedelta
 import base64
 from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +10,14 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.routines import crud, schemas
 from src.core.integrations.google.auth_utils import get_service_and_timezone
-from src.core.integrations.google.calendar_service import sync_db_routine_to_google, delete_google_events_for_routine
+from src.core.integrations.google.calendar_service import (
+    sync_db_routine_to_google, 
+    delete_google_events_for_routine,
+    get_next_weekday_date
+)
 from src.routines.models import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
+from src.calendar.schemas import EventUpdate, CalendarTime
 from src.services.vision.extractor import image_extractor
 from src.services.vision.schema import WeeklyRoutine, ApprovedWeeklyRoutine
 
@@ -202,14 +208,43 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
          
     updated_class = await crud.update_class_session_db(db, class_session, update_data)
     
-    # Sync: Update event (if exists) or Create (if missing)
-    # Ideally, we update the event. But google_client update logic might be complex.
-    # For now, let's try to update if we have an ID.
-    
-    if updated_class.google_event_id:
-        if service:
-             # TODO: Implement update logic in Google Sync
-             # For simplicity, we can delete and re-create, or implement update_event mapping
-             pass 
+    # Sync: Update event (if exists)
+    if updated_class.google_event_id and service:
+        client = GoogleCalendarClient(service)
+        try:
+            # Ensure updated_class times are timezone-aware (DB assumes UTC if naive)
+            await _localize_session_times(updated_class, "UTC")
+            
+            # Calculate new start/end times for the event
+            start_date = get_next_weekday_date(updated_class.day, timezone)
+            
+            try:
+                tz = ZoneInfo(timezone)
+            except Exception:
+                tz = ZoneInfo("UTC")
+
+            start_time = updated_class.start_time.astimezone(tz).time() #type: ignore
+            end_time = updated_class.end_time.astimezone(tz).time() #type: ignore
+            
+            dt_start_naive = datetime.combine(start_date.date(), start_time)
+            dt_end_naive = datetime.combine(start_date.date(), end_time)
+            
+            dt_start = dt_start_naive.replace(tzinfo=tz)
+            dt_end = dt_end_naive.replace(tzinfo=tz)
+            
+            if dt_end < dt_start:
+                dt_end += timedelta(days=1)
+            
+            event_update = EventUpdate(
+                summary=updated_class.course_name,
+                start=CalendarTime(dateTime=dt_start, timeZone=timezone),
+                end=CalendarTime(dateTime=dt_end, timeZone=timezone)
+            )
+            
+            await client.patch_event(updated_class.google_event_id, event_update)
+            
+        except Exception as e:
+            # We log the error but do not fail the request
+            print(f"Failed to update Google Calendar event: {e}")
              
     return updated_class
