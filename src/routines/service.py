@@ -82,6 +82,19 @@ async def create_or_replace_routine(db: AsyncSession, user_id: UUID, routine_dat
     
     # 2. Get Google Service
     service, timezone = await get_service_and_timezone(str(user_id), db)
+    
+    # 2.5 Localize naive datetimes in input data to user's timezone
+    # This prevents implicit UTC conversion of "wall clock" times
+    try:
+        user_tz = ZoneInfo(timezone)
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    for cls in routine_data.classes:
+        if cls.start_time and cls.start_time.tzinfo is None:
+            cls.start_time = cls.start_time.replace(tzinfo=user_tz)
+        if cls.end_time and cls.end_time.tzinfo is None:
+            cls.end_time = cls.end_time.replace(tzinfo=user_tz)
 
     # 3. Clean up old routine (DB + Google)
     if existing_routine:
