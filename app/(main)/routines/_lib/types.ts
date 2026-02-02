@@ -38,6 +38,42 @@ export interface UpdateClassRequest {
   course_name?: string;
 }
 
+// Types for image extraction API (matches backend WeeklyRoutine schema)
+export interface ExtractedClassSchedule {
+  day: string;
+  course_name: string;
+  start: {
+    dateTime: string; // ISO 8601 format
+  };
+  end: {
+    dateTime: string; // ISO 8601 format
+  };
+  recurrence?: string[]; // RRULE array
+}
+
+export interface ExtractedRoutine {
+  title: string;
+  classes: ExtractedClassSchedule[];
+}
+
+// Types for confirm API (ApprovedWeeklyRoutine schema)
+export interface ApprovedClassSchedule {
+  day: string;
+  course_name: string;
+  start: {
+    dateTime: string;
+  };
+  end: {
+    dateTime: string;
+  };
+  recurrence?: string[];
+}
+
+export interface ApprovedRoutine {
+  title: string;
+  classes: ApprovedClassSchedule[];
+}
+
 // Days of the week for UI
 export const DAYS_OF_WEEK: RoutineClass['day'][] = [
   'Monday',
