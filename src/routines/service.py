@@ -1,6 +1,7 @@
 from uuid import UUID
 from typing import Optional, List
 import base64
+from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from langchain_core.messages import HumanMessage
@@ -123,10 +124,37 @@ async def add_class_session(db: AsyncSession, user_id: UUID, class_data: schemas
             detail="Routine not found. Please create a routine first."
         )
     
+    # Get user timezone settings
+    service, timezone = await get_service_and_timezone(str(user_id), db)
+
+    # Auto-generate recurrence if missing
+    if not class_data.recurrence:
+        rrule_days = {
+            "monday": "MO", "tuesday": "TU", "wednesday": "WE", "thursday": "TH",
+            "friday": "FR", "saturday": "SA", "sunday": "SU"
+        }
+        day_code = rrule_days.get(class_data.day.lower())
+        if day_code:
+            class_data.recurrence = [f"RRULE:FREQ=WEEKLY;BYDAY={day_code}"]
+
+    # Localize naive datetimes to user's timezone
+    if class_data.start_time.tzinfo is None:
+        try:
+            tz = ZoneInfo(timezone)
+        except Exception:
+            tz = ZoneInfo("UTC")
+        class_data.start_time = class_data.start_time.replace(tzinfo=tz)
+
+    if class_data.end_time.tzinfo is None:
+        try:
+            tz = ZoneInfo(timezone)
+        except Exception:
+            tz = ZoneInfo("UTC")
+        class_data.end_time = class_data.end_time.replace(tzinfo=tz)
+
     new_class = await crud.add_class_to_routine_db(db, routine.id, class_data)
     
     # Sync: Add single event
-    service, timezone = await get_service_and_timezone(str(user_id), db)
     if service:
         await sync_db_routine_to_google(service, routine, [new_class], timezone, db)
         await db.refresh(new_class)
