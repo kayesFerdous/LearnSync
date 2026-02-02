@@ -203,6 +203,13 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
     # Get user timezone settings for localization
     service, timezone = await get_service_and_timezone(str(user_id), db)
     
+    rrule_days = {
+        "monday": "MO", "tuesday": "TU", "wednesday": "WE", "thursday": "TH",
+        "friday": "FR", "saturday": "SA", "sunday": "SU"
+    }
+    day_code = rrule_days.get(update_data.day.lower()) #type: ignore
+    if day_code:
+        update_data.recurrence = [f"RRULE:FREQ=WEEKLY;BYDAY={day_code}"]
     # Localize naive datetimes
     await _localize_session_times(update_data, timezone)
          
@@ -238,7 +245,8 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
             event_update = EventUpdate(
                 summary=updated_class.course_name,
                 start=CalendarTime(dateTime=dt_start, timeZone=timezone),
-                end=CalendarTime(dateTime=dt_end, timeZone=timezone)
+                end=CalendarTime(dateTime=dt_end, timeZone=timezone),
+                recurrence=updated_class.recurrence
             )
             
             await client.patch_event(updated_class.google_event_id, event_update)

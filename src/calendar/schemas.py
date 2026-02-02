@@ -17,7 +17,7 @@ class CalendarUser(BaseModel):
 class ReminderOverride(BaseModel):
     """Specific reminder method and time."""
     method: str = "popup"  # "email" or "popup"
-    minutes: int = 30
+    minutes: int = 0
 
 class EventReminders(BaseModel):
     """Reminders settings for an event."""

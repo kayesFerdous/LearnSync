@@ -14,7 +14,7 @@ import json
 from src.core.integrations.google.auth_utils import get_service_and_timezone
 from src.routines.models import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
-from src.calendar.schemas import EventCreate, CalendarTime
+from src.calendar.schemas import EventCreate, CalendarTime, EventReminders
 
 logger = logging.getLogger(__name__) 
 
@@ -191,7 +191,8 @@ async def sync_db_routine_to_google(service, routine: Routine, classes: List[Cla
             description=f"Part of routine: {routine.title}",
             start=CalendarTime(dateTime=dt_start, timeZone=timezone),
             end=CalendarTime(dateTime=dt_end, timeZone=timezone),
-            recurrence=recurrence
+            recurrence=recurrence,
+            reminders=EventReminders(useDefault=False, overrides=[])
         )
         events_to_create.append(event)
         class_mapping.append(session)
