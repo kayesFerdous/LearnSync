@@ -29,6 +29,7 @@ export interface CreateClassRequest {
   start_time: string;
   end_time: string;
   course_name: string;
+  recurrence?: string[];
 }
 
 export interface UpdateClassRequest {

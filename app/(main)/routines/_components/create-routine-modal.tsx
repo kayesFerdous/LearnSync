@@ -32,6 +32,9 @@ export function CreateRoutineModal({
     { id: '1', day: 'Monday', start_time: '09:00', end_time: '10:30', course_name: '' },
   ]);
   const [error, setError] = useState<string | null>(null);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>(
+    new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
 
   const addClassRow = () => {
     const newId = String(Date.now());
@@ -68,10 +71,37 @@ export function CreateRoutineModal({
       return;
     }
 
-    // Convert times to ISO format
+    // Convert times to ISO format without timezone (local time)
     const today = new Date();
     const currentDay = today.getDay();
     const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
+
+    const formatLocalISO = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+    };
+
+    const generateWeeklyRecurrence = (
+      day: CreateClassRequest['day'],
+      endDate: string
+    ): string[] => {
+      const dayMap: Record<CreateClassRequest['day'], string> = {
+        Monday: 'MO',
+        Tuesday: 'TU',
+        Wednesday: 'WE',
+        Thursday: 'TH',
+        Friday: 'FR',
+        Saturday: 'SA',
+        Sunday: 'SU',
+      };
+      const until = endDate.replace(/-/g, '');
+      return [`RRULE:FREQ=WEEKLY;BYDAY=${dayMap[day]};UNTIL=${until}`];
+    };
 
     const formattedClasses: CreateClassRequest[] = validClasses.map(cls => {
       const dayOffset = DAYS_OF_WEEK.indexOf(cls.day);
@@ -89,9 +119,10 @@ export function CreateRoutineModal({
 
       return {
         day: cls.day,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime.toISOString(),
+        start_time: formatLocalISO(startDateTime),
+        end_time: formatLocalISO(endDateTime),
         course_name: cls.course_name.trim(),
+        recurrence: generateWeeklyRecurrence(cls.day, recurrenceEndDate),
       };
     });
 
@@ -249,6 +280,35 @@ export function CreateRoutineModal({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Recurrence Options */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Repeat schedule</span>
+                <span className="text-xs text-muted-foreground">
+                  (classes repeat weekly)
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">Repeat until</label>
+                  <input
+                    type="date"
+                    value={recurrenceEndDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border flex items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Your classes will be added to Google Calendar and repeat every week
+                    until the selected end date.
+                  </p>
+                </div>
               </div>
             </div>
 

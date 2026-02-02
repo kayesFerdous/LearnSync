@@ -12,6 +12,7 @@ interface ClassFormModalProps {
   onSubmit: (data: CreateClassRequest) => Promise<void>;
   initialData?: RoutineClass | null;
   isLoading?: boolean;
+  defaultRecurrence?: string[];
 }
 
 export function ClassFormModal({
@@ -20,6 +21,7 @@ export function ClassFormModal({
   onSubmit,
   initialData,
   isLoading = false,
+  defaultRecurrence,
 }: ClassFormModalProps) {
   const [formData, setFormData] = useState<CreateClassRequest>({
     day: 'Monday',
@@ -63,6 +65,33 @@ export function ClassFormModal({
     return `${hours}:${minutes}`;
   };
 
+  const formatLocalISO = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  };
+
+  const generateWeeklyRecurrence = (
+    day: CreateClassRequest['day'],
+    endDate: string
+  ): string[] => {
+    const dayMap: Record<CreateClassRequest['day'], string> = {
+      Monday: 'MO',
+      Tuesday: 'TU',
+      Wednesday: 'WE',
+      Thursday: 'TH',
+      Friday: 'FR',
+      Saturday: 'SA',
+      Sunday: 'SU',
+    };
+    const until = endDate.replace(/-/g, '');
+    return [`RRULE:FREQ=WEEKLY;BYDAY=${dayMap[day]};UNTIL=${until}`];
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -89,7 +118,7 @@ export function ClassFormModal({
       return;
     }
 
-    // Convert times to ISO format
+    // Convert times to ISO format without timezone (local time)
     // We'll use a reference date (today) since the backend expects ISO datetime
     const today = new Date();
     const dayOffset = DAYS_OF_WEEK.indexOf(formData.day);
@@ -105,11 +134,18 @@ export function ClassFormModal({
     const endDateTime = new Date(targetDate);
     endDateTime.setHours(endHour, endMin, 0, 0);
 
+    const defaultEndDate = new Date(
+      Date.now() + 16 * 7 * 24 * 60 * 60 * 1000
+    ).toISOString().split('T')[0];
+
     const submitData: CreateClassRequest = {
       day: formData.day,
-      start_time: startDateTime.toISOString(),
-      end_time: endDateTime.toISOString(),
+      start_time: formatLocalISO(startDateTime),
+      end_time: formatLocalISO(endDateTime),
       course_name: formData.course_name.trim(),
+      recurrence: (defaultRecurrence && defaultRecurrence.length > 0)
+        ? defaultRecurrence
+        : generateWeeklyRecurrence(formData.day, defaultEndDate),
     };
 
     try {
