@@ -152,16 +152,25 @@ async def sync_db_routine_to_google(service, routine: Routine, classes: List[Cla
 
         start_date = get_next_weekday_date(session.day, timezone)
         
-        # Use DB datetime objects directly
-        # If they are naive, assume they are relative to the day
-        start_time = session.start_time.time()
-        end_time = session.end_time.time()
-        
         try:
             tz = ZoneInfo(timezone)
         except:
             tz = ZoneInfo("UTC")
 
+        # Convert DB time (UTC) to User Timezone before extracting hour/minute
+        # If DB returns naive, we assume it's UTC (standard for DateTime(timezone=True))
+        
+        s_time_aware = session.start_time
+        if s_time_aware.tzinfo is None:
+            s_time_aware = s_time_aware.replace(tzinfo=ZoneInfo("UTC"))
+        
+        e_time_aware = session.end_time
+        if e_time_aware.tzinfo is None:
+            e_time_aware = e_time_aware.replace(tzinfo=ZoneInfo("UTC"))
+            
+        start_time = s_time_aware.astimezone(tz).time()
+        end_time = e_time_aware.astimezone(tz).time()
+        
         dt_start_naive = datetime.combine(start_date.date(), start_time)
         dt_end_naive = datetime.combine(start_date.date(), end_time)
         
