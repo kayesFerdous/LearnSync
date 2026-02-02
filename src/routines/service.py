@@ -12,7 +12,7 @@ from src.core.integrations.google.calendar_service import sync_db_routine_to_goo
 from src.routines.models import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
 from src.services.vision.extractor import image_extractor
-from src.services.vision.schema import WeeklyRoutine
+from src.services.vision.schema import WeeklyRoutine, ApprovedWeeklyRoutine
 
 
 async def extract_routine_from_image(
@@ -36,6 +36,40 @@ async def extract_routine_from_image(
     )
     
     return await image_extractor(llm, msg)
+
+
+async def confirm_routine_from_vision(
+    db: AsyncSession, 
+    user_id: UUID, 
+    routine_data: ApprovedWeeklyRoutine
+) -> Routine:
+    """
+    Converts the vision-specific schema to the internal DB schema,
+    and creates/replaces the routine.
+    """
+    classes_create = []
+    for cls in routine_data.classes:
+        # TimeFormat.dateTime is Optional[datetime].
+        # We skip entries without valid start/end times.
+        if not cls.start.dateTime or not cls.end.dateTime:
+            continue
+            
+        classes_create.append(
+            schemas.ClassSessionCreate(
+                day=cls.day,
+                start_time=cls.start.dateTime,
+                end_time=cls.end.dateTime,
+                course_name=cls.course_name,
+                recurrence=cls.recurrence
+            )
+        )
+
+    internal_routine_data = schemas.RoutineCreate(
+        title=routine_data.title,
+        classes=classes_create
+    )
+
+    return await create_or_replace_routine(db, user_id, internal_routine_data)
 
 
 async def get_my_routine(db: AsyncSession, user_id: UUID) -> Optional[Routine]:

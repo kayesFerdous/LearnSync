@@ -7,6 +7,9 @@ from src.db.session import get_db
 from src.routines import schemas, service
 from src.api.dependencies import get_current_user
 from src.services.vision.schema import WeeklyRoutine, ApprovedWeeklyRoutine
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/routines",
@@ -25,34 +28,7 @@ async def confirm_routine(
     Converts the vision-specific schema to the internal DB schema,
     updates the database, and syncs to Google Calendar.
     """
-    
-    # Map ApprovedWeeklyRoutine to schemas.RoutineCreate
-    classes_create = []
-    for cls in routine_data.classes:
-        # Ensure we have valid datetimes. 
-        # TimeFormat.dateTime is Optional[datetime], but for creation we likely need it.
-        # If it's None, we might skip or raise error. 
-        # Assuming valid input from frontend/LLM which should have parsed it.
-        if not cls.start.dateTime or not cls.end.dateTime:
-            # You might want to handle this case more gracefully or skip incomplete entries
-            continue
-            
-        classes_create.append(
-            schemas.ClassSessionCreate(
-                day=cls.day,
-                start_time=cls.start.dateTime,
-                end_time=cls.end.dateTime,
-                course_name=cls.course_name,
-                recurrence=cls.recurrence
-            )
-        )
-
-    internal_routine_data = schemas.RoutineCreate(
-        title=routine_data.title,
-        classes=classes_create
-    )
-
-    return await service.create_or_replace_routine(db, user.user_id, internal_routine_data)
+    return await service.confirm_routine_from_vision(db, user.user_id, routine_data)
 
 
 @router.post("/generate-from-image", response_model=WeeklyRoutine)
@@ -71,13 +47,14 @@ async def generate_routine_from_image(
         )
 
     try:
+        # Retrieve LLM from app state (Dependency Injection could be improved here globally)
         llm = req.app.state.gemini_llm_temp_0
         contents = await file.read()
         
         routine = await service.extract_routine_from_image(llm, contents, file.content_type)
         return routine
     except Exception as e:
-        print(f"Error extracting routine: {e}")
+        logger.error(f"Error extracting routine from image: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Could not extract routine from the image. Please ensure the image is clear and contains a valid routine."
