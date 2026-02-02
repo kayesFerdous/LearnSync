@@ -132,6 +132,36 @@ class GoogleCalendarClient:
             print(f"Error in batch creation: {e}")
             raise e
 
+    async def batch_delete_events(self, event_ids: List[str], calendar_id: str = 'primary') -> None:
+        """
+        Deletes multiple events in a batch request.
+        """
+        if not event_ids:
+            return
+
+        try:
+            def _do_batch_delete():
+                batch = self.service.new_batch_http_request()
+                
+                for event_id in event_ids:
+                    def make_callback(eid):
+                        def _cb(request_id, response, exception):
+                            if exception:
+                                print(f"Error deleting event {eid}: {exception}")
+                        return _cb
+
+                    batch.add(
+                        self.service.events().delete(calendarId=calendar_id, eventId=event_id),
+                        callback=make_callback(event_id)
+                    )
+                
+                batch.execute()
+
+            await asyncio.to_thread(_do_batch_delete)
+        except Exception as e:
+            print(f"Error in batch deletion: {e}")
+            raise e
+
     async def update_event(
         self, 
         event_id: str, 

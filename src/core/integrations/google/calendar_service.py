@@ -213,13 +213,9 @@ async def delete_google_events_for_routine(service, routine: Routine):
     if not event_ids:
         return
 
-    # Delete events in parallel or batch
-    # Currently client doesn't support batch delete, so we loop parallel
-    async def _safe_delete(eid):
-        try:
-            await client.delete_event(eid)
-        except Exception as e:
-            logger.warning(f"Failed to delete event {eid}: {e}")
-
-    await asyncio.gather(*[_safe_delete(eid) for eid in event_ids])
+    # Delete events using batch request to avoid rate limits and auth contention
+    try:
+        await client.batch_delete_events(event_ids)
+    except Exception as e:
+        logger.error(f"Failed to batch delete events for routine {routine.title}: {e}")
 
