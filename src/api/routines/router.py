@@ -1,16 +1,46 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 
 from src.users.model import User
 from src.db.session import get_db
 from src.routines import schemas, service
 from src.api.dependencies import get_current_user
+from src.services.vision.schema import WeeklyRoutine
 
 router = APIRouter(
     prefix="/routines",
     tags=["Routines"]
 )
+
+
+@router.post("/generate-from-image", response_model=WeeklyRoutine)
+async def generate_routine_from_image(
+    req: Request,
+    file: UploadFile = File(...),
+    _: User = Depends(get_current_user),
+):
+    """
+    Generate a routine from an uploaded image.
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Invalid file type. Please upload an image."
+        )
+
+    try:
+        llm = req.app.state.gemini_llm_temp_0
+        contents = await file.read()
+        
+        routine = await service.extract_routine_from_image(llm, contents, file.content_type)
+        return routine
+    except Exception as e:
+        print(f"Error extracting routine: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Could not extract routine from the image. Please ensure the image is clear and contains a valid routine."
+        )
 
 
 @router.get("/", response_model=schemas.RoutineResponse)

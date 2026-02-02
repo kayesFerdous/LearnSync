@@ -1,13 +1,42 @@
 from uuid import UUID
 from typing import Optional, List
+import base64
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
+from langchain_core.messages import HumanMessage
+from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.routines import crud, schemas
 from src.core.integrations.google.auth_utils import get_service_and_timezone
 from src.core.integrations.google.calendar_service import sync_db_routine_to_google, delete_google_events_for_routine
 from src.routines.models import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
+from src.services.vision.extractor import image_extractor
+from src.services.vision.schema import WeeklyRoutine
+
+
+async def extract_routine_from_image(
+    llm: BaseChatModel,
+    file_contents: bytes,
+    content_type: str
+) -> WeeklyRoutine:
+    """
+    Extracts a weekly routine from an image using the provided LLM.
+    """
+    encoded_image = base64.b64encode(file_contents).decode("utf-8")
+    
+    msg = HumanMessage(
+        content=[
+            {"type": "text", "text": "Analyze this image. It is a routine. Extract the routine details strictly into the requested JSON format."},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{content_type};base64,{encoded_image}"},
+            },
+        ]
+    )
+    
+    return await image_extractor(llm, msg)
+
 
 async def get_my_routine(db: AsyncSession, user_id: UUID) -> Optional[Routine]:
     return await crud.get_user_routine(db, user_id)
