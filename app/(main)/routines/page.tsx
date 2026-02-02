@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Calendar, Plus, Trash2, RefreshCw, Settings, Loader2 } from 'lucide-react';
+import { Calendar, Plus, Trash2, RefreshCw, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useRoutine, type RoutineClass, type CreateClassRequest, type CreateRoutineRequest } from './_lib';
+import { useRoutine, type RoutineClass, type CreateClassRequest, type CreateRoutineRequest, type ExtractedRoutine, type ApprovedRoutine } from './_lib';
 import {
   WeeklyTimetable,
   EmptyState,
   ClassFormModal,
   CreateRoutineModal,
   DeleteConfirmationDialog,
+  ImageUploadModal,
+  RoutineEditor,
 } from './_components';
 
 export default function RoutinesPage() {
@@ -17,12 +19,15 @@ export default function RoutinesPage() {
     routine,
     isLoading,
     isSyncing,
+    isExtracting,
     error,
     createRoutine,
     deleteRoutine,
     addClass,
     updateClass,
     deleteClass,
+    extractFromImage,
+    confirmExtractedRoutine,
     clearError,
   } = useRoutine();
 
@@ -31,6 +36,10 @@ export default function RoutinesPage() {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isDeleteRoutineDialogOpen, setIsDeleteRoutineDialogOpen] = useState(false);
   const [isDeleteClassDialogOpen, setIsDeleteClassDialogOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  
+  // Extracted routine for editing
+  const [extractedRoutine, setExtractedRoutine] = useState<ExtractedRoutine | null>(null);
   
   // Selected class for editing/deleting
   const [selectedClass, setSelectedClass] = useState<RoutineClass | null>(null);
@@ -87,6 +96,26 @@ export default function RoutinesPage() {
     setIsClassModalOpen(true);
   }, []);
 
+  // Image upload handlers
+  const handleImageUpload = useCallback(async (file: File) => {
+    const result = await extractFromImage(file);
+    if (result) {
+      setExtractedRoutine(result);
+      setIsUploadModalOpen(false);
+    }
+  }, [extractFromImage]);
+
+  const handleApproveExtracted = useCallback(async (data: ApprovedRoutine) => {
+    const success = await confirmExtractedRoutine(data);
+    if (success) {
+      setExtractedRoutine(null);
+    }
+  }, [confirmExtractedRoutine]);
+
+  const handleRejectExtracted = useCallback(() => {
+    setExtractedRoutine(null);
+  }, []);
+
   // Loading state
   if (isLoading) {
     return (
@@ -94,6 +123,61 @@ export default function RoutinesPage() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 text-primary animate-spin" />
           <p className="text-muted-foreground">Loading your schedule...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If we have an extracted routine pending approval, show the editor
+  if (extractedRoutine) {
+    return (
+      <div className="flex-1 flex flex-col h-full">
+        {/* Header */}
+        <div className="border-b border-border bg-gradient-to-r from-purple-500/5 to-pink-500/5 backdrop-blur-sm sticky top-0 z-10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-foreground">
+                    Review Extracted Schedule
+                  </h1>
+                  <p className="text-xs text-muted-foreground">
+                    AI has extracted your schedule. Review and edit before saving.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Error Banner */}
+        {error && (
+          <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <p className="text-sm text-red-600">{error}</p>
+              <button
+                onClick={clearError}
+                className="text-sm text-red-600 hover:text-red-700 font-medium"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Editor Content */}
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <RoutineEditor
+              data={extractedRoutine}
+              onApprove={handleApproveExtracted}
+              onReject={handleRejectExtracted}
+              isProcessing={isSyncing}
+            />
+          </div>
         </div>
       </div>
     );
@@ -124,22 +208,41 @@ export default function RoutinesPage() {
             {/* Actions */}
             <div className="flex items-center gap-2">
               {/* Sync indicator */}
-              {isSyncing && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 text-sm">
+              {(isSyncing || isExtracting) && (
+                <div className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm",
+                  isExtracting 
+                    ? "bg-purple-500/10 text-purple-600"
+                    : "bg-blue-500/10 text-blue-600"
+                )}>
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span className="hidden sm:inline">Syncing with Google Calendar...</span>
-                  <span className="sm:hidden">Syncing...</span>
+                  <span className="hidden sm:inline">
+                    {isExtracting ? 'Extracting with AI...' : 'Syncing with Google Calendar...'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isExtracting ? 'Extracting...' : 'Syncing...'}
+                  </span>
                 </div>
               )}
 
               {routine && (
                 <>
+                  {/* Upload Image Button */}
+                  <button
+                    onClick={() => setIsUploadModalOpen(true)}
+                    disabled={isSyncing || isExtracting}
+                    className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-purple-600/10 to-pink-600/10 text-purple-600 hover:from-purple-600/20 hover:to-pink-600/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Upload Image
+                  </button>
+
                   <button
                     onClick={openAddClassModal}
-                    disabled={isSyncing}
+                    disabled={isSyncing || isExtracting}
                     className={cn(
                       "flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors",
-                      isSyncing
+                      (isSyncing || isExtracting)
                         ? "bg-primary/50 text-primary-foreground/70 cursor-not-allowed"
                         : "bg-primary hover:bg-primary/90 text-primary-foreground theme-shadow"
                     )}
@@ -150,7 +253,7 @@ export default function RoutinesPage() {
 
                   <button
                     onClick={() => setIsDeleteRoutineDialogOpen(true)}
-                    disabled={isSyncing}
+                    disabled={isSyncing || isExtracting}
                     className="p-2 rounded-lg hover:bg-red-500/10 text-muted-foreground hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Delete schedule"
                     title="Delete entire schedule"
@@ -183,7 +286,10 @@ export default function RoutinesPage() {
       <div className="flex-1 overflow-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {!routine ? (
-            <EmptyState onCreateSchedule={() => setIsCreateModalOpen(true)} />
+            <EmptyState 
+              onCreateSchedule={() => setIsCreateModalOpen(true)} 
+              onUploadImage={() => setIsUploadModalOpen(true)}
+            />
           ) : routine.classes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="p-4 rounded-full bg-muted mb-6">
@@ -195,14 +301,25 @@ export default function RoutinesPage() {
               <p className="text-muted-foreground text-center max-w-md mb-6">
                 Your schedule is empty. Add your first class to get started.
               </p>
-              <button
-                onClick={openAddClassModal}
-                disabled={isSyncing}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors theme-shadow disabled:opacity-50"
-              >
-                <Plus className="h-5 w-5" />
-                Add Your First Class
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  onClick={openAddClassModal}
+                  disabled={isSyncing || isExtracting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors theme-shadow disabled:opacity-50"
+                >
+                  <Plus className="h-5 w-5" />
+                  Add Class Manually
+                </button>
+                <span className="text-muted-foreground text-sm">or</span>
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  disabled={isSyncing || isExtracting}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-medium transition-all shadow-lg shadow-purple-500/25 disabled:opacity-50"
+                >
+                  <Sparkles className="h-5 w-5" />
+                  Upload Image
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -233,6 +350,14 @@ export default function RoutinesPage() {
         onSubmit={selectedClass ? handleUpdateClass : handleAddClass}
         initialData={selectedClass}
         isLoading={isSyncing}
+      />
+
+      <ImageUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUpload={handleImageUpload}
+        isUploading={isExtracting}
+        error={isExtracting ? null : error}
       />
 
       <DeleteConfirmationDialog

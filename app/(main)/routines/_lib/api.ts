@@ -4,6 +4,8 @@ import type {
   CreateRoutineRequest,
   CreateClassRequest,
   UpdateClassRequest,
+  ExtractedRoutine,
+  ApprovedRoutine,
 } from './types';
 
 const API_BASE_URL = 'http://localhost:8000';
@@ -238,6 +240,100 @@ export async function deleteClass(classId: string): Promise<void> {
         data.detail || 'Unknown error'
       );
     }
+  } catch (error) {
+    if (error instanceof RoutineApiError) {
+      throw error;
+    }
+    throw new RoutineApiError(
+      'Network error',
+      0,
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+}
+
+/**
+ * Generate routine from uploaded image
+ * POST /routines/generate-from-image
+ */
+export async function generateRoutineFromImage(
+  file: File
+): Promise<ExtractedRoutine> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/routines/generate-from-image`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 400) {
+        throw new RoutineApiError(
+          'Invalid file type',
+          response.status,
+          data.detail || 'Please upload a valid image file (PNG, JPG, JPEG)'
+        );
+      }
+      if (response.status === 422) {
+        throw new RoutineApiError(
+          'Failed to extract routine',
+          response.status,
+          data.detail || 'Could not extract a valid routine from the image. Please try a clearer image.'
+        );
+      }
+      throw new RoutineApiError(
+        'Failed to process image',
+        response.status,
+        data.detail || 'Unknown error'
+      );
+    }
+
+    return data as ExtractedRoutine;
+  } catch (error) {
+    if (error instanceof RoutineApiError) {
+      throw error;
+    }
+    throw new RoutineApiError(
+      'Network error',
+      0,
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+}
+
+/**
+ * Confirm and save routine (with Google Calendar sync)
+ * POST /routines/confirm
+ */
+export async function confirmRoutine(
+  routineData: ApprovedRoutine
+): Promise<Routine> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/routines/confirm`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(routineData),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new RoutineApiError(
+        'Failed to save routine',
+        response.status,
+        data.detail || 'Unknown error'
+      );
+    }
+
+    return data as Routine;
   } catch (error) {
     if (error instanceof RoutineApiError) {
       throw error;

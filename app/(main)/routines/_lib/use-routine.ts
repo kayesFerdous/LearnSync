@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import type { Routine, RoutineClass, CreateRoutineRequest, CreateClassRequest, UpdateClassRequest } from './types';
+import type { Routine, RoutineClass, CreateRoutineRequest, CreateClassRequest, UpdateClassRequest, ExtractedRoutine, ApprovedRoutine } from './types';
 import * as api from './api';
 
 interface UseRoutineReturn {
@@ -9,6 +9,7 @@ interface UseRoutineReturn {
   routine: Routine | null;
   isLoading: boolean;
   isSyncing: boolean;
+  isExtracting: boolean;
   error: string | null;
   
   // Actions
@@ -18,6 +19,8 @@ interface UseRoutineReturn {
   addClass: (data: CreateClassRequest) => Promise<RoutineClass | null>;
   updateClass: (classId: string, data: UpdateClassRequest) => Promise<RoutineClass | null>;
   deleteClass: (classId: string) => Promise<boolean>;
+  extractFromImage: (file: File) => Promise<ExtractedRoutine | null>;
+  confirmExtractedRoutine: (data: ApprovedRoutine) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -25,6 +28,7 @@ export function useRoutine(): UseRoutineReturn {
   const [routine, setRoutine] = useState<Routine | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = useCallback(() => {
@@ -158,6 +162,37 @@ export function useRoutine(): UseRoutineReturn {
     }
   }, []);
 
+  const extractFromImage = useCallback(async (file: File): Promise<ExtractedRoutine | null> => {
+    try {
+      setIsExtracting(true);
+      setError(null);
+      const extractedRoutine = await api.generateRoutineFromImage(file);
+      return extractedRoutine;
+    } catch (err) {
+      const message = err instanceof api.RoutineApiError ? err.detail : 'Failed to extract routine from image';
+      setError(message);
+      return null;
+    } finally {
+      setIsExtracting(false);
+    }
+  }, []);
+
+  const confirmExtractedRoutine = useCallback(async (data: ApprovedRoutine): Promise<boolean> => {
+    try {
+      setIsSyncing(true);
+      setError(null);
+      const savedRoutine = await api.confirmRoutine(data);
+      setRoutine(savedRoutine);
+      return true;
+    } catch (err) {
+      const message = err instanceof api.RoutineApiError ? err.detail : 'Failed to save routine';
+      setError(message);
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
   // Fetch routine on mount
   useEffect(() => {
     fetchRoutine();
@@ -167,6 +202,7 @@ export function useRoutine(): UseRoutineReturn {
     routine,
     isLoading,
     isSyncing,
+    isExtracting,
     error,
     fetchRoutine,
     createRoutine,
@@ -174,6 +210,8 @@ export function useRoutine(): UseRoutineReturn {
     addClass,
     updateClass,
     deleteClass,
+    extractFromImage,
+    confirmExtractedRoutine,
     clearError,
   };
 }
