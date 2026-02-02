@@ -67,7 +67,8 @@ export default function RoutinesPage() {
 
   const handleUpdateClass = useCallback(async (data: CreateClassRequest) => {
     if (!selectedClass) return;
-    await updateClass(selectedClass.id, data);
+    const { recurrence, ...updateData } = data;
+    await updateClass(selectedClass.id, updateData);
     setIsClassModalOpen(false);
     setSelectedClass(null);
   }, [selectedClass, updateClass]);
@@ -350,6 +351,7 @@ export default function RoutinesPage() {
         onSubmit={selectedClass ? handleUpdateClass : handleAddClass}
         initialData={selectedClass}
         isLoading={isSyncing}
+        defaultRecurrence={routine?.classes.find(c => c.recurrence && c.recurrence.length > 0)?.recurrence}
       />
 
       <ImageUploadModal
