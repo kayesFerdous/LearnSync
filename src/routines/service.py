@@ -76,6 +76,23 @@ async def confirm_routine_from_vision(
 async def get_my_routine(db: AsyncSession, user_id: UUID) -> Optional[Routine]:
     return await crud.get_user_routine(db, user_id)
 
+async def _localize_session_times(session_data, timezone_str: str):
+    """
+    Helper to localize naive datetimes in session data to the user's timezone.
+    Accepts schemas.ClassSessionCreate or ClassSessionUpdate.
+    """
+    try:
+        user_tz = ZoneInfo(timezone_str)
+    except Exception:
+        user_tz = ZoneInfo("UTC")
+
+    if session_data.start_time and session_data.start_time.tzinfo is None:
+        session_data.start_time = session_data.start_time.replace(tzinfo=user_tz)
+    
+    if session_data.end_time and session_data.end_time.tzinfo is None:
+        session_data.end_time = session_data.end_time.replace(tzinfo=user_tz)
+
+
 async def create_or_replace_routine(db: AsyncSession, user_id: UUID, routine_data: schemas.RoutineCreate) -> Routine:
     # 1. Check for existing routine
     existing_routine = await crud.get_user_routine(db, user_id)
@@ -83,18 +100,9 @@ async def create_or_replace_routine(db: AsyncSession, user_id: UUID, routine_dat
     # 2. Get Google Service
     service, timezone = await get_service_and_timezone(str(user_id), db)
     
-    # 2.5 Localize naive datetimes in input data to user's timezone
-    # This prevents implicit UTC conversion of "wall clock" times
-    try:
-        user_tz = ZoneInfo(timezone)
-    except Exception:
-        user_tz = ZoneInfo("UTC")
-
+    # 2.5 Localize naive datetimes
     for cls in routine_data.classes:
-        if cls.start_time and cls.start_time.tzinfo is None:
-            cls.start_time = cls.start_time.replace(tzinfo=user_tz)
-        if cls.end_time and cls.end_time.tzinfo is None:
-            cls.end_time = cls.end_time.replace(tzinfo=user_tz)
+        await _localize_session_times(cls, timezone)
 
     # 3. Clean up old routine (DB + Google)
     if existing_routine:
@@ -150,20 +158,8 @@ async def add_class_session(db: AsyncSession, user_id: UUID, class_data: schemas
         if day_code:
             class_data.recurrence = [f"RRULE:FREQ=WEEKLY;BYDAY={day_code}"]
 
-    # Localize naive datetimes to user's timezone
-    if class_data.start_time.tzinfo is None:
-        try:
-            tz = ZoneInfo(timezone)
-        except Exception:
-            tz = ZoneInfo("UTC")
-        class_data.start_time = class_data.start_time.replace(tzinfo=tz)
-
-    if class_data.end_time.tzinfo is None:
-        try:
-            tz = ZoneInfo(timezone)
-        except Exception:
-            tz = ZoneInfo("UTC")
-        class_data.end_time = class_data.end_time.replace(tzinfo=tz)
+    # Localize naive datetimes
+    await _localize_session_times(class_data, timezone)
 
     new_class = await crud.add_class_to_routine_db(db, routine.id, class_data)
     
@@ -197,6 +193,12 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
     class_session = await crud.get_class_session(db, user_id, class_id)
     if not class_session:
          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class session not found")
+    
+    # Get user timezone settings for localization
+    service, timezone = await get_service_and_timezone(str(user_id), db)
+    
+    # Localize naive datetimes
+    await _localize_session_times(update_data, timezone)
          
     updated_class = await crud.update_class_session_db(db, class_session, update_data)
     
@@ -205,7 +207,6 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
     # For now, let's try to update if we have an ID.
     
     if updated_class.google_event_id:
-        service, timezone = await get_service_and_timezone(str(user_id), db)
         if service:
              # TODO: Implement update logic in Google Sync
              # For simplicity, we can delete and re-create, or implement update_event mapping
