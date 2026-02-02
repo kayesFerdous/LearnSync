@@ -6,12 +6,53 @@ from src.users.model import User
 from src.db.session import get_db
 from src.routines import schemas, service
 from src.api.dependencies import get_current_user
-from src.services.vision.schema import WeeklyRoutine
+from src.services.vision.schema import WeeklyRoutine, ApprovedWeeklyRoutine
 
 router = APIRouter(
     prefix="/routines",
     tags=["Routines"]
 )
+
+
+@router.post("/confirm", response_model=schemas.RoutineResponse, status_code=status.HTTP_201_CREATED)
+async def confirm_routine(
+    routine_data: ApprovedWeeklyRoutine,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Confirm and save an approved routine.
+    Converts the vision-specific schema to the internal DB schema,
+    updates the database, and syncs to Google Calendar.
+    """
+    
+    # Map ApprovedWeeklyRoutine to schemas.RoutineCreate
+    classes_create = []
+    for cls in routine_data.classes:
+        # Ensure we have valid datetimes. 
+        # TimeFormat.dateTime is Optional[datetime], but for creation we likely need it.
+        # If it's None, we might skip or raise error. 
+        # Assuming valid input from frontend/LLM which should have parsed it.
+        if not cls.start.dateTime or not cls.end.dateTime:
+            # You might want to handle this case more gracefully or skip incomplete entries
+            continue
+            
+        classes_create.append(
+            schemas.ClassSessionCreate(
+                day=cls.day,
+                start_time=cls.start.dateTime,
+                end_time=cls.end.dateTime,
+                course_name=cls.course_name,
+                recurrence=cls.recurrence
+            )
+        )
+
+    internal_routine_data = schemas.RoutineCreate(
+        title=routine_data.title,
+        classes=classes_create
+    )
+
+    return await service.create_or_replace_routine(db, user.user_id, internal_routine_data)
 
 
 @router.post("/generate-from-image", response_model=WeeklyRoutine)
