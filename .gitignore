@@ -8,6 +8,7 @@ chat.*
 test*
 credentials.json
 chroma_langchain_db/
+qdrant_storage/
 test*
 
 

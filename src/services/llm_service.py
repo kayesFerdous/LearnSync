@@ -1,7 +1,7 @@
 from langchain_groq import ChatGroq
-from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic.types import SecretStr
 
 from ..core.config import settings
 
@@ -32,21 +32,21 @@ async def setup_prompt_template():
     )
 
 
-async def setup_vector_store(
-    collection_name:str,
-    persist_directory:str="./chroma_langchain_db"
-):
-    return Chroma(
-        collection_name,
-        embedding_function= await setup_embeddings(),
-        persist_directory=persist_directory
-    )
-
-async def setup_embeddings(model="models/text-embedding-004"):
-    return GoogleGenerativeAIEmbeddings(
-        model=model,
-        google_api_key=settings.GOOGLE_API_KEY,
-    )
+# async def setup_vector_store(
+#     collection_name:str,
+#     persist_directory:str="./chroma_langchain_db"
+# ):
+#     return Chroma(
+#         collection_name,
+#         embedding_function= await setup_embeddings(),
+#         persist_directory=persist_directory
+#     )
+#
+# async def setup_embeddings(model="models/text-embedding-004"):
+#     return GoogleGenerativeAIEmbeddings(
+#         model=model,
+#         google_api_key=settings.GOOGLE_API_KEY,
+#     )
 
 
 async def setup_groq_llm(
@@ -58,7 +58,7 @@ async def setup_groq_llm(
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
-        api_key=settings.GROQ_API_KEY,
+        api_key=SecretStr(settings.GROQ_API_KEY),
     )
 
 
@@ -71,7 +71,7 @@ def setup_groq_llm_not_async(
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
-        api_key=settings.GROQ_API_KEY,
+        api_key=SecretStr(settings.GROQ_API_KEY),
     )
 
 

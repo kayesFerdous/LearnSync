@@ -33,7 +33,14 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024 # 10MB
     MAX_TOTAL_UPLOAD_SIZE: int = 20 * 1024 * 1024 # 20MB
 
-    
+    # Qdrant Vector Store
+    QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_COLLECTION_NAME: str = "rag_collection"
+    QDRANT_VECTOR_DIM: int = 1024
+
+    # Ollama Embeddings
+    OLLAMA_URL: str = "http://localhost:11434"
+    OLLAMA_EMBEDDING_MODEL: str = "qwen3-embedding:0.6b"
 
     model_config = SettingsConfigDict(env_file=".env")
 

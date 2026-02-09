@@ -4,6 +4,7 @@ from docling.document_converter import DocumentConverter
 from docling_core.transforms.chunker.doc_chunk import DocChunk
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from langchain_core.documents import Document
+from fastapi import Request
 
 from .store import get_vector_store
 
@@ -105,20 +106,19 @@ def parse_and_chunk_file(
 
 async def index_documents(
     documents: List[Document],
-    collection_name: Optional[str] = None
+    request: Optional[Request] = None,
 ) -> None:
     """
     Indexes a list of documents into the vector store.
+    
+    Args:
+        documents: List of LangChain Documents to index.
+        request: Optional FastAPI Request. If None, uses module-level cache (for background tasks).
     """
     if not documents:
         return
 
-    # Pass collection_name if provided, otherwise get_vector_store uses its default
-    if collection_name:
-        vector_store = await get_vector_store(collection_name=collection_name)
-    else:
-        vector_store = await get_vector_store()
-        
+    vector_store = get_vector_store(request)
     await vector_store.aadd_documents(documents)
 
 
@@ -128,10 +128,10 @@ async def ingest_file(
     document_id: str,
     folder_id: Optional[str] = None,
     conversation_id: Optional[str] = None,
-    collection_name: Optional[str] = None
+    request: Optional[Request] = None,
 ) -> None:
     """
     Orchestrates the full ingestion process: Parse -> Chunk -> Index.
     """
     documents = parse_and_chunk_file(file_path, user_id, document_id, folder_id, conversation_id)
-    await index_documents(documents, collection_name)
+    await index_documents(documents, request)
