@@ -52,13 +52,15 @@ export default function AuthPage() {
             if (isLogin) {
                 // Login
                 await login({ email, password });
+                // Fetch user details after successful auth to get full user object including picture
+                await authStore.fetchUser();
             } else {
                 // Signup
                 await signup({ username, email, password });
+                // Fetch user details after successful auth to get full user object including picture
+                await authStore.fetchUser();
             }
             
-            // Fetch user details after successful auth
-            await authStore.fetchUser();
             router.push('/dashboard');
         } catch (error) {
             if (error instanceof AuthApiError) {

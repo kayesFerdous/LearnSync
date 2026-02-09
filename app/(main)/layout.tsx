@@ -2,8 +2,9 @@
 
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
-import { useUiStore } from "@/lib/store";
+import { useAuthStore, useUiStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 export default function MainLayout({
   children,
@@ -11,6 +12,17 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const { sidebarOpen } = useUiStore();
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Wait for Zustand to hydrate from localStorage
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  if (!isHydrated) {
+    // Prevent flash of wrong content during hydration
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">

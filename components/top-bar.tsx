@@ -13,9 +13,12 @@ export function TopBar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
 
+  // Only fetch user if not already loaded (handles page refresh without localStorage)
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    if (!user && !isAuthenticated) {
+      fetchUser();
+    }
+  }, []);
 
   // Generate breadcrumbs from pathname
   const segments = pathname.split('/').filter(Boolean);
@@ -96,14 +99,33 @@ export function TopBar() {
               </div>
               <div className="relative">
                 <div className="h-9 w-9 rounded-xl overflow-hidden border-2 border-border/50 bg-muted flex items-center justify-center ring-2 ring-transparent hover:ring-primary/20 transition-all">
-                  {user.picture ? (
+                  {user.picture && user.picture.trim() !== '' ? (
                     <img 
                       src={user.picture} 
                       alt={user.username} 
                       className="h-full w-full object-cover"
+                      onError={(e) => {
+                        console.error('[TopBar] Failed to load profile picture:', user.picture);
+                        // Hide the broken image and show fallback
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent && !parent.querySelector('.fallback-icon')) {
+                          const fallback = document.createElement('div');
+                          fallback.className = 'fallback-icon h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5';
+                          fallback.innerHTML = `<span class="text-lg font-bold text-primary">${user.username.charAt(0).toUpperCase()}</span>`;
+                          parent.appendChild(fallback);
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log('[TopBar] Profile picture loaded successfully:', user.picture);
+                      }}
                     />
                   ) : (
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                      <span className="text-lg font-bold text-primary">
+                        {user.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
                   )}
                 </div>
                 {/* Online indicator */}

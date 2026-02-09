@@ -85,7 +85,7 @@ export const useAuthStore = create<AuthState>()(
         if (normalizedUser?.settings?.font) {
           useFontStore.getState().setFont(normalizedUser.settings.font as FontId);
         }
-        set({ user: normalizedUser, isAuthenticated: true });
+        set({ user: normalizedUser, isAuthenticated: !!normalizedUser });
       },
       logout: async () => {
         try {
@@ -111,6 +111,12 @@ export const useAuthStore = create<AuthState>()(
 
           if (response.ok) {
             const userData = await response.json();
+            console.log('[Auth Store] fetchUser response:', {
+              username: userData.username,
+              email: userData.email,
+              picture: userData.picture,
+            });
+            
             const normalizedUser = userData && userData.settings ? {
               ...userData,
               settings: {
@@ -127,16 +133,16 @@ export const useAuthStore = create<AuthState>()(
               useFontStore.getState().setFont(normalizedUser.settings.font as FontId);
             }
           } else {
-             // If fetching fails (e.g. 401), we might want to logout
-             // or at least not set the user. 
-             // Depending on requirements, we might want to clear state if 401.
+             // If fetching fails (e.g. 401), clear authentication state
+             console.log('[Auth Store] fetchUser failed with status:', response.status);
              if (response.status === 401) {
                 set({ user: null, isAuthenticated: false });
              }
           }
         } catch (error) {
-          console.error('Failed to fetch user:', error);
-          // Optionally handle network errors
+          console.error('[Auth Store] Failed to fetch user:', error);
+          // On network error, keep existing state (from localStorage)
+          // Don't clear the state unless it's an explicit 401
         }
       },
       updateUserSettings: async (settings) => {
@@ -235,6 +241,25 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      // Properly handle hydration from localStorage
+      onRehydrateStorage: () => (state) => {
+        console.log('[Auth Store] Rehydrating from localStorage:', state?.user ? {
+          username: state.user.username,
+          email: state.user.email,
+          picture: state.user.picture,
+          isAuthenticated: state.isAuthenticated
+        } : 'No user data');
+        
+        if (state?.user) {
+          // When rehydrating, sync theme and font stores
+          if (state.user.settings?.theme) {
+            useThemeStore.getState().setTheme(state.user.settings.theme as ThemeId);
+          }
+          if (state.user.settings?.font) {
+            useFontStore.getState().setFont(state.user.settings.font as FontId);
+          }
+        }
+      },
     }
   )
 );
