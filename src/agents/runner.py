@@ -8,7 +8,8 @@ async def runner(
     payload,
     thread_id: str,
     user_id: str,
-    db=None
+    db=None,
+    folder_id: str | None = None,
 ) -> AsyncGenerator[dict, None]:
     query = payload.message
     tag = payload.tag
@@ -56,7 +57,10 @@ async def runner(
             "tag": tag, 
             "scratchpad": {}, 
             "user_id": user_id,
-            "metadata": {}
+            "metadata": {
+                "conversation_id": thread_id,
+                "folder_id": folder_id,
+            }
         }
 
     try:

@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import Request
+
 from langchain_qdrant import QdrantVectorStore, RetrievalMode
 from qdrant_client import AsyncQdrantClient
 from langchain_ollama import OllamaEmbeddings
@@ -41,32 +41,16 @@ def _get_sparse_embedding() -> FastEmbedSparse:
     return _sparse_embedding
 
 
-def get_vector_store(request: Optional[Request] = None) -> QdrantVectorStore:
+def get_vector_store() -> QdrantVectorStore:
     """
-    Returns the hybrid vector store.
-    
-    If request is provided, uses cached instances from app.state (preferred for routes).
-    If request is None, uses module-level cached instances (for background tasks).
+    Returns the hybrid vector store using module-level cached instances.
     """
-    if request is not None:
-        # Use app.state (lifespan-managed) - preferred
-        return QdrantVectorStore(
-            client=request.app.state.qdrant_client,
-            collection_name=settings.QDRANT_COLLECTION_NAME,
-            embedding=request.app.state.dense_embedding,
-            sparse_embedding=request.app.state.sparse_embedding,
-            vector_name="dense",
-            sparse_vector_name="sparse",
-            retrieval_mode=RetrievalMode.HYBRID,
-        )
-    else:
-        # Use module-level cache (for background tasks)
-        return QdrantVectorStore(
-            client=_get_qdrant_client(),
-            collection_name=settings.QDRANT_COLLECTION_NAME,
-            embedding=_get_dense_embedding(),
-            sparse_embedding=_get_sparse_embedding(),
-            vector_name="dense",
-            sparse_vector_name="sparse",
-            retrieval_mode=RetrievalMode.HYBRID,
-        )
+    return QdrantVectorStore(
+        client=_get_qdrant_client(),
+        collection_name=settings.QDRANT_COLLECTION_NAME,
+        embedding=_get_dense_embedding(),
+        sparse_embedding=_get_sparse_embedding(),
+        vector_name="dense",
+        sparse_vector_name="sparse",
+        retrieval_mode=RetrievalMode.HYBRID,
+    )

@@ -9,6 +9,7 @@ from src.agents.nodes.tool_selection_node import make_tool_selection_node
 from src.agents.nodes.chat_node import make_chat_node
 from src.agents.nodes.routine_node import make_routine_node
 from src.agents.nodes.routine_approval_node import make_routine_approval_node
+from src.agents.nodes.rag_node import make_rag_node
 
 async def build_graph(
     groq_llm: BaseChatModel, 
@@ -23,6 +24,7 @@ async def build_graph(
     tool_selection_node = make_tool_selection_node()
     routine_node = make_routine_node(gemini_llm_temp_0)
     routine_approval_node = make_routine_approval_node()
+    rag_node = make_rag_node(gemini_llm)
 
     graph.add_node("chat_node", chat_node)
     graph.add_node("calendar_node", calendar_node)

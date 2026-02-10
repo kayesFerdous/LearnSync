@@ -53,7 +53,8 @@ async def stream_generator(
     thread_id: str,
     user_id: str,
     db: AsyncSession,
-    send_metadata_header: bool = False
+    send_metadata_header: bool = False,
+    folder_id: str | None = None,
 ):
     """
     Shared generator for streaming chat responses.
@@ -71,7 +72,8 @@ async def stream_generator(
             payload=payload,
             thread_id=thread_id,
             user_id=user_id,
-            db=db
+            db=db,
+            folder_id=folder_id,
         ):
             yield f"data: {json.dumps(jsonable_encoder(chunk))}\n\n"
     except Exception as e:
@@ -99,7 +101,7 @@ async def create_conversation_chat(
         thread_id: str = await create_conversation(db, user.user_id, parsed_folder_id)
         
         return StreamingResponse(
-            stream_generator(request, payload, thread_id, str(user.user_id), db, send_metadata_header=True),
+            stream_generator(request, payload, thread_id, str(user.user_id), db, send_metadata_header=True, folder_id=folder_id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -133,9 +135,12 @@ async def continue_conversation_chat(
         conversation = await get_conversation(db, conversation_uuid, user.user_id)
         if not conversation:
             raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Get folder_id from the existing conversation if it belongs to one
+        conv_folder_id = str(conversation.folder_id) if hasattr(conversation, 'folder_id') and conversation.folder_id else None
         
         return StreamingResponse(
-            stream_generator(request, payload, conversation_id, str(user.user_id), db, send_metadata_header=False),
+            stream_generator(request, payload, conversation_id, str(user.user_id), db, send_metadata_header=False, folder_id=conv_folder_id),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
