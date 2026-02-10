@@ -16,7 +16,8 @@ import type {
   ProcessUrlResponse,
   ProcessingStatus,
   UploadedFile,
-  FolderFilesResponse
+  FolderFilesResponse,
+  DeleteFileResponse
 } from './types';
 
 export const BACKEND_URL = 'http://localhost:8000/chat_bot';
@@ -718,6 +719,30 @@ export const fetchFolderFiles = async (folderId: string): Promise<FolderFilesRes
       throw new Error('Folder not found');
     }
     throw new Error(`Failed to fetch folder files (${response.status})`);
+  }
+  
+  return response.json();
+};
+
+/**
+ * Delete a file permanently
+ * DELETE /uploads/files/{file_id}
+ */
+export const deleteFile = async (fileId: string): Promise<DeleteFileResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/files/${fileId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('File not found');
+    }
+    if (response.status === 400) {
+      throw new Error('Invalid file ID format');
+    }
+    throw new Error(`Failed to delete file (${response.status})`);
   }
   
   return response.json();

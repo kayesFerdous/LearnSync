@@ -209,3 +209,10 @@ export interface FolderFilesResponse {
   files: FolderFile[];
   total: number;
 }
+
+// File Deletion
+export interface DeleteFileResponse {
+  message: string;
+  file_id: string;
+  filename: string;
+}
