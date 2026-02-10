@@ -4,7 +4,8 @@ from src.agents.model import AgentState
 nodes = {
     'chatter': 'chat_node',
     'schedular': 'calendar_node',
-    'routine_generator': 'routine_node'
+    'routine_generator': 'routine_node',
+    'rag': 'rag_node'
 }
 
 def make_tool_selection_node():
@@ -13,10 +14,10 @@ def make_tool_selection_node():
         print(f"in tool_selection: {tag}")
 
         if tag in nodes:
-            return {'tool': nodes[tag]}
+            return {'tool': nodes[tag], 'metadata': state['metadata']}
 
         else: 
-            return {'tool': 'chat_node'}
+            return {'tool': 'chat_node', 'metadata': state['metadata']}
 
  
     return tool_selection

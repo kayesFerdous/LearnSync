@@ -31,6 +31,7 @@ async def build_graph(
     graph.add_node("tool_selection", tool_selection_node)
     graph.add_node("routine_node", routine_node)
     graph.add_node("routine_approval_node", routine_approval_node)
+    graph.add_node("rag_node", rag_node)
 
     graph.add_edge(START, "tool_selection")
     graph.add_conditional_edges(
@@ -41,5 +42,6 @@ async def build_graph(
     graph.add_edge("calendar_node", END)
     graph.add_edge("routine_node", "routine_approval_node")
     graph.add_edge("routine_approval_node", END)
+    graph.add_edge("rag_node", END)
 
     return graph.compile(checkpointer=checkpointer)
