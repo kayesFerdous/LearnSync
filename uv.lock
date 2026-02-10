@@ -436,6 +436,8 @@ dependencies = [
     { name = "authlib" },
     { name = "boto3" },
     { name = "colorlog" },
+    { name = "disposable-email-domains" },
+    { name = "email-validator" },
     { name = "fastapi" },
     { name = "fastembed" },
     { name = "flashrank" },
@@ -470,6 +472,8 @@ requires-dist = [
     { name = "authlib", specifier = ">=1.6.6" },
     { name = "boto3", specifier = ">=1.42.17" },
     { name = "colorlog", specifier = ">=6.10.1" },
+    { name = "disposable-email-domains", specifier = ">=0.0.161" },
+    { name = "email-validator", specifier = ">=2.3.0" },
     { name = "fastapi", specifier = ">=0.118.0" },
     { name = "fastembed", specifier = ">=0.7.4" },
     { name = "flashrank", specifier = ">=0.2.10" },
@@ -639,6 +643,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/81/e1/56027a71e31b02ddc53c7d65b01e68edf64dea2932122fe7746a516f75d5/dill-0.4.1.tar.gz", hash = "sha256:423092df4182177d4d8ba8290c8a5b640c66ab35ec7da59ccfa00f6fa3eea5fa", size = 187315, upload-time = "2026-01-19T02:36:56.85Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/77/dc8c558f7593132cf8fefec57c4f60c83b16941c574ac5f619abb3ae7933/dill-0.4.1-py3-none-any.whl", hash = "sha256:1e1ce33e978ae97fcfcff5638477032b801c46c7c65cf717f95fbc2248f79a9d", size = 120019, upload-time = "2026-01-19T02:36:55.663Z" },
+]
+
+[[package]]
+name = "disposable-email-domains"
+version = "0.0.161"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7f/60/2b488fb20cc6bf72d5d8d9f7438f0df02b20e40069528f2d0c6bb6b2e3e9/disposable_email_domains-0.0.161.tar.gz", hash = "sha256:5eff03213a0a8bc4e1f07bb855f710b09874c7434bf072d7da7f2afc67cd8e09", size = 64060, upload-time = "2026-02-10T09:24:44.99Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/67/d0/5911493c260c7cef8a8b4d2058f32166bd6c54bf94eb7b36f8ff4e5452c7/disposable_email_domains-0.0.161-py2.py3-none-any.whl", hash = "sha256:2b83634eb551a99195b5dc7034463335aab74a77949b5ef696628a39552889da", size = 32735, upload-time = "2026-02-10T09:24:43.607Z" },
 ]
 
 [[package]]

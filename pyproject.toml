@@ -37,4 +37,6 @@ dependencies = [
     "langchain-qdrant>=0.2.1",
     "langchain-ollama>=0.3.10",
     "fastembed>=0.7.4",
+    "email-validator>=2.3.0",
+    "disposable-email-domains>=0.0.161",
 ]

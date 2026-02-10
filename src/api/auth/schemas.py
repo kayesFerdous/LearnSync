@@ -1,15 +1,31 @@
 from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field
-from pydantic.config import ConfigDict
+from typing import Annotated
+from pydantic import BaseModel, EmailStr, AfterValidator, Field
+from email_validator import validate_email as _validate_email
+from disposable_email_domains import blocklist
+
+
+def _check_email_domain(email: str) -> str:
+    """Block disposable/temporary email domains."""
+    email_info = _validate_email(email, check_deliverability=True)
+
+    if email_info.domain in blocklist:
+        raise ValueError("Disposable email domains are not allowed")
+
+    return email_info.normalized
+
+
+ValidEmail = Annotated[EmailStr, AfterValidator(_check_email_domain)]
+
 
 class SignupRequest(BaseModel):
     username: str = Field(..., max_length=150)
-    email: EmailStr
-    password: str = Field(..., min_length=8, max_length=72, description="Password must be between 8 and 72 characters")
+    email: ValidEmail
+    password: str = Field(..., min_length=8, max_length=72)
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: ValidEmail
     password: str
 
 class Token(BaseModel):
