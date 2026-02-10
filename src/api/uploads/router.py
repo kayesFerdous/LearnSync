@@ -213,12 +213,14 @@ async def confirm_upload(
 
         background_tasks.add_task(
             process_content,
-            file_id=str(new_file.id), # Pass ID instead of raw data
+            file_id=str(new_file.id),
             source=file_info.object_key,
             user_id=str(user.user_id),
             llm=req.app.state.gemini_llm,
             original_filename=file_info.original_filename,
-            is_url=False
+            is_url=False,
+            folder_id=confirm_req.folder_id,
+            conversation_id=str(conversation_id) if conversation_id else None,
         )
         processed_keys.append(file_info.object_key)
         response_files.append(BatchConfirmFileResponse(

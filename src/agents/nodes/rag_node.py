@@ -3,9 +3,9 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.agents.model import AgentState
 from src.rag.retrieval import retrieve_documents
-from src.core.logging_config import logger
+import logging
 
-logger = logger(__name__)
+logger = logging.getLogger(__name__)
 
 def make_rag_node(llm: BaseChatModel):
     async def rag_node(state: AgentState):

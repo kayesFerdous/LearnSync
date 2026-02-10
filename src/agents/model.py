@@ -6,7 +6,7 @@ def chat_reducer(old: list[BaseMessage], new: list[BaseMessage]) -> list[BaseMes
         return new
     return old[-6:] + new
 
-AgentName = Literal["chat_node", "calendar_node", "routine_node"]
+AgentName = Literal["chat_node", "calendar_node", "routine_node", "rag_node"]
 
 class AgentState(TypedDict):
     user_id: str
@@ -15,3 +15,4 @@ class AgentState(TypedDict):
     next_agent: Optional[AgentName]
     metadata: dict
     tag: str
+    tool: Optional[str]
