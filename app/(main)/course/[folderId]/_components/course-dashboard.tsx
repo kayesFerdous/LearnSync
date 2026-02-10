@@ -23,13 +23,15 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  FolderOpen
+  FolderOpen,
+  Trash2
 } from 'lucide-react';
 import { Folder, FolderFile, FolderFileType, ProcessingStatus } from '@/app/(main)/chat/_lib/types';
 import { fetchFolderFiles, updateFolder } from '@/app/(main)/chat/_lib/api';
 import { cn } from '@/lib/utils';
 import { BatchUploadModal } from './batch-upload-modal';
 import { CourseSettingsModal } from './course-settings-modal';
+import { FileDeleteDialog } from './file-delete-dialog';
 
 // UI Extension for this component
 export interface CourseFolder extends Folder {
@@ -92,6 +94,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
   const [files, setFiles] = useState<FolderFile[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [filesError, setFilesError] = useState<string | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<FolderFile | null>(null);
   
   // Local state for folder customization (updates after save)
   const [folderName, setFolderName] = useState(folder.name);
@@ -130,6 +133,12 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
     // Also refresh the files list
     fetchFolderFiles(folder.id).then(response => setFiles(response.files)).catch(console.error);
   };
+
+  // Remove deleted file from state with smooth animation
+  const handleFileDeleted = useCallback((fileId: string) => {
+    setFiles(prev => prev.filter(f => f.id !== fileId));
+    setFileToDelete(null);
+  }, []);
 
   // Handle folder settings save
   const handleSettingsSave = useCallback(async (data: { name?: string; icon?: string; color?: string }) => {
@@ -282,7 +291,12 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           ) : files.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
               {files.map((file) => (
-                <FileCard key={file.id} file={file} themeColor={themeColor} />
+                <FileCard 
+                  key={file.id} 
+                  file={file} 
+                  themeColor={themeColor}
+                  onDelete={(f) => setFileToDelete(f)}
+                />
               ))}
             </div>
           ) : (
@@ -313,6 +327,14 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         onSuccess={handleUploadSuccess}
         folderId={folder.id}
         themeColor={themeColor}
+      />
+
+      {/* File Delete Dialog */}
+      <FileDeleteDialog
+        file={fileToDelete}
+        isOpen={fileToDelete !== null}
+        onClose={() => setFileToDelete(null)}
+        onDeleted={handleFileDeleted}
       />
 
       {/* Course Settings Modal */}
@@ -367,9 +389,10 @@ function QuickActionCard({ icon, title, description, themeColor, onClick }: Quic
 interface FileCardProps {
   file: FolderFile;
   themeColor: string;
+  onDelete?: (file: FolderFile) => void;
 }
 
-function FileCard({ file, themeColor }: FileCardProps) {
+function FileCard({ file, themeColor, onDelete }: FileCardProps) {
   const typeConfig = fileTypeConfig[file.file_type] || fileTypeConfig.unknown;
   const status = statusConfig[file.status] || statusConfig.pending;
   const FileIcon = typeConfig.icon;
@@ -388,7 +411,7 @@ function FileCard({ file, themeColor }: FileCardProps) {
       )}
       style={{ '--theme-color': themeColor } as React.CSSProperties}
     >
-      {/* File Type Icon */}
+      {/* File Type Icon + Actions */}
       <div className="flex items-start justify-between mb-3">
         <div 
           className="p-2.5 rounded-lg transition-transform group-hover:scale-105 duration-300"
@@ -397,18 +420,40 @@ function FileCard({ file, themeColor }: FileCardProps) {
           <FileIcon className="w-5 h-5" style={{ color: typeConfig.color }} />
         </div>
         
-        {/* Status Badge */}
-        <div 
-          className={cn(
-            "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-            status.bgColor
+        <div className="flex items-center gap-1.5">
+          {/* Status Badge */}
+          <div 
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+              status.bgColor
+            )}
+          >
+            <StatusIcon 
+              className={cn("w-3 h-3", file.status === 'processing' && "animate-spin")} 
+              style={{ color: status.color }} 
+            />
+            <span style={{ color: status.color }}>{status.label}</span>
+          </div>
+
+          {/* Delete Button — appears on hover */}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(file);
+              }}
+              className={cn(
+                "p-1.5 rounded-lg transition-all duration-200",
+                "opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100",
+                "text-muted-foreground hover:text-red-500 hover:bg-red-500/10",
+                "focus-visible:opacity-100 focus-visible:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+              )}
+              aria-label={`Delete ${file.filename}`}
+              title="Delete file"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           )}
-        >
-          <StatusIcon 
-            className={cn("w-3 h-3", file.status === 'processing' && "animate-spin")} 
-            style={{ color: status.color }} 
-          />
-          <span style={{ color: status.color }}>{status.label}</span>
         </div>
       </div>
       

@@ -57,20 +57,20 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     type: 'conversation',
   });
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Editing state
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
-  
+
   // Folder editing state
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
-  
+
   // Conversation editing state
   const [conversationMenuOpenId, setConversationMenuOpenId] = useState<string | null>(null);
-  
+
   const [folderEditName, setFolderEditName] = useState('');
-  
+
   const { setBreadcrumbOverride } = useUiStore();
 
   const startEditingConversation = (id: string, title: string) => {
@@ -83,7 +83,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const saveConversationTitle = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!editingConversationId || !editingTitle.trim()) return;
-    
+
     await updateConversationTitleHandler(editingConversationId, editingTitle);
     setEditingConversationId(null);
   };
@@ -101,7 +101,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     setFolderMenuOpenId(prev => prev === folderId ? null : folderId);
     setConversationMenuOpenId(null);
   };
-  
+
   const toggleConversationMenu = (e: React.MouseEvent, conversationId: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -116,27 +116,27 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   };
 
   const saveFolderEdit = async (e?: React.FormEvent) => {
-     e?.preventDefault();
-     if (!editingFolderId || !folderEditName.trim()) return;
-     await updateFolderHandler(editingFolderId, { name: folderEditName });
-     setEditingFolderId(null);
+    e?.preventDefault();
+    if (!editingFolderId || !folderEditName.trim()) return;
+    await updateFolderHandler(editingFolderId, { name: folderEditName });
+    setEditingFolderId(null);
   };
 
   const handleFolderDelete = (folderId: string, folderName: string) => {
     setDeleteConfirmation({
-        isOpen: true,
-        conversationId: folderId, // Overloaded field, serving as ID
-        conversationTitle: folderName, // Overloaded field, serving as Name
-        type: 'course',
+      isOpen: true,
+      conversationId: folderId, // Overloaded field, serving as ID
+      conversationTitle: folderName, // Overloaded field, serving as Name
+      type: 'course',
     });
     setFolderMenuOpenId(null);
   };
 
 
-  
+
   // Viewer state management
   const { viewerContent, splitRatio, isViewerActive, openViewer, closeViewer, setSplitRatio } = useViewerState();
-  
+
   // Resize state
   const [isDragging, setIsDragging] = useState(false);
   const [localSplitRatio, setLocalSplitRatio] = useState(splitRatio);
@@ -218,21 +218,21 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     setIsDeleting(true);
     try {
       if (deleteConfirmation.type === 'course') {
-         const result = await deleteFolderHandler(deleteConfirmation.conversationId);
-         if (result.success) {
-            showSuccessToast(`Course "${deleteConfirmation.conversationTitle}" deleted`);
-            setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
-         } else {
-            showErrorToast(`Failed to delete course: ${result.error}`);
-         }
+        const result = await deleteFolderHandler(deleteConfirmation.conversationId);
+        if (result.success) {
+          showSuccessToast(`Course "${deleteConfirmation.conversationTitle}" deleted`);
+          setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
+        } else {
+          showErrorToast(`Failed to delete course: ${result.error}`);
+        }
       } else {
-         const result = await deleteConversationHandler(deleteConfirmation.conversationId);
-         if (result.success) {
-            showSuccessToast(`Conversation "${deleteConfirmation.conversationTitle}" deleted`);
-            setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
-         } else {
-            showErrorToast(`Failed to delete conversation: ${result.error}`);
-         }
+        const result = await deleteConversationHandler(deleteConfirmation.conversationId);
+        if (result.success) {
+          showSuccessToast(`Conversation "${deleteConfirmation.conversationTitle}" deleted`);
+          setDeleteConfirmation({ isOpen: false, conversationId: null, conversationTitle: '', type: 'conversation' });
+        } else {
+          showErrorToast(`Failed to delete conversation: ${result.error}`);
+        }
       }
     } finally {
       setIsDeleting(false);
@@ -288,7 +288,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         const deltaRatio = deltaX / containerWidth;
         const newRatio = dragStartRatio.current + deltaRatio;
         const constrainedRatio = Math.max(0.3, Math.min(0.7, newRatio));
-        
+
         setLocalSplitRatio(constrainedRatio);
       });
     };
@@ -339,7 +339,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
       )}>
         {/* Decorative top gradient */}
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-        
+
         {/* Header */}
         <div className="relative p-4 border-b border-border/30 shrink-0 space-y-2">
           <button
@@ -373,7 +373,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                 </span>
               </div>
             )}
-            
+
             {/* Root-level conversations (no folder) */}
             {conversations.length > 0 && (
               <div className="space-y-1">
@@ -383,31 +383,31 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
                   if (isEditing) {
                     return (
-                       <div key={conversation.id} className="px-2 py-1">
-                          <form onSubmit={saveConversationTitle} className="flex items-center gap-1">
-                             <input
-                                autoFocus
-                                type="text"
-                                value={editingTitle}
-                                onChange={(e) => setEditingTitle(e.target.value)}
-                                className="flex-1 min-w-0 bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                onBlur={() => saveConversationTitle()}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Escape') cancelEditingConversation();
-                                }}
-                             />
-                          </form>
-                       </div>
+                      <div key={conversation.id} className="px-2 py-1">
+                        <form onSubmit={saveConversationTitle} className="flex items-center gap-1">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            className="flex-1 min-w-0 bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                            onBlur={() => saveConversationTitle()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') cancelEditingConversation();
+                            }}
+                          />
+                        </form>
+                      </div>
                     );
                   }
 
                   return (
-                    <div 
-                        key={conversation.id} 
-                        className={cn(
-                            "group relative",
-                            conversationMenuOpenId === conversation.id ? "z-20" : "z-auto"
-                        )}
+                    <div
+                      key={conversation.id}
+                      className={cn(
+                        "group relative",
+                        conversationMenuOpenId === conversation.id ? "z-20" : "z-auto"
+                      )}
                     >
                       <button
                         onClick={() => handleConversationClick(conversation.id)}
@@ -423,41 +423,41 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                       >
                         {conversation.title}
                       </button>
-                      
-                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                         <button
-                            onClick={(e) => toggleConversationMenu(e, conversation.id)}
-                            className={cn(
-                                "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
-                                conversationMenuOpenId === conversation.id 
-                                    ? "opacity-100 bg-accent text-foreground" 
-                                    : isActive 
-                                        ? "opacity-100 text-primary-foreground hover:bg-primary-foreground/20" 
-                                        : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
-                            )}
+                          onClick={(e) => toggleConversationMenu(e, conversation.id)}
+                          className={cn(
+                            "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
+                            conversationMenuOpenId === conversation.id
+                              ? "opacity-100 bg-accent text-foreground"
+                              : isActive
+                                ? "opacity-100 text-primary-foreground hover:bg-primary-foreground/20"
+                                : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                          )}
                         >
-                            <MoreHorizontal className="h-4 w-4" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
 
                         {/* Dropdown Menu */}
                         {conversationMenuOpenId === conversation.id && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
-                                    <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
-                                        onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
-                                    >
-                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
-                                    </button>
-                                     <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
-                                        onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
-                                    >
-                                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                                    </button>
-                                </div>
-                            </>
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
+                            <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
+                              <button
+                                className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
+                                onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
+                              </button>
+                              <button
+                                className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
+                                onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -474,35 +474,35 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                 </span>
               </div>
             )}
-            
+
             {folders.map((folder) => {
               const isExpanded = expandedFolders.has(folder.id);
               const isEditingVal = editingFolderId === folder.id;
-              
+
               return (
                 <div key={folder.id} className="space-y-1">
                   {/* Folder Header */}
                   {isEditingVal ? (
                     <div className="flex items-center gap-1 px-2 py-1">
-                        <form onSubmit={saveFolderEdit} className="flex-1">
-                            <input
-                                autoFocus
-                                value={folderEditName}
-                                onChange={e => setFolderEditName(e.target.value)}
-                                className="w-full bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                onBlur={(e) => saveFolderEdit(e)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Escape') setEditingFolderId(null);
-                                }}
-                            />
-                        </form>
+                      <form onSubmit={saveFolderEdit} className="flex-1">
+                        <input
+                          autoFocus
+                          value={folderEditName}
+                          onChange={e => setFolderEditName(e.target.value)}
+                          className="w-full bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          onBlur={(e) => saveFolderEdit(e)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') setEditingFolderId(null);
+                          }}
+                        />
+                      </form>
                     </div>
                   ) : (
-                    <div 
-                        className={cn(
-                            "group flex items-center gap-1 relative rounded-xl transition-colors hover:bg-accent/50",
-                            folderMenuOpenId === folder.id ? "z-20 bg-accent/50" : "z-auto"
-                        )}
+                    <div
+                      className={cn(
+                        "group flex items-center gap-1 relative rounded-xl transition-colors hover:bg-accent/50",
+                        folderMenuOpenId === folder.id ? "z-20 bg-accent/50" : "z-auto"
+                      )}
                     >
                       <button
                         onClick={(e) => {
@@ -518,7 +518,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                           <ChevronDown className="h-4 w-4 shrink-0" />
                         </div>
                       </button>
-                      
+
                       <Link
                         href={`/course/${folder.id}`}
                         className="flex-1 flex items-center gap-3 py-2.5 pr-2 text-sm font-medium text-foreground rounded-lg transition-colors duration-150 truncate"
@@ -534,39 +534,39 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
                       <div className="relative pr-1">
                         <button
-                            onClick={(e) => toggleFolderMenu(e, folder.id)}
-                            className={cn(
-                                "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
-                                folderMenuOpenId === folder.id ? "opacity-100 bg-accent text-foreground" : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
-                            )}
+                          onClick={(e) => toggleFolderMenu(e, folder.id)}
+                          className={cn(
+                            "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
+                            folderMenuOpenId === folder.id ? "opacity-100 bg-accent text-foreground" : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                          )}
                         >
-                            <MoreHorizontal className="h-4 w-4" />
+                          <MoreHorizontal className="h-4 w-4" />
                         </button>
 
                         {/* Dropdown Menu */}
                         {folderMenuOpenId === folder.id && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setFolderMenuOpenId(null)} />
-                                <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
-                                    <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
-                                        onClick={(e) => { e.preventDefault(); startEditingFolder(folder); }}
-                                    >
-                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
-                                    </button>
-                                     <button 
-                                        className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
-                                        onClick={(e) => { e.preventDefault(); handleFolderDelete(folder.id, folder.name); }}
-                                    >
-                                        <Trash2 className="h-3.5 w-3.5" /> Delete
-                                    </button>
-                                </div>
-                            </>
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setFolderMenuOpenId(null)} />
+                            <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
+                              <button
+                                className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
+                                onClick={(e) => { e.preventDefault(); startEditingFolder(folder); }}
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
+                              </button>
+                              <button
+                                className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
+                                onClick={(e) => { e.preventDefault(); handleFolderDelete(folder.id, folder.name); }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </button>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Folder Conversations */}
                   {isExpanded && (
                     <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-1">
@@ -582,21 +582,21 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
                           if (isEditing) {
                             return (
-                               <div key={conversation.id} className="px-2 py-1">
-                                  <form onSubmit={saveConversationTitle} className="flex items-center gap-1">
-                                     <input
-                                        autoFocus
-                                        type="text"
-                                        value={editingTitle}
-                                        onChange={(e) => setEditingTitle(e.target.value)}
-                                        className="flex-1 min-w-0 bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                        onBlur={() => saveConversationTitle()}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Escape') cancelEditingConversation();
-                                        }}
-                                     />
-                                  </form>
-                               </div>
+                              <div key={conversation.id} className="px-2 py-1">
+                                <form onSubmit={saveConversationTitle} className="flex items-center gap-1">
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    value={editingTitle}
+                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                    className="flex-1 min-w-0 bg-background border-2 border-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    onBlur={() => saveConversationTitle()}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Escape') cancelEditingConversation();
+                                    }}
+                                  />
+                                </form>
+                              </div>
                             );
                           }
 
@@ -619,41 +619,41 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                               >
                                 {conversation.title}
                               </button>
-                              
+
                               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
                                 <button
-                                    onClick={(e) => toggleConversationMenu(e, conversation.id)}
-                                    className={cn(
-                                        "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
-                                        conversationMenuOpenId === conversation.id 
-                                            ? "opacity-100 bg-accent text-foreground" 
-                                            : isActive 
-                                                ? "opacity-100 text-primary-foreground hover:bg-primary-foreground/20" 
-                                                : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
-                                    )}
+                                  onClick={(e) => toggleConversationMenu(e, conversation.id)}
+                                  className={cn(
+                                    "p-1.5 rounded-lg text-muted-foreground transition-all duration-200",
+                                    conversationMenuOpenId === conversation.id
+                                      ? "opacity-100 bg-accent text-foreground"
+                                      : isActive
+                                        ? "opacity-100 text-primary-foreground hover:bg-primary-foreground/20"
+                                        : "opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                                  )}
                                 >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </button>
 
                                 {/* Dropdown Menu */}
                                 {conversationMenuOpenId === conversation.id && (
-                                    <>
-                                        <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
-                                        <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
-                                            <button 
-                                                className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
-                                                onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
-                                            >
-                                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
-                                            </button>
-                                            <button 
-                                                className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
-                                                onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
-                                            >
-                                                <Trash2 className="h-3.5 w-3.5" /> Delete
-                                            </button>
-                                        </div>
-                                    </>
+                                  <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setConversationMenuOpenId(null)} />
+                                    <div className="absolute right-0 top-full mt-1 w-36 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl overflow-hidden z-50 flex flex-col py-1.5">
+                                      <button
+                                        className="text-left px-3 py-2 text-sm hover:bg-accent rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
+                                        onClick={(e) => { e.preventDefault(); startEditingConversation(conversation.id, conversation.title); }}
+                                      >
+                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename
+                                      </button>
+                                      <button
+                                        className="text-left px-3 py-2 text-sm hover:bg-destructive/10 text-destructive rounded-lg mx-1.5 flex items-center gap-2.5 transition-colors"
+                                        onClick={(e) => { e.preventDefault(); handleDeleteClick(conversation.id, conversation.title); }}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                                      </button>
+                                    </div>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -682,7 +682,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
 
       {/* Main Content Container */}
       <div ref={containerRef} className="flex-1 h-full flex relative overflow-hidden">
-        
+
         {/* LEFT PANE - Chat or Course Setup */}
         <div
           className={`h-full flex flex-col bg-background relative ${isDragging ? '' : 'transition-all duration-300 ease-in-out'}`}
@@ -698,7 +698,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
           </button>
 
           {viewState === 'course-setup' ? (
-            <CourseSetup 
+            <CourseSetup
               onCancel={() => startNewChat()}
               onComplete={handleCreateCourseComplete}
               onCreateCourse={createFolderHandler}

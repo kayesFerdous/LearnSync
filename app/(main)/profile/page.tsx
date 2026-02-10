@@ -192,11 +192,30 @@ export default function ProfilePage() {
                 "h-28 w-28 md:h-36 md:w-36 rounded-2xl border-4 border-card overflow-hidden theme-shadow-lg",
                 user.is_admin && "ring-2 ring-amber-500/50 ring-offset-2 ring-offset-card"
               )}>
-                {user.picture ? (
+                {user.picture && user.picture.trim() !== '' ? (
                   <img 
                     src={user.picture} 
                     alt={user.username}
                     className="h-full w-full object-cover"
+                    onError={(e) => {
+                      console.error('[Profile] Failed to load profile picture:', {
+                        url: user.picture,
+                        username: user.username,
+                        email: user.email
+                      });
+                      // Hide the broken image and show fallback
+                      e.currentTarget.style.display = 'none';
+                      const parent = e.currentTarget.parentElement;
+                      if (parent && !parent.querySelector('.fallback-avatar')) {
+                        const fallback = document.createElement('div');
+                        fallback.className = 'fallback-avatar h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center';
+                        fallback.innerHTML = `<span class="text-4xl md:text-5xl font-bold text-primary">${user.username.charAt(0).toUpperCase()}</span>`;
+                        parent.appendChild(fallback);
+                      }
+                    }}
+                    onLoad={() => {
+                      console.log('[Profile] Profile picture loaded successfully:', user.picture);
+                    }}
                   />
                 ) : (
                   <div className="h-full w-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">

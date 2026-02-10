@@ -52,13 +52,15 @@ export default function AuthPage() {
             if (isLogin) {
                 // Login
                 await login({ email, password });
+                // Fetch user details after successful auth to get full user object including picture
+                await authStore.fetchUser();
             } else {
                 // Signup
                 await signup({ username, email, password });
+                // Fetch user details after successful auth to get full user object including picture
+                await authStore.fetchUser();
             }
             
-            // Fetch user details after successful auth
-            await authStore.fetchUser();
             router.push('/dashboard');
         } catch (error) {
             if (error instanceof AuthApiError) {
@@ -128,7 +130,7 @@ export default function AuthPage() {
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block w-full pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
-                                        placeholder="kayes_dev"
+                                        placeholder="Kalam"
                                         required={!isLogin}
                                         maxLength={150}
                                     />
