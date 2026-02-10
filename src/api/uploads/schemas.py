@@ -105,4 +105,10 @@ class FolderFilesListResponse(BaseModel):
     total: int
 
 
+class DeleteFileResponse(BaseModel):
+    message: str
+    file_id: str
+    filename: str
+
+
 

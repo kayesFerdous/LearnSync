@@ -286,3 +286,28 @@ async def get_folder_files(
     
     result = await db.execute(stmt)
     return result.all()
+
+
+async def delete_file(
+    db: AsyncSession,
+    file_id: UUID,
+    user_id: UUID
+) -> File | None:
+    """
+    Deletes a file record from the database.
+    Returns the file record before deletion for cleanup operations,
+    or None if the file doesn't exist or doesn't belong to the user.
+    """
+    # First fetch the file to verify ownership and get file_path for cleanup
+    stmt = select(File).where(File.id == file_id, File.user_id == user_id)
+    result = await db.execute(stmt)
+    file_record = result.scalar_one_or_none()
+    
+    if not file_record:
+        return None  # File not found or doesn't belong to user
+    
+    # Delete the file record
+    await db.delete(file_record)
+    await db.commit()
+    
+    return file_record

@@ -16,7 +16,8 @@ from src.api.uploads.schemas import (
     BatchConfirmFileResponse,
     FolderFileResponse,
     FolderFilesListResponse,
-    FileType
+    FileType,
+    DeleteFileResponse
 )
 from src.core.config import settings
 from src.api.dependencies import get_current_user
@@ -28,7 +29,8 @@ from src.conversations.service import (
     create_pending_file, 
     get_file_status,
     cancel_upload,
-    get_folder_files
+    get_folder_files,
+    delete_file
 )
 from src.conversations.model import FileType as ModelFileType
 from uuid import UUID
@@ -356,3 +358,80 @@ async def get_files_for_folder(
         files=response_files,
         total=len(response_files)
     )
+
+
+@router.delete("/files/{file_id}", response_model=DeleteFileResponse)
+async def delete_file_endpoint(
+    req: Request,
+    file_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete a file and clean up associated resources.
+    
+    This endpoint:
+    1. Verifies file ownership
+    2. Deletes the file from R2 storage (if applicable)
+    3. Removes vectors from the vector store
+    4. Removes the database record
+    """
+    try:
+        uuid_id = UUID(file_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file ID format")
+
+    # Delete from database (with ownership verification)
+    file_record = await delete_file(db, uuid_id, user.user_id)
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Clean up R2 object if it's not a URL type
+    # Using file_type is more robust than checking file_path string
+    if file_record.file_type != ModelFileType.URL:
+        try:
+            r2_client = req.app.state.r2_client
+            r2_client.delete_object(
+                Bucket=settings.R2_BUCKET_NAME,
+                Key=file_record.file_path
+            )
+            logger.info(f"Deleted R2 object: {file_record.file_path}")
+        except Exception as e:
+            # Log warning but don't fail the request
+            # The file might have already been deleted or never existed
+            logger.warning(f"Failed to delete R2 object {file_record.file_path}: {e}")
+    
+    # Clean up vectors from Qdrant
+    # Using file_id as the document_id for proper tracking
+    try:
+        from qdrant_client import models
+        from src.rag.store import _get_qdrant_client
+        from src.core.config import settings as app_settings
+
+        qdrant_client = _get_qdrant_client()
+        # Delete all points where metadata.document_id matches this file's ID
+        qdrant_client.delete(
+            collection_name=app_settings.QDRANT_COLLECTION_NAME,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.document_id",
+                            match=models.MatchValue(value=str(file_record.id)),
+                        )
+                    ]
+                )
+            ),
+        )
+        logger.info(f"Deleted vector chunks for file {file_record.id}")
+    except Exception as e:
+        # Log warning but don't fail - vectors might not have been created yet
+        logger.warning(f"Failed to delete vectors for file {file_record.id}: {e}")
+    
+    return DeleteFileResponse(
+        message="File deleted successfully",
+        file_id=str(file_record.id),
+        filename=file_record.filename
+    )
+

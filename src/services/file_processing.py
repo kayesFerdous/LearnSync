@@ -80,8 +80,9 @@ async def process_content(
                     file_record.status = ProcessingStatus.PROCESSING
                     await session.commit()
         
-        # Generate a document ID (for RAG metadata)
-        document_id = str(uuid4())
+        # Use file_id as document_id for proper vector tracking
+        # This allows us to delete vectors when the file is deleted
+        document_id = str(file_id) if file_id else str(uuid4())
 
         if not is_url:
             # Handle R2 Download
