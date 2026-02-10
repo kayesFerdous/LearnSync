@@ -5,26 +5,6 @@ from langchain_core.documents import Document
 from .store import get_vector_store
 
 
-async def retrieve_documents_by_id(
-    document_id: str,
-    k: int = 100,
-    request: Optional[Request] = None
-) -> list[Document]:
-    """
-    Returns Documents based on document_id metadata filter.
-    """
-    store = get_vector_store(request)
-    
-    # Use Qdrant's filter to get documents by document_id
-    results = await store.asimilarity_search(
-        query="",  # Empty query, we're filtering by metadata
-        k=k,
-        filter={"must": [{"key": "document_id", "match": {"value": document_id}}]}
-    )
-    
-    return results
-
-
 async def retrieve_documents(
     query: str,
     k: int = 5,
