@@ -1,5 +1,6 @@
 import json
 from uuid import UUID
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from fastapi.responses import StreamingResponse
@@ -16,6 +17,8 @@ from src.api.conversations.schemas import (
     ConversationUpdate,
     ConversationResponse
 )
+from src.api.conversations.mindmap_schemas import MindmapResponse, MindmapNodeResponse
+from src.services.mindmap_service import generate_folder_mindmap, generate_conversation_mindmap
 from src.api.dependencies import get_current_user
 from src.db.session import get_db
 from src.conversations.service import (
@@ -277,3 +280,111 @@ async def delete_existing_folder(
         raise HTTPException(status_code=404, detail="Folder not found")
     
     return Response(status_code=204)
+
+
+@router.post("/folder/{folder_id}/mindmap", response_model=MindmapResponse)
+async def generate_folder_mindmap_endpoint(
+    folder_id: str,
+    request: Request,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate a mindmap for all files in a folder.
+    
+    This endpoint aggregates all files within a folder and uses an LLM
+    to generate a hierarchical mindmap structure showing relationships
+    and themes across the files.
+    
+    Args:
+        folder_id: UUID of the folder
+        
+    Returns:
+        MindmapResponse with the hierarchical mindmap structure
+        
+    Raises:
+        404: Folder not found or doesn't belong to user
+        500: Error during mindmap generation
+    """
+    try:
+        uuid_id = UUID(folder_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid folder ID format")
+    
+    try:
+        # Get the Gemini LLM from app state
+        gemini_llm = request.app.state.gemini_llm_temp_0
+        
+        # Generate the mindmap
+        mindmap = await generate_folder_mindmap(db, uuid_id, user.user_id, gemini_llm)
+        
+        if mindmap is None:
+            raise HTTPException(status_code=404, detail="Folder not found")
+        
+        # Convert to response format
+        return MindmapResponse(
+            root=MindmapNodeResponse(**mindmap.model_dump()),
+            total_files=mindmap.metadata.get("file_count", 0),
+            generated_at=datetime.utcnow(),
+            context=mindmap.title
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error generating folder mindmap: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error generating mindmap")
+
+
+@router.post("/{conversation_id}/mindmap", response_model=MindmapResponse)
+async def generate_conversation_mindmap_endpoint(
+    conversation_id: str,
+    request: Request,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate a mindmap for all files in a conversation.
+    
+    This endpoint aggregates all files within a conversation and uses an LLM
+    to generate a hierarchical mindmap structure showing relationships
+    and themes across the files.
+    
+    Args:
+        conversation_id: UUID of the conversation
+        
+    Returns:
+        MindmapResponse with the hierarchical mindmap structure
+        
+    Raises:
+        404: Conversation not found or doesn't belong to user
+        500: Error during mindmap generation
+    """
+    try:
+        uuid_id = UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+    
+    try:
+        # Get the Gemini LLM from app state
+        gemini_llm = request.app.state.gemini_llm_temp_0
+        
+        # Generate the mindmap
+        mindmap = await generate_conversation_mindmap(db, uuid_id, user.user_id, gemini_llm)
+        
+        if mindmap is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        # Convert to response format
+        return MindmapResponse(
+            root=MindmapNodeResponse(**mindmap.model_dump()),
+            total_files=mindmap.metadata.get("file_count", 0),
+            generated_at=datetime.utcnow(),
+            context=mindmap.title
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error generating conversation mindmap: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error generating mindmap")
