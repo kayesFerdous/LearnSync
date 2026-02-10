@@ -3,6 +3,7 @@ import type { ChatTag } from './types';
 export const CHAT_TAGS: ChatTag[] = [
   { id: 'schedular', label: 'Scheduler' },
   { id: 'routine_generator', label: 'Routine Generator' },
+  { id: 'rag', label: 'Rag' },
 ];
 
 export const INITIAL_MESSAGE = {
