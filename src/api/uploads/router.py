@@ -265,7 +265,8 @@ async def process_url(
         user_id=str(user.user_id),
         llm=req.app.state.gemini_llm,
         is_url=True,
-        # folder_id passed via DB record now, but kept for signature compatibility if needed
+        folder_id=process_url_req.folder_id,
+        conversation_id=process_url_req.conversation_id,
     )
     
     return {"message": "URL queued for processing", "url": str(process_url_req.url), "file_id": str(new_file.id)}

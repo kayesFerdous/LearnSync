@@ -1,5 +1,6 @@
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from src.agents.model import AgentState
 from src.rag.retrieval import retrieve_documents
@@ -13,23 +14,24 @@ def make_rag_node(llm: BaseChatModel):
             messages = state["messages"]
             user_query = messages[-1].content
 
-            filter_conditions = [{"key": "user_id", "match": {"value": state["user_id"]}}]
+            filter_conditions = [
+                FieldCondition(key="metadata.user_id", match=MatchValue(value=state["user_id"]))
+            ]
             
             if state["metadata"].get("folder_id"):
                 filter_conditions.append(
-                    {"key": "folder_id", "match": {"value": state["metadata"]["folder_id"]}}
+                    FieldCondition(key="metadata.folder_id", match=MatchValue(value=state["metadata"]["folder_id"]))
                 )
 
             else:
                 filter_conditions.append(
-                    {"key": "conversation_id", "match": {"value": state["metadata"]["conversation_id"]}}
+                    FieldCondition(key="metadata.conversation_id", match=MatchValue(value=state["metadata"]["conversation_id"]))
                 )
-            
 
             docs = await retrieve_documents(
                 query=user_query,
                 k=5,
-                filter_metadata={"must": filter_conditions},
+                filter_metadata=Filter(must=filter_conditions),
             )
 
             context = "\n\n---\n\n".join(doc.page_content for doc in docs)
@@ -42,7 +44,11 @@ Context:
 
             prompt_messages = [SystemMessage(content=system_prompt), messages[-1]] 
 
+            logger.info(f"\n\nRag Node Prompt messages: {prompt_messages}")
+
             response = await llm.ainvoke(prompt_messages)
+
+            logger.info(f"\n\nRag Node Response: {response}")
 
             return {"messages": [AIMessage(content=response.content)]}
 

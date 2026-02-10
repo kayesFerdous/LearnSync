@@ -1,7 +1,7 @@
 from typing import Optional
 
 from langchain_qdrant import QdrantVectorStore, RetrievalMode
-from qdrant_client import AsyncQdrantClient
+from qdrant_client import QdrantClient
 from langchain_ollama import OllamaEmbeddings
 from langchain_qdrant import FastEmbedSparse
 
@@ -9,16 +9,16 @@ from src.core.config import settings
 
 
 # Module-level cached instances for background tasks
-_qdrant_client: AsyncQdrantClient | None = None
+_qdrant_client: QdrantClient | None = None
 _dense_embedding: OllamaEmbeddings | None = None
 _sparse_embedding: FastEmbedSparse | None = None
 
 
-def _get_qdrant_client() -> AsyncQdrantClient:
-    """Get or create Qdrant client for background tasks."""
+def _get_qdrant_client() -> QdrantClient:
+    """Get or create Qdrant client."""
     global _qdrant_client
     if _qdrant_client is None:
-        _qdrant_client = AsyncQdrantClient(url=settings.QDRANT_URL)
+        _qdrant_client = QdrantClient(url=settings.QDRANT_URL)
     return _qdrant_client
 
 
