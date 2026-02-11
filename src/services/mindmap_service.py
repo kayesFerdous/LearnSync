@@ -14,6 +14,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.conversations.model import File, Folder, Conversation, Mindmap
+from src.rag.store import _get_qdrant_client
+from qdrant_client import models as qdrant_models
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -122,25 +125,85 @@ async def _fetch_conversation_files(
     return list(files), conversation
 
 
-def _prepare_file_data(files: List[File]) -> List[Dict[str, Any]]:
+
+def _fetch_file_content_from_qdrant(file_id: UUID) -> str:
     """
-    Prepare file data for LLM processing.
+    Fetch full text content for a file from Qdrant.
+    
+    Args:
+        file_id: UUID of the file
+        
+    Returns:
+        Full text content of the file
+    """
+    try:
+        client = _get_qdrant_client()
+        
+        # Scroll through all points for this document
+        points, _ = client.scroll(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            scroll_filter=qdrant_models.Filter(
+                must=[
+                    qdrant_models.FieldCondition(
+                        key="metadata.document_id",
+                        match=qdrant_models.MatchValue(value=str(file_id))
+                    )
+                ]
+            ),
+            limit=1000,  # Should cover most files (chunks are typically small)
+            with_payload=True,
+            with_vectors=False
+        )
+        
+        # Sort points by order if possible, or just concatenate
+        # Ideally we should have a chunk index, but for now we rely on insertion order or just concatenate
+        # The ingestion process usually inserts in order.
+        
+        # Extract content from payload
+        contents = []
+        for point in points:
+            if point.payload:
+                # Remove "Context: ... Content: " prefix if present (added in ingestion)
+                text = point.payload.get("page_content", "")
+                if "Content: " in text:
+                    text = text.split("Content: ", 1)[1]
+                contents.append(text)
+        
+        return "\n\n".join(contents)
+        
+    except Exception as e:
+        logger.error(f"Error fetching content from Qdrant for file {file_id}: {e}")
+        return ""
+
+
+async def _prepare_file_data(files: List[File]) -> List[Dict[str, Any]]:
+    """
+    Prepare file data for LLM processing, including full text content.
     
     Args:
         files: List of File objects
         
     Returns:
-        List of dictionaries with file metadata
+        List of dictionaries with file metadata and content
     """
     file_data = []
     for file in files:
+        # Fetch content from Qdrant (synchronous call inside async function, but fast enough)
+        # Ideally Qdrant client would be async but the current implementation uses sync client
+        content = _fetch_file_content_from_qdrant(file.id)
+        
+        # Fallback to summary if no content found
+        if not content.strip():
+            content = f"Summary: {file.summary}"
+            
         file_data.append({
             "id": str(file.id),
             "filename": file.filename,
             "doc_type": file.doc_type or "Unknown",
             "summary": file.summary or "No summary available",
             "topics": file.topics or [],
-            "file_type": file.file_type.value if file.file_type else "unknown"
+            "file_type": file.file_type.value if file.file_type else "unknown",
+            "full_text": content
         })
     
     return file_data
@@ -171,49 +234,79 @@ async def _generate_mindmap_with_llm(
             metadata={"file_count": 0}
         )
     
-    # Prepare the prompt
-    files_summary = "\n\n".join([
-        f"File: {f['filename']}\n"
-        f"Type: {f['doc_type']}\n"
-        f"Topics: {', '.join(f['topics']) if f['topics'] else 'None'}\n"
-        f"Summary: {f['summary'][:500]}..."  # Limit summary length
-        for f in files_data
-    ])
+    # Prepare the prompt with full context
+    # Limit total context to avoid hitting hard limits, though Gemini is 1M+
+    MAX_TOTAL_CHARS = 500000 # ~125k tokens, safe margin
     
-    prompt = f"""You are an expert at organizing academic materials into hierarchical mindmaps.
+    files_context = []
+    current_chars = 0
+    
+    for f in files_data:
+        text = f['full_text']
+        # Truncate individual huge files to ensure variety
+        if len(text) > 50000: 
+            text = text[:50000] + "... (truncated)"
+            
+        if current_chars + len(text) > MAX_TOTAL_CHARS:
+            break
+            
+        files_context.append(
+            f"=== FILE START ===\n"
+            f"Filename: {f['filename']}\n"
+            f"Type: {f['doc_type']}\n"
+            f"Topics: {', '.join(f['topics']) if f['topics'] else 'None'}\n"
+            f"Content:\n{text}\n"
+            f"=== FILE END ===\n"
+        )
+        current_chars += len(text)
+        
+    context_str = "\n".join(files_context)
+    
+    prompt = f"""You are a distinguished academic researcher and knowledge architect.
+Your task is to analyze a collection of documents and synthesize them into a highly structured, deep, and interconnected mindmap.
 
 Context: {context}
 
-Given the following files with their summaries, topics, and document types, create a comprehensive mindmap that shows:
-1. Main themes/topics as top-level nodes
-2. Related documents grouped under themes
-3. Subtopics and concepts as child nodes
-4. Logical relationships between materials
+Below is the FULL CONTENT of the files in this collection. Analyze this corpus as a comprehensive whole, not just as individual files.
 
-Files ({len(files_data)} total):
+{context_str}
 
-{files_summary}
+INSTRUCTIONS:
+1. **Global Scan**: Read through all materials to understand the broad subject area and scope.
+2. **Taxonomy Creation**: Identify the core themes, concepts, and logical hierarchy that best organizes this specific knowledge base.
+3. **Synthesis**: Group related concepts together. A single node might synthesize information from multiple files.
+4. **Granularity**: Use child nodes to break down complex topics into sub-concepts. Go deep where the content supports it.
+5. **Accessibility**: Use simple, clear language for all descriptions. Avoid academic jargon unless necessary, and explain complex terms simply. Make it easy for a general audience to understand.
 
-Create a mindmap with a clear root node representing the overall subject area or collection.
-Group related files under thematic parent nodes. Include the filename and key information in each node's metadata field.
-Make the structure intuitive and easy to navigate.
+OUTPUT STRUCTURE RULES:
+- **Root Node**: Represents the overarching subject/course.
+- **Hierarchy**: Use nested `children` arrays to show depth.
+- **Descriptions**: Provide meaningful 1-2 sentence descriptions for every node using SIMPLE language.
+- **Metadata**: explicit references to source files in `metadata.file_id` where applicable.
 
-Return your response as a JSON object with this exact structure (no markdown, no code blocks, just the JSON):
+Return your response as a valid JSON object with this EXACT structure (no markdown, no code blocks):
 {{
-  "title": "Root node title",
-  "description": "Description of the root",
+  "title": "Root Subject Title",
+  "description": "Comprehensive description of the collection",
   "children": [
     {{
-      "title": "Child node title",
-      "description": "Child description",
-      "children": [],
-      "metadata": {{"file_id": "optional-id", "doc_type": "optional-type"}}
+      "title": "Major Theme/Module",
+      "description": "Description of this theme",
+      "children": [
+          {{
+            "title": "Specific Concept",
+            "description": "Detailed explanation",
+            "children": [],
+            "metadata": {{"file_id": "optional-id-if-specific-to-file"}}
+          }}
+      ],
+      "metadata": {{}}
     }}
   ],
   "metadata": {{}}
 }}
 
-IMPORTANT: Return ONLY the JSON object, no other text or formatting."""
+IMPORTANT: Return ONLY the JSON object. Ensure it is valid JSON."""
 
     try:
         logger.info(f"Generating mindmap for {len(files_data)} files with context: {context}")
@@ -382,7 +475,7 @@ async def generate_folder_mindmap(
     if folder is None:
         return None
     
-    files_data = _prepare_file_data(files)
+    files_data = await _prepare_file_data(files)
     context = f"Folder: {folder.name}"
     
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
@@ -427,7 +520,7 @@ async def generate_conversation_mindmap(
     if conversation is None:
         return None
     
-    files_data = _prepare_file_data(files)
+    files_data = await _prepare_file_data(files)
     context = f"Conversation: {conversation.title}"
     
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
