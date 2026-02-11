@@ -36,6 +36,9 @@ class MindmapNode(BaseModel):
         description="Additional metadata (e.g., file_id, doc_type, topics)"
     )
 
+# Rebuild the model to resolve forward references for recursive structure
+MindmapNode.model_rebuild()
+
 
 class MindmapGenerationInput(BaseModel):
     """Input format for LLM to understand the files being processed."""
@@ -149,7 +152,7 @@ async def _generate_mindmap_with_llm(
     llm: BaseChatModel
 ) -> MindmapNode:
     """
-    Generate a mindmap structure using LLM with structured output.
+    Generate a mindmap structure using LLM with JSON mode.
     
     Args:
         files_data: List of file metadata dictionaries
@@ -167,9 +170,6 @@ async def _generate_mindmap_with_llm(
             children=[],
             metadata={"file_count": 0}
         )
-    
-    # Use structured output for reliable parsing
-    structured_llm = llm.with_structured_output(MindmapNode)
     
     # Prepare the prompt
     files_summary = "\n\n".join([
@@ -196,18 +196,50 @@ Files ({len(files_data)} total):
 
 Create a mindmap with a clear root node representing the overall subject area or collection.
 Group related files under thematic parent nodes. Include the filename and key information in each node's metadata field.
-Make the structure intuitive and easy to navigate."""
+Make the structure intuitive and easy to navigate.
+
+Return your response as a JSON object with this exact structure (no markdown, no code blocks, just the JSON):
+{{
+  "title": "Root node title",
+  "description": "Description of the root",
+  "children": [
+    {{
+      "title": "Child node title",
+      "description": "Child description",
+      "children": [],
+      "metadata": {{"file_id": "optional-id", "doc_type": "optional-type"}}
+    }}
+  ],
+  "metadata": {{}}
+}}
+
+IMPORTANT: Return ONLY the JSON object, no other text or formatting."""
 
     try:
         logger.info(f"Generating mindmap for {len(files_data)} files with context: {context}")
-        mindmap = await structured_llm.ainvoke(prompt)
+        
+        # Use invoke without structured output, parse JSON manually
+        response = await llm.ainvoke(prompt)
+        response_text = response.content if hasattr(response, 'content') else str(response)
+        
+        # Parse JSON and create MindmapNode
+        import json
+        # Clean the response to extract JSON
+        response_text = response_text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        mindmap_dict = json.loads(response_text)
+        mindmap = MindmapNode(**mindmap_dict)
         
         # Add file count to root metadata
-        if isinstance(mindmap, MindmapNode):
-            mindmap.metadata["file_count"] = len(files_data)
-            return mindmap
-        else:
-            raise ValueError("LLM did not return a valid MindmapNode")
+        mindmap.metadata["file_count"] = len(files_data)
+        return mindmap
             
     except Exception as e:
         logger.error(f"Error generating mindmap with LLM: {e}", exc_info=True)
