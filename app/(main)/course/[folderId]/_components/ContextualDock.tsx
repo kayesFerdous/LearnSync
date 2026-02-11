@@ -12,6 +12,7 @@ import {
     MessageSquare,
     Maximize,
     Settings,
+    Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ interface ContextualDockProps {
     onNewChat: () => void;
     onFitView: () => void;
     onSettings: () => void;
+    onGenerateQuiz: () => void;
 }
 
 export function ContextualDock({
@@ -33,9 +35,11 @@ export function ContextualDock({
     onNewChat,
     onFitView,
     onSettings,
+    onGenerateQuiz,
 }: ContextualDockProps) {
     const actions: DockAction[] = [
         { icon: MessageSquare, label: "New Chat", onClick: onNewChat },
+        { icon: Sparkles, label: "Quiz", onClick: onGenerateQuiz },
         { icon: Upload, label: "Upload File", onClick: onAddSource },
         { icon: Maximize, label: "Fit View", onClick: onFitView },
         { icon: Settings, label: "Settings", onClick: onSettings },

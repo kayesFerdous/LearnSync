@@ -42,6 +42,7 @@ import { useWorkspaceStore } from "@/lib/store";
 import { fetchFolderFiles } from "@/app/(main)/chat/_lib/api";
 import type { Conversation, FolderFile, FolderFileType, ProcessingStatus } from "@/app/(main)/chat/_lib/types";
 import type { MindmapFlowNode } from "./mindmap/types";
+import { useFolderFiles } from "@/hooks/use-folder-files";
 
 /* ──────── File/Status config (reused from course-dashboard) ──────── */
 
@@ -101,21 +102,18 @@ export function RightPanel({
     const [files, setFiles] = useState<FolderFile[]>([]);
     const [filesLoading, setFilesLoading] = useState(true);
 
-    // Fetch files
+    // Fetch files using shared hook
+    const { data: fetchedFiles = [], isLoading: isFilesLoading } = useFolderFiles(folderId);
+
     useEffect(() => {
-        const load = async () => {
-            try {
-                setFilesLoading(true);
-                const res = await fetchFolderFiles(folderId);
-                setFiles(res.files);
-            } catch (e) {
-                console.error("Failed to fetch files:", e);
-            } finally {
-                setFilesLoading(false);
-            }
-        };
-        load();
-    }, [folderId]);
+        if (fetchedFiles) {
+            // Map the fetched files to the component's state format if necessary, 
+            // or just use them directly if types match. 
+            // The types might explicitly need to be cast or ensured to match `FolderFile`.
+            setFiles(fetchedFiles as FolderFile[]);
+            setFilesLoading(isFilesLoading);
+        }
+    }, [fetchedFiles, isFilesLoading]);
 
     // Determine panel mode
     const mode: PanelMode = useMemo(() => {

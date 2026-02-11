@@ -13,6 +13,7 @@ import { RightPanel } from "./RightPanel";
 import { BatchUploadModal } from "./batch-upload-modal";
 import { CourseSettingsModal } from "./course-settings-modal";
 import { FileDeleteDialog } from "./file-delete-dialog";
+import QuizConfigModal from "@/components/quiz/QuizConfigModal";
 import { updateFolder, fetchFolderFiles } from "@/app/(main)/chat/_lib/api";
 import { useUiStore } from "@/lib/store";
 import type { CourseFolder } from "./course-dashboard";
@@ -27,6 +28,7 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
     const router = useRouter();
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
     const [fileToDelete, setFileToDelete] = useState<FolderFile | null>(null);
 
     // Local folder customization state
@@ -96,6 +98,7 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
                     window.dispatchEvent(new CustomEvent("workspace:fitView"));
                 }}
                 onSettings={() => setIsSettingsModalOpen(true)}
+                onGenerateQuiz={() => setIsQuizModalOpen(true)}
             />
 
             {/* ── Modals ── */}
@@ -113,6 +116,11 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
                 currentName={folderName}
                 currentIcon={displayIcon}
                 currentColor={themeColor}
+            />
+            <QuizConfigModal
+                isOpen={isQuizModalOpen}
+                onClose={() => setIsQuizModalOpen(false)}
+                folderId={folder.id}
             />
             <FileDeleteDialog
                 file={fileToDelete}
