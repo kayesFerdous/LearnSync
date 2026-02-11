@@ -14,8 +14,10 @@ import { BatchUploadModal } from "./batch-upload-modal";
 import { CourseSettingsModal } from "./course-settings-modal";
 import { FileDeleteDialog } from "./file-delete-dialog";
 import QuizConfigModal from "@/components/quiz/QuizConfigModal";
+import QuizOverlay from "@/components/quiz/QuizOverlay";
 import { updateFolder, fetchFolderFiles } from "@/app/(main)/chat/_lib/api";
 import { useUiStore } from "@/lib/store";
+import { useQuizStore } from "@/stores/use-quiz-store";
 import type { CourseFolder } from "./course-dashboard";
 import type { MindmapFlowNode } from "./mindmap/types";
 import type { FolderFile } from "@/app/(main)/chat/_lib/types";
@@ -38,6 +40,9 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
 
     const themeColor = folderTheme || folder.color || "#3b82f6";
     const displayIcon = folderIcon || "📚";
+
+    // Quiz Store
+    const { status: quizStatus, exitQuiz } = useQuizStore();
 
     // Track nodes for the right panel inspector
     const [canvasNodes, setCanvasNodes] = useState<MindmapFlowNode[]>([]);
@@ -121,6 +126,10 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
                 isOpen={isQuizModalOpen}
                 onClose={() => setIsQuizModalOpen(false)}
                 folderId={folder.id}
+            />
+            <QuizOverlay
+                isOpen={quizStatus !== 'idle'}
+                onClose={exitQuiz}
             />
             <FileDeleteDialog
                 file={fileToDelete}

@@ -15,6 +15,7 @@ import {
     X,
     MessageSquare,
     FolderOpen,
+    Gamepad2, // For Quizzes
     FileText,
     FileImage,
     FileAudio,
@@ -73,7 +74,7 @@ const statusConfig: Record<ProcessingStatus, { icon: React.ElementType; color: s
 
 /* ──────── Types ──────── */
 
-type Tab = "activity" | "files";
+type Tab = "activity" | "files" | "quizzes";
 type PanelMode = "closed" | "hub" | "inspector";
 
 interface RightPanelProps {
@@ -204,6 +205,12 @@ export function RightPanel({
                                         icon={<FolderOpen className="w-3.5 h-3.5" />}
                                         label={`Files${!filesLoading && files.length > 0 ? ` (${files.length})` : ""}`}
                                     />
+                                    <TabButton
+                                        active={activeTab === "quizzes"}
+                                        onClick={() => setActiveTab("quizzes")}
+                                        icon={<Gamepad2 className="w-3.5 h-3.5" />}
+                                        label="Quizzes"
+                                    />
                                 </div>
                             )}
                             <button
@@ -230,7 +237,7 @@ export function RightPanel({
                                     conversations={conversations}
                                     themeColor={themeColor}
                                 />
-                            ) : (
+                            ) : activeTab === "files" ? (
                                 <FilesList
                                     files={files}
                                     loading={filesLoading}
@@ -238,6 +245,8 @@ export function RightPanel({
                                     onOpenUpload={onOpenUpload}
                                     onDelete={onFileDelete}
                                 />
+                            ) : (
+                                <QuizzesList themeColor={themeColor} />
                             )}
                         </div>
                     </motion.div>
@@ -526,6 +535,68 @@ function MetaRow({ label, value }: { label: string; value: string }) {
         <div className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-[color:var(--muted)]/20">
             <span className="text-[11px] text-[color:var(--muted-foreground)]">{label}</span>
             <span className="text-[11px] font-medium text-[color:var(--foreground)]">{value}</span>
+        </div>
+    );
+}
+
+/* ──────── Quizzes List ──────── */
+
+function QuizzesList({ themeColor }: { themeColor: string }) {
+    // Mock data for now, replace with store data later
+    const quizzes = [
+        { id: 1, title: "Quiz 4", date: "Today", difficulty: "Medium", score: 85, completed: true },
+        { id: 2, title: "Quiz 3", date: "Yesterday", difficulty: "Hard", score: null, completed: false },
+        { id: 3, title: "Quiz 2", date: "Jan 20, 2026", difficulty: "Easy", score: 100, completed: true },
+    ];
+
+    const getDifficultyColor = (diff: string) => {
+        switch (diff) {
+            case "Easy": return "bg-emerald-500";
+            case "Medium": return "bg-amber-500";
+            case "Hard": return "bg-rose-500";
+            default: return "bg-slate-500";
+        }
+    };
+
+    return (
+        <div className="divide-y divide-[color:var(--border)]/20">
+            {quizzes.map((quiz) => (
+                <button
+                    key={quiz.id}
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-[color:var(--muted)]/40 transition-colors group"
+                >
+                    <div className="flex items-center gap-3">
+                        {/* Difficulty Dot */}
+                        <div className={cn("w-2 h-2 rounded-full", getDifficultyColor(quiz.difficulty))} title={quiz.difficulty} />
+
+                        {/* Center Info */}
+                        <div className="text-left">
+                            <span className="block text-sm font-bold text-[color:var(--foreground)] group-hover:text-[color:var(--primary)] transition-colors">
+                                {quiz.title}
+                            </span>
+                            <span className="block text-[10px] text-[color:var(--muted-foreground)] uppercase tracking-wide">
+                                {quiz.date}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Right Badge */}
+                    <div className="flex items-center">
+                        {quiz.completed ? (
+                            <div className={cn(
+                                "text-xs font-bold px-2 py-0.5 rounded-md",
+                                (quiz.score || 0) >= 80 ? "bg-emerald-500/10 text-emerald-500" :
+                                    (quiz.score || 0) >= 60 ? "bg-amber-500/10 text-amber-500" :
+                                        "bg-rose-500/10 text-rose-500"
+                            )}>
+                                {quiz.score}%
+                            </div>
+                        ) : (
+                            <Gamepad2 className="w-4 h-4 text-[color:var(--muted-foreground)] group-hover:text-[color:var(--primary)] transition-colors" />
+                        )}
+                    </div>
+                </button>
+            ))}
         </div>
     );
 }

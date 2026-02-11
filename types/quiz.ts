@@ -8,20 +8,35 @@ export interface QuizGenerationRequest {
     conversation_id?: string;
 }
 
-export interface QuizQuestion {
-    question: string;
-    options: { id: string; text: string }[];
-    answer: string; // The correct option text or index, depending on backend. Assuming text for now.
-    explanation?: string;
+export interface QuizOption {
+    id: number | string;
+    text: string;
 }
 
-export interface QuizGenerationResponse {
+export interface QuizQuestion {
+    id: string;
+    question_text: string;
+    question_type: "MCQ"; // extendable
+    options: QuizOption[];
+    answers: (number | string)[]; // Array of correct option IDs
+    explanation?: string;
+    reference_text?: string;
+    reference_id?: string;
+}
+
+export interface QuizData {
+    id: string;
+    title: string;
+    source_type: "folder" | "conversation";
+    source_id: string;
+    created_at: string;
     questions: QuizQuestion[];
 }
 
+export interface QuizGenerationResponse extends QuizData { }
+
 export interface FileItem {
     id: string;
-    name: string;
-    type: string;
-    // Add other properties as needed based on actual API response
+    filename: string;
+    file_type: string;
 }

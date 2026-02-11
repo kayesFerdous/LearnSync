@@ -167,7 +167,7 @@ const QuizConfigModal: React.FC<QuizConfigModalProps> = ({
                                             className="w-full h-full flex flex-col"
                                         >
                                             <h3 className="text-xl font-medium text-slate-900 dark:text-white mb-8 leading-relaxed">
-                                                {currentQuestion?.question}
+                                                {currentQuestion?.question_text}
                                             </h3>
 
                                             <div className="flex flex-col gap-3">
@@ -176,7 +176,7 @@ const QuizConfigModal: React.FC<QuizConfigModalProps> = ({
                                                     return (
                                                         <motion.button
                                                             key={option.id}
-                                                            onClick={() => handleAnswer(option.id)}
+                                                            onClick={() => handleAnswer(String(option.id))}
                                                             whileHover={{ scale: 1.01, x: 4 }}
                                                             whileTap={{ scale: 0.99 }}
                                                             className={cn(
