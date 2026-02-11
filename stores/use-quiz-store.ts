@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 import { QuizData, QuizGenerationRequest } from '../types/quiz';
 
+type QuizStatus = 'idle' | 'generating' | 'active' | 'summary';
+type QuestionViewState = 'question' | 'feedback';
+
 interface QuizState {
-    status: 'idle' | 'generating' | 'active' | 'summary';
+    status: QuizStatus;
+    viewState: QuestionViewState; // Explicit state for the card view
     quizData: QuizData | null;
     currentQuestionIndex: number;
     answers: Record<string, number | string>; // map questionId to answerId
@@ -10,33 +14,26 @@ interface QuizState {
 
     // Actions
     loadQuiz: (quizId: string) => Promise<void>;
-    fetchQuizzes: (folderId: string) => Promise<void>;
     generateQuiz: (request: QuizGenerationRequest) => Promise<void>;
     startQuiz: (quizData: QuizData) => void;
     submitAnswer: (questionId: string, answerId: number | string) => void;
     nextQuestion: () => void;
-    prevQuestion: () => void;
+    prevQuestion: () => void; // Optional/Debug
     exitQuiz: () => void;
     resetQuiz: () => void;
 }
 
 export const useQuizStore = create<QuizState>((set, get) => ({
     status: 'idle',
+    viewState: 'question',
     quizData: null,
     currentQuestionIndex: 0,
     answers: {},
     score: 0,
 
     loadQuiz: async (quizId: string) => {
-        set({ status: 'generating' }); // Re-use generating state for loading
+        set({ status: 'generating' });
         try {
-            // Dynamically import fetchQuiz to avoid circular deps if any, or just use fetch directly
-            // Better to use fetch directly or import from api.ts
-            // Since this is a store, we can use fetch directly for simplicity or import.
-            // Let's use fetch directly to match the generateQuiz pattern and avoid imports if possible, 
-            // but importing is cleaner.
-
-            // Assume fetchQuiz is available or use fetch
             const response = await fetch(`http://localhost:8000/mcq/${quizId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
@@ -47,15 +44,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
             const data: QuizData = await response.json();
 
-            // Validate and Patch (same as generate)
             if (!data || !data.questions || data.questions.length === 0) {
                 throw new Error("Received empty quiz data");
             }
 
+            // Ensure IDs and structure
             data.questions.forEach((q, i) => {
-                if (!q.id) {
-                    q.id = `q-loaded-${Date.now()}-${i}`;
-                }
+                if (!q.id) q.id = `q-loaded-${Date.now()}-${i}`;
                 if (!q.question_text && (q as any).question) {
                     q.question_text = (q as any).question;
                 }
@@ -64,6 +59,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             set({
                 quizData: data,
                 status: 'active',
+                viewState: 'question',
                 currentQuestionIndex: 0,
                 answers: {},
                 score: 0
@@ -75,24 +71,13 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         }
     },
 
-    fetchQuizzes: async (folderId: string) => {
-        // This action seems to be for fetching the list, which is handled in the component for now.
-        // But if needed here, we can implement it.
-        // For now, keeping it as a placeholder or implementing if the component uses it.
-        // The component uses the api.ts function directly, so this might be redundant or for storing list state.
-    },
-
     generateQuiz: async (request: QuizGenerationRequest) => {
         set({ status: 'generating' });
         try {
-            console.log("Generating quiz with request:", request);
-
             const response = await fetch("http://localhost:8000/mcq/generate", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                credentials: "include", // Important for cookies/session
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
                 body: JSON.stringify(request),
             });
 
@@ -102,33 +87,23 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             }
 
             const data: QuizData = await response.json();
-            console.log("Quiz Generation Response Data:", data);
 
-            // Validate data structure immediately
             if (!data || !data.questions || data.questions.length === 0) {
-                console.error("Quiz data is empty or missing questions:", data);
                 throw new Error("Received empty quiz data");
             }
 
-            // Deep check for question text
+            // Ensure IDs and structure
             data.questions.forEach((q, i) => {
-                if (!q.id) {
-                    console.warn(`Question ${i} is missing 'id'. Patching with index-based ID.`);
-                    q.id = `q-${Date.now()}-${i}`;
-                }
-
-                if (!q.question_text) {
-                    // console.warn(`Question ${i} (${q.id}) is missing 'question_text'. Full object:`, q);
-                    // Fallback if the backend sends 'question' instead of 'question_text'
-                    if ((q as any).question) {
-                        q.question_text = (q as any).question;
-                    }
+                if (!q.id) q.id = `q-${Date.now()}-${i}`;
+                if (!q.question_text && (q as any).question) {
+                    q.question_text = (q as any).question;
                 }
             });
 
             set({
                 quizData: data,
                 status: 'active',
+                viewState: 'question',
                 currentQuestionIndex: 0,
                 answers: {},
                 score: 0
@@ -143,6 +118,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         set({
             quizData,
             status: 'active',
+            viewState: 'question',
             currentQuestionIndex: 0,
             answers: {},
             score: 0
@@ -153,11 +129,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         const { quizData, answers } = get();
         if (!quizData) return;
 
-        // Optional: Prevent changing answer if strict mode
-        // if (answers[questionId] !== undefined) return;
-
+        // Save answer
         set((state) => ({
-            answers: { ...state.answers, [questionId]: answerId }
+            answers: { ...state.answers, [questionId]: answerId },
+            viewState: 'feedback' // Explicitly transition to feedback view
         }));
     },
 
@@ -168,14 +143,15 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         const total = quizData.questions.length;
 
         if (currentQuestionIndex < total - 1) {
-            // Move to next
-            set({ currentQuestionIndex: currentQuestionIndex + 1 });
+            set({
+                currentQuestionIndex: currentQuestionIndex + 1,
+                viewState: 'question' // Reset view to question for the new card
+            });
         } else {
-            // Finish
+            // Calculate Score
             let correctCount = 0;
             quizData.questions.forEach(q => {
                 const userAnswer = answers[q.id];
-                // Ensure comparison is safe (string vs number)
                 if (q.answers.some(a => String(a) === String(userAnswer))) {
                     correctCount++;
                 }
@@ -191,7 +167,10 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     prevQuestion: () => {
         const { currentQuestionIndex } = get();
         if (currentQuestionIndex > 0) {
-            set({ currentQuestionIndex: currentQuestionIndex - 1 });
+            set({
+                currentQuestionIndex: currentQuestionIndex - 1,
+                viewState: 'question' // Optional: could handle history if needed
+            });
         }
     },
 
@@ -202,6 +181,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     resetQuiz: () => {
         set({
             status: 'active',
+            viewState: 'question',
             currentQuestionIndex: 0,
             answers: {},
             score: 0

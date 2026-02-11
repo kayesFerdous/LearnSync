@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, Loader2 } from 'lucide-react';
 import { useQuizStore } from '../../stores/use-quiz-store';
 import QuestionCard from './QuestionCard';
 import QuizSummary from './QuizSummary';
+import { cn } from '../../lib/utils';
 
 interface QuizOverlayProps {
     isOpen: boolean;
@@ -30,76 +31,69 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                    {/* Adaptive Background: Light (slate-50) / Dark (slate-950) */}
+                    {/* Theme-Adaptive Backdrop */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xl transition-colors duration-500"
+                        className="absolute inset-0 bg-background/95 backdrop-blur-xl transition-all duration-300"
                         onClick={onClose}
                     />
 
                     {/* Main Container */}
-                    <div className="relative w-full h-full flex flex-col pointer-events-none">
+                    <div className="relative w-full h-full flex flex-col pointer-events-none max-w-5xl mx-auto">
 
-                        {/* Minimal Header */}
+                        {/* Header */}
                         {status === 'active' && (
                             <motion.div
-                                initial={{ y: -50, opacity: 0 }}
+                                initial={{ y: -20, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                className="w-full px-8 py-6 flex items-center justify-between pointer-events-auto z-10"
+                                className="w-full px-6 py-6 flex items-center justify-between pointer-events-auto z-10"
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/5 flex items-center justify-center border border-slate-300 dark:border-white/10">
-                                        <Sparkles size={14} className="text-slate-600 dark:text-white/60" />
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center border border-border shadow-sm">
+                                        <Sparkles size={18} className="text-primary" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-slate-500 dark:text-white/40 text-xs font-medium tracking-widest uppercase">
-                                            Focus Mode
+                                        <span className="text-sm font-bold text-foreground tracking-tight">Focus Quiz</span>
+                                        <span className="text-xs text-muted-foreground font-medium">
+                                            Question {currentQuestionIndex + 1} of {totalQuestions}
                                         </span>
                                     </div>
                                 </div>
 
-                                {/* Progress Indicator */}
-                                <div className="hidden md:flex items-center gap-3">
-                                    <div className="w-48 h-1 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
+                                {/* Progress Bar */}
+                                <div className="hidden md:block absolute left-1/2 transform -translate-x-1/2 w-1/3">
+                                    <div className="h-2 bg-secondary rounded-full overflow-hidden border border-border/50">
                                         <motion.div
-                                            className="h-full bg-indigo-500 dark:bg-white/20"
+                                            className="h-full bg-primary"
                                             initial={{ width: 0 }}
                                             animate={{ width: `${progress}%` }}
                                             transition={{ duration: 0.5, ease: "circOut" }}
                                         />
                                     </div>
-                                    <span className="text-slate-500 dark:text-white/40 text-xs font-mono">
-                                        {currentQuestionIndex + 1} / {totalQuestions}
-                                    </span>
                                 </div>
 
                                 <button
                                     onClick={onClose}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-secondary hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-all"
                                 >
-                                    <X size={18} />
+                                    <X size={20} />
                                 </button>
                             </motion.div>
                         )}
 
-                        {/* Card Stage */}
-                        <div className="flex-1 flex items-center justify-center p-4 md:p-8 pointer-events-auto">
+                        {/* Content Stage */}
+                        <div className="flex-1 flex items-center justify-center p-4 md:p-8 pointer-events-auto overflow-hidden">
                             <AnimatePresence mode="wait">
                                 {status === 'active' && currentQuestion && (
                                     <motion.div
-                                        key={currentQuestion.id} // CRITICAL: Forces re-mount to reset flip/state
-                                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                                        transition={{
-                                            type: "spring",
-                                            stiffness: 350,
-                                            damping: 25,
-                                            mass: 0.5
-                                        }}
-                                        className="w-full h-full flex items-center justify-center"
+                                        key={currentQuestion.id} // Ensure fresh mount for each question
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                        className="w-full max-w-3xl"
                                     >
                                         <QuestionCard
                                             question={currentQuestion}
@@ -112,35 +106,28 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
                                 {status === 'generating' && (
                                     <motion.div
                                         key="generating"
-                                        initial={{ opacity: 0, scale: 0.9 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
-                                        className="w-full h-full flex flex-col items-center justify-center gap-6"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="flex flex-col items-center justify-center gap-6"
                                     >
-                                        <div className="relative w-16 h-16">
-                                            <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-white/10" />
-                                            <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 dark:border-t-white animate-spin" />
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <Sparkles size={20} className="text-indigo-600 dark:text-white animate-pulse" />
+                                        <div className="relative">
+                                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                                            <div className="relative bg-card w-20 h-20 rounded-2xl border border-border shadow-lg flex items-center justify-center">
+                                                <Loader2 size={32} className="text-primary animate-spin" />
                                             </div>
                                         </div>
-                                        <div className="text-center space-y-2">
-                                            <h3 className="text-xl font-medium text-slate-900 dark:text-white tracking-tight">
-                                                Crafting Your Focus Session
-                                            </h3>
-                                            <p className="text-slate-500 dark:text-white/40 text-sm">
-                                                Analyzing content and generating questions...
-                                            </p>
-                                        </div>
+                                        <p className="text-lg font-medium text-foreground">
+                                            Crafting your quiz...
+                                        </p>
                                     </motion.div>
                                 )}
 
                                 {status === 'summary' && (
                                     <motion.div
                                         key="summary"
-                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.9 }}
                                         className="w-full flex justify-center"
                                     >
                                         <QuizSummary onClose={onClose} />
@@ -148,7 +135,6 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
                                 )}
                             </AnimatePresence>
                         </div>
-
                     </div>
                 </div>
             )}
