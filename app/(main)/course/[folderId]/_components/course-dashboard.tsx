@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { BatchUploadModal } from './batch-upload-modal';
 import { CourseSettingsModal } from './course-settings-modal';
 import { FileDeleteDialog } from './file-delete-dialog';
+import { MindmapCanvas } from './mindmap';
 
 // UI Extension for this component
 export interface CourseFolder extends Folder {
@@ -202,6 +203,17 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           themeColor={themeColor}
           onClick={() => setIsSettingsModalOpen(true)}
         />
+      </section>
+
+      {/* Course Mindmap */}
+      <section className="max-w-5xl mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Course Mindmap</h2>
+          </div>
+        </div>
+        <MindmapCanvas folderId={folder.id} />
       </section>
 
       {/* Recent Activity */}
