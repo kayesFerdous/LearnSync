@@ -10,7 +10,7 @@ from sqlalchemy import (
     func,
     Enum as SQLEnum
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -170,3 +170,55 @@ class File(Base):
     user: Mapped["User"] = relationship("src.users.model.User") #type: ignore
     conversation: Mapped["Conversation"] = relationship("Conversation", back_populates="files")
     folder: Mapped[Optional["Folder"]] = relationship("Folder", back_populates="files")
+
+
+class Mindmap(Base):
+    __tablename__ = "mindmaps"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    
+    user_id: Mapped[UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.user_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+    
+    # Either folder_id or conversation_id will be set, not both
+    folder_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("folders.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True
+    )
+    
+    conversation_id: Mapped[Optional[UUID]] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True
+    )
+    
+    # Store the mindmap as JSON
+    mindmap_data: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False
+    )
+    
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        server_default=func.now(), 
+        nullable=False
+    )
+    
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), 
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
+    )
+
+    # Relationships
+    user: Mapped["User"] = relationship("src.users.model.User") #type: ignore
+    folder: Mapped[Optional["Folder"]] = relationship("Folder")
+    conversation: Mapped[Optional["Conversation"]] = relationship("Conversation")

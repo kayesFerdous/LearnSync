@@ -13,7 +13,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.conversations.model import File, Folder, Conversation
+from src.conversations.model import File, Folder, Conversation, Mindmap
 
 logger = logging.getLogger(__name__)
 
@@ -259,24 +259,124 @@ IMPORTANT: Return ONLY the JSON object, no other text or formatting."""
         )
 
 
+async def _save_mindmap_to_db(
+    db: AsyncSession,
+    user_id: UUID,
+    mindmap: MindmapNode,
+    folder_id: Optional[UUID] = None,
+    conversation_id: Optional[UUID] = None
+) -> Mindmap:
+    """
+    Save or update a mindmap in the database.
+    
+    Args:
+        db: Database session
+        user_id: UUID of the user
+        mindmap: MindmapNode to save
+        folder_id: Optional folder ID
+        conversation_id: Optional conversation ID
+        
+    Returns:
+        Saved Mindmap database object
+    """
+    # Check if mindmap already exists
+    stmt = select(Mindmap).where(
+        Mindmap.user_id == user_id
+    )
+    
+    if folder_id:
+        stmt = stmt.where(Mindmap.folder_id == folder_id)
+    elif conversation_id:
+        stmt = stmt.where(Mindmap.conversation_id == conversation_id)
+    
+    result = await db.execute(stmt)
+    existing_mindmap = result.scalar_one_or_none()
+    
+    mindmap_dict = mindmap.model_dump()
+    
+    if existing_mindmap:
+        # Update existing mindmap
+        existing_mindmap.mindmap_data = mindmap_dict
+        await db.commit()
+        await db.refresh(existing_mindmap)
+        return existing_mindmap
+    else:
+        # Create new mindmap
+        new_mindmap = Mindmap(
+            user_id=user_id,
+            folder_id=folder_id,
+            conversation_id=conversation_id,
+            mindmap_data=mindmap_dict
+        )
+        db.add(new_mindmap)
+        await db.commit()
+        await db.refresh(new_mindmap)
+        return new_mindmap
+
+
+async def get_saved_mindmap(
+    db: AsyncSession,
+    user_id: UUID,
+    folder_id: Optional[UUID] = None,
+    conversation_id: Optional[UUID] = None
+) -> Optional[MindmapNode]:
+    """
+    Retrieve a saved mindmap from the database.
+    
+    Args:
+        db: Database session
+        user_id: UUID of the user
+        folder_id: Optional folder ID
+        conversation_id: Optional conversation ID
+        
+    Returns:
+        MindmapNode if found, None otherwise
+    """
+    stmt = select(Mindmap).where(
+        Mindmap.user_id == user_id
+    )
+    
+    if folder_id:
+        stmt = stmt.where(Mindmap.folder_id == folder_id)
+    elif conversation_id:
+        stmt = stmt.where(Mindmap.conversation_id == conversation_id)
+    
+    result = await db.execute(stmt)
+    mindmap_record = result.scalar_one_or_none()
+    
+    if mindmap_record:
+        return MindmapNode(**mindmap_record.mindmap_data)
+    return None
+
+
 async def generate_folder_mindmap(
     db: AsyncSession,
     folder_id: UUID,
     user_id: UUID,
-    llm: BaseChatModel
+    llm: BaseChatModel,
+    force_regenerate: bool = False
 ) -> Optional[MindmapNode]:
     """
     Generate a mindmap for all files in a folder.
+    Saves to database and returns cached version if available.
     
     Args:
         db: Database session
         folder_id: UUID of the folder
         user_id: UUID of the user making the request
         llm: LLM instance for mindmap generation
+        force_regenerate: If True, regenerate even if cached version exists
         
     Returns:
         MindmapNode representing the folder's file structure, or None if folder not found
     """
+    # Check for existing mindmap unless force regenerate
+    if not force_regenerate:
+        existing_mindmap = await get_saved_mindmap(db, user_id, folder_id=folder_id)
+        if existing_mindmap:
+            logger.info(f"Returning cached mindmap for folder {folder_id}")
+            return existing_mindmap
+    
     files, folder = await _fetch_folder_files(db, folder_id, user_id)
     
     if folder is None:
@@ -286,6 +386,11 @@ async def generate_folder_mindmap(
     context = f"Folder: {folder.name}"
     
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
+    
+    # Save to database
+    await _save_mindmap_to_db(db, user_id, mindmap, folder_id=folder_id)
+    logger.info(f"Saved mindmap for folder {folder_id} to database")
+    
     return mindmap
 
 
@@ -293,20 +398,30 @@ async def generate_conversation_mindmap(
     db: AsyncSession,
     conversation_id: UUID,
     user_id: UUID,
-    llm: BaseChatModel
+    llm: BaseChatModel,
+    force_regenerate: bool = False
 ) -> Optional[MindmapNode]:
     """
     Generate a mindmap for all files in a conversation.
+    Saves to database and returns cached version if available.
     
     Args:
         db: Database session
         conversation_id: UUID of the conversation
         user_id: UUID of the user making the request
         llm: LLM instance for mindmap generation
+        force_regenerate: If True, regenerate even if cached version exists
         
     Returns:
         MindmapNode representing the conversation's file structure, or None if conversation not found
     """
+    # Check for existing mindmap unless force regenerate
+    if not force_regenerate:
+        existing_mindmap = await get_saved_mindmap(db, user_id, conversation_id=conversation_id)
+        if existing_mindmap:
+            logger.info(f"Returning cached mindmap for conversation {conversation_id}")
+            return existing_mindmap
+    
     files, conversation = await _fetch_conversation_files(db, conversation_id, user_id)
     
     if conversation is None:
@@ -316,4 +431,9 @@ async def generate_conversation_mindmap(
     context = f"Conversation: {conversation.title}"
     
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
+    
+    # Save to database
+    await _save_mindmap_to_db(db, user_id, mindmap, conversation_id=conversation_id)
+    logger.info(f"Saved mindmap for conversation {conversation_id} to database")
+    
     return mindmap

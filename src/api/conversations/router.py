@@ -1,8 +1,7 @@
 import json
 from uuid import UUID
 from datetime import datetime
-
-from fastapi import APIRouter, HTTPException, Request, Depends, Response
+from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query
 from fastapi.responses import StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +17,7 @@ from src.api.conversations.schemas import (
     ConversationResponse
 )
 from src.api.conversations.mindmap_schemas import MindmapResponse, MindmapNodeResponse
-from src.services.mindmap_service import generate_folder_mindmap, generate_conversation_mindmap
+from src.services.mindmap_service import generate_folder_mindmap, generate_conversation_mindmap, get_saved_mindmap
 from src.api.dependencies import get_current_user
 from src.db.session import get_db
 from src.conversations.service import (
@@ -286,6 +285,7 @@ async def delete_existing_folder(
 async def generate_folder_mindmap_endpoint(
     folder_id: str,
     request: Request,
+    force_regenerate: bool = Query(False),
     user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -316,7 +316,7 @@ async def generate_folder_mindmap_endpoint(
         gemini_llm = request.app.state.gemini_llm_temp_0
         
         # Generate the mindmap
-        mindmap = await generate_folder_mindmap(db, uuid_id, user.user_id, gemini_llm)
+        mindmap = await generate_folder_mindmap(db, uuid_id, user.user_id, gemini_llm, force_regenerate)
         
         if mindmap is None:
             raise HTTPException(status_code=404, detail="Folder not found")
@@ -388,3 +388,95 @@ async def generate_conversation_mindmap_endpoint(
     except Exception as e:
         print(f"Error generating conversation mindmap: {str(e)}")
         raise HTTPException(status_code=500, detail="Error generating mindmap")
+
+
+@router.get("/folder/{folder_id}/mindmap", response_model=MindmapResponse)
+async def get_folder_mindmap_endpoint(
+    folder_id: str,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get the saved mindmap for a folder.
+    
+    Returns the cached mindmap if available, otherwise returns 404.
+    Use POST endpoint to generate a new mindmap.
+    
+    Args:
+        folder_id: UUID of the folder
+        
+    Returns:
+        MindmapResponse with the saved mindmap structure
+        
+    Raises:
+        404: No saved mindmap found for this folder
+    """
+    try:
+        uuid_id = UUID(folder_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid folder ID format")
+    
+    try:
+        mindmap = await get_saved_mindmap(db, user.user_id, folder_id=uuid_id)
+        
+        if mindmap is None:
+            raise HTTPException(status_code=404, detail="No saved mindmap found for this folder")
+        
+        return MindmapResponse(
+            root=MindmapNodeResponse(**mindmap.model_dump()),
+            total_files=mindmap.metadata.get("file_count", 0),
+            generated_at=datetime.utcnow(),
+            context=mindmap.title
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error retrieving folder mindmap: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving mindmap")
+
+
+@router.get("/{conversation_id}/mindmap", response_model=MindmapResponse)
+async def get_conversation_mindmap_endpoint(
+    conversation_id: str,
+    user = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get the saved mindmap for a conversation.
+    
+    Returns the cached mindmap if available, otherwise returns 404.
+    Use POST endpoint to generate a new mindmap.
+    
+    Args:
+        conversation_id: UUID of the conversation
+        
+    Returns:
+        MindmapResponse with the saved mindmap structure
+        
+    Raises:
+        404: No saved mindmap found for this conversation
+    """
+    try:
+        uuid_id = UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+    
+    try:
+        mindmap = await get_saved_mindmap(db, user.user_id, conversation_id=uuid_id)
+        
+        if mindmap is None:
+            raise HTTPException(status_code=404, detail="No saved mindmap found for this conversation")
+        
+        return MindmapResponse(
+            root=MindmapNodeResponse(**mindmap.model_dump()),
+            total_files=mindmap.metadata.get("file_count", 0),
+            generated_at=datetime.utcnow(),
+            context=mindmap.title
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error retrieving conversation mindmap: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error retrieving mindmap")
