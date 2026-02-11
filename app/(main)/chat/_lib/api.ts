@@ -1,11 +1,11 @@
-import type { 
-  BackendStreamEvent, 
-  PresignResponse, 
-  Conversation, 
-  Message, 
-  RoutineData, 
-  Folder, 
-  ConfirmUploadResponse, 
+import type {
+  BackendStreamEvent,
+  PresignResponse,
+  Conversation,
+  Message,
+  RoutineData,
+  Folder,
+  ConfirmUploadResponse,
   ConversationListResponse,
   BatchPresignFileRequest,
   BatchPresignResponse,
@@ -103,21 +103,21 @@ export const validateFileSize = (file: File): string | null => {
  */
 export const validateBatchFileSize = (files: File[], existingFiles: File[] = []): string[] => {
   const errors: string[] = [];
-  
+
   // Check per-file size limit
   for (const file of files) {
     if (file.size > MAX_UPLOAD_SIZE) {
       errors.push(`File "${file.name}" exceeds the 10MB limit.`);
     }
   }
-  
+
   // Check total batch size limit (including existing files)
   const allFiles = [...existingFiles, ...files];
   const totalSize = allFiles.reduce((sum, file) => sum + file.size, 0);
   if (totalSize > MAX_BATCH_SIZE) {
     errors.push('Total upload exceeds the 20MB limit. Please remove some files.');
   }
-  
+
   return errors;
 };
 
@@ -170,7 +170,7 @@ export const batchPresignUpload = async (files: BatchPresignFileRequest[]): Prom
     credentials: 'include',
     body: JSON.stringify({ files }),
   });
-  
+
   if (!response.ok) {
     if (response.status === 400) {
       const errorData = await response.json().catch(() => ({ detail: 'File size exceeds maximum allowed size' }));
@@ -178,7 +178,7 @@ export const batchPresignUpload = async (files: BatchPresignFileRequest[]): Prom
     }
     throw new Error('Failed to get presigned URLs');
   }
-  
+
   return response.json();
 };
 
@@ -193,11 +193,11 @@ export const batchConfirmUpload = async (request: BatchConfirmRequest): Promise<
     credentials: 'include',
     body: JSON.stringify(request),
   });
-  
+
   if (!response.ok) {
     throw new Error('Failed to confirm batch upload');
   }
-  
+
   return response.json();
 };
 
@@ -206,20 +206,20 @@ export const batchConfirmUpload = async (request: BatchConfirmRequest): Promise<
  * Returns true on success, throws on failure
  */
 export const uploadFileToR2 = async (
-  url: string, 
+  url: string,
   file: File,
   onProgress?: (progress: number) => void
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    
+
     xhr.upload.addEventListener('progress', (event) => {
       if (event.lengthComputable && onProgress) {
         const progress = Math.round((event.loaded / event.total) * 100);
         onProgress(progress);
       }
     });
-    
+
     xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
@@ -227,15 +227,15 @@ export const uploadFileToR2 = async (
         reject(new Error(`Failed to upload file: ${xhr.statusText}`));
       }
     });
-    
+
     xhr.addEventListener('error', () => {
       reject(new Error('Network error during file upload'));
     });
-    
+
     xhr.addEventListener('abort', () => {
       reject(new Error('File upload was aborted'));
     });
-    
+
     xhr.open('PUT', url);
     xhr.setRequestHeader('Content-Type', file.type);
     xhr.send(file);
@@ -258,7 +258,7 @@ export const batchUploadFiles = async (
       throw new Error(`File "${file.name}" exceeds the 10MB limit.`);
     }
   }
-  
+
   // Validate total batch size
   const totalSize = calculateTotalSize(files);
   if (totalSize > MAX_BATCH_SIZE) {
@@ -460,7 +460,7 @@ export const fetchConversations = async (): Promise<ConversationListResponse> =>
  */
 export const normalizeRoutineData = (routineData: any): RoutineData | undefined => {
   if (!routineData) return undefined;
-  
+
   try {
     return {
       title: routineData.title || '',
@@ -468,13 +468,13 @@ export const normalizeRoutineData = (routineData: any): RoutineData | undefined 
         day: cls.day || '',
         course_name: cls.course_name || cls.course || '',
         start: {
-          dateTime: typeof cls.start === 'string' 
-            ? cls.start 
+          dateTime: typeof cls.start === 'string'
+            ? cls.start
             : (cls.start?.dateTime || ''),
         },
         end: {
-          dateTime: typeof cls.end === 'string' 
-            ? cls.end 
+          dateTime: typeof cls.end === 'string'
+            ? cls.end
             : (cls.end?.dateTime || ''),
         },
         recurrence: cls.recurrence,
@@ -497,19 +497,19 @@ export const fetchMessages = async (conversationId: string): Promise<Message[]> 
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   if (!response.ok) throw new Error(`Failed to fetch messages (${response.status})`);
-  
-  const rawMessages: Array<{ 
-    type: 'human' | 'ai'; 
-    content: string; 
+
+  const rawMessages: Array<{
+    type: 'human' | 'ai';
+    content: string;
     created_at?: string;
     additional_kwargs?: {
       routine_approved?: boolean;
       routine_data?: any;
     };
   }> = await response.json();
-  
+
   // Map backend format to frontend Message interface with unique IDs
   return rawMessages.map((msg, index) => ({
     id: `${conversationId}-${index}-${Date.now()}`, // Ensure unique ID
@@ -536,21 +536,21 @@ export const deleteConversation = async (conversationId: string): Promise<void> 
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   // 204 No Content is success
   if (response.status === 204) {
     return;
   }
-  
+
   // Handle error responses
   if (response.status === 404) {
     throw new Error('Conversation not found');
   }
-  
+
   if (response.status === 400) {
     throw new Error('Invalid conversation ID format');
   }
-  
+
   if (!response.ok) {
     throw new Error(`Failed to delete conversation (${response.status})`);
   }
@@ -612,7 +612,7 @@ export const deleteFolder = async (folderId: string): Promise<void> => {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   if (response.status === 204) return;
   if (!response.ok) throw new Error(`Failed to delete folder (${response.status})`);
 };
@@ -631,14 +631,14 @@ export const fetchFileStatus = async (fileId: string): Promise<FileStatusRespons
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error('File not found');
     }
     throw new Error(`Failed to fetch file status (${response.status})`);
   }
-  
+
   return response.json();
 };
 
@@ -647,7 +647,7 @@ export const fetchFileStatus = async (fileId: string): Promise<FileStatusRespons
  * POST /uploads/process-url
  */
 export const processUrl = async (
-  url: string, 
+  url: string,
   conversationId?: string | null,
   folderId?: string | null
 ): Promise<ProcessUrlResponse> => {
@@ -658,19 +658,19 @@ export const processUrl = async (
   if (folderId) {
     body.folder_id = folderId;
   }
-  
+
   const response = await fetch(`${API_BASE_URL}/uploads/process-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(body)
   });
-  
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({ detail: 'Failed to process URL' }));
     throw new Error(errorData.detail || 'Failed to process URL');
   }
-  
+
   return response.json();
 };
 
@@ -685,7 +685,7 @@ export const cancelFileProcessing = async (fileId: string): Promise<void> => {
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error('File not found');
@@ -713,14 +713,14 @@ export const fetchFolderFiles = async (folderId: string): Promise<FolderFilesRes
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error('Folder not found');
     }
     throw new Error(`Failed to fetch folder files (${response.status})`);
   }
-  
+
   return response.json();
 };
 
@@ -734,7 +734,7 @@ export const deleteFile = async (fileId: string): Promise<DeleteFileResponse> =>
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include'
   });
-  
+
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error('File not found');
@@ -744,6 +744,26 @@ export const deleteFile = async (fileId: string): Promise<DeleteFileResponse> =>
     }
     throw new Error(`Failed to delete file (${response.status})`);
   }
-  
+
+
+  return response.json();
+};
+
+/**
+ * Fetch quizzes for a specific folder
+ * GET /mcq/?folder_id={folderId}
+ */
+export const fetchQuizzes = async (folderId: string): Promise<any[]> => {
+  const response = await fetch(`${API_BASE_URL}/mcq/?folder_id=${folderId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) return [];
+    throw new Error(`Failed to fetch quizzes (${response.status})`);
+  }
+
   return response.json();
 };

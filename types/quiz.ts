@@ -33,7 +33,16 @@ export interface QuizData {
     questions: QuizQuestion[];
 }
 
-export interface QuizGenerationResponse extends QuizData { }
+export interface QuizSummary {
+    id: string;
+    title: string;
+    score: number | null;
+    created_at: string;
+    difficulty: QuizDifficulty;
+    question_count: number;
+}
+
+export type QuizGenerationResponse = QuizData;
 
 export interface FileItem {
     id: string;
