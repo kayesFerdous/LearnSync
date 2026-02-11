@@ -2,24 +2,22 @@
 
 // ──────────────────────────────────────────────────────
 // WorkspaceLayout — Main spatial workspace wrapper
-// Composes: MindmapView, FloatingSidebar, ContextualDock,
-// InspectorDrawer, and existing modals
+// Sits INSIDE the course layout.tsx
 // ──────────────────────────────────────────────────────
 
-import React, { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useReactFlow } from "@xyflow/react";
 import { MindmapView } from "./mindmap/MindmapView";
-import { FloatingSidebar } from "./FloatingSidebar";
 import { ContextualDock } from "./ContextualDock";
-import { InspectorDrawer } from "./InspectorDrawer";
+import { RightPanel } from "./RightPanel";
 import { BatchUploadModal } from "./batch-upload-modal";
 import { CourseSettingsModal } from "./course-settings-modal";
 import { FileDeleteDialog } from "./file-delete-dialog";
-import { updateFolder } from "@/app/(main)/chat/_lib/api";
+import { updateFolder, fetchFolderFiles } from "@/app/(main)/chat/_lib/api";
 import { useUiStore } from "@/lib/store";
 import type { CourseFolder } from "./course-dashboard";
 import type { MindmapFlowNode } from "./mindmap/types";
+import type { FolderFile } from "@/app/(main)/chat/_lib/types";
 
 interface WorkspaceLayoutProps {
     folder: CourseFolder;
@@ -29,20 +27,20 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
     const router = useRouter();
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [fileToDelete, setFileToDelete] = useState<FolderFile | null>(null);
 
     // Local folder customization state
     const [folderName, setFolderName] = useState(folder.name);
     const [folderIcon, setFolderIcon] = useState<string | undefined>(folder.icon);
     const [folderTheme, setFolderTheme] = useState<string | undefined>(folder.theme);
 
-    // Theme color resolution (same logic as course-dashboard)
     const themeColor = folderTheme || folder.color || "#3b82f6";
     const displayIcon = folderIcon || "📚";
 
-    // Track nodes for the inspector drawer
+    // Track nodes for the right panel inspector
     const [canvasNodes, setCanvasNodes] = useState<MindmapFlowNode[]>([]);
 
-    // Set breadcrumb override for this folder
+    // Set breadcrumb override
     const { setBreadcrumbOverride } = useUiStore();
     useEffect(() => {
         setBreadcrumbOverride(folder.id, folderName);
@@ -54,6 +52,10 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
         },
         [router]
     );
+
+    const handleFileDeleted = useCallback((fileId: string) => {
+        setFileToDelete(null);
+    }, []);
 
     const handleSettingsSave = useCallback(
         async (data: { name?: string; icon?: string; color?: string }) => {
@@ -68,31 +70,35 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
 
     return (
         <div
-            className="w-screen h-screen overflow-hidden relative bg-background"
-            style={{
-                "--theme-color": themeColor,
-            } as React.CSSProperties}
+            className="w-full h-full overflow-hidden relative"
+            style={{ "--theme-color": themeColor } as React.CSSProperties}
         >
-            {/* Background canvas layer */}
-            <div className="absolute inset-0">
+            {/* ── Canvas layer (z-0) ── */}
+            <div className="absolute inset-0 z-0">
                 <MindmapView target={{ type: "folder", id: folder.id }} />
             </div>
 
-            {/* Floating UI layers */}
-            <FloatingSidebar />
+            {/* ── Right panel (z-20) ── */}
+            <RightPanel
+                folderId={folder.id}
+                conversations={folder.conversations || []}
+                nodes={canvasNodes}
+                themeColor={themeColor}
+                onOpenUpload={() => setIsUploadModalOpen(true)}
+                onFileDelete={(file) => setFileToDelete(file)}
+            />
+
+            {/* ── Bottom dock (z-30) ── */}
             <ContextualDock
                 onAddSource={() => setIsUploadModalOpen(true)}
-                onGlobalChat={() => router.push(`/chat?folderId=${folder.id}`)}
+                onNewChat={() => router.push(`/chat?folderId=${folder.id}`)}
                 onFitView={() => {
-                    // fitView is handled internally by MindmapView through keyboard shortcut
-                    // We dispatch a custom event that MindmapView can listen for
                     window.dispatchEvent(new CustomEvent("workspace:fitView"));
                 }}
                 onSettings={() => setIsSettingsModalOpen(true)}
             />
-            <InspectorDrawer nodes={canvasNodes} />
 
-            {/* Modals */}
+            {/* ── Modals ── */}
             <BatchUploadModal
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
@@ -107,6 +113,12 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
                 currentName={folderName}
                 currentIcon={displayIcon}
                 currentColor={themeColor}
+            />
+            <FileDeleteDialog
+                file={fileToDelete}
+                isOpen={fileToDelete !== null}
+                onClose={() => setFileToDelete(null)}
+                onDeleted={handleFileDeleted}
             />
         </div>
     );

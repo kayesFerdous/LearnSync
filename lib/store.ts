@@ -306,11 +306,13 @@ interface WorkspaceState {
   selectedNodeId: string | null;
   inspectorOpen: boolean;
   sidebarCollapsed: boolean;
+  rightPanelOpen: boolean;
   quickNotes: QuickNote[];
   selectNode: (nodeId: string) => void;
   deselectNode: () => void;
   toggleWorkspaceSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setRightPanelOpen: (open: boolean) => void;
   addQuickNote: (note: QuickNote) => void;
   removeQuickNote: (noteId: string) => void;
   updateQuickNote: (noteId: string, text: string) => void;
@@ -321,11 +323,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     selectedNodeId: null,
     inspectorOpen: false,
     sidebarCollapsed: false,
+    rightPanelOpen: true,
     quickNotes: [],
     selectNode: (nodeId) => set({ selectedNodeId: nodeId, inspectorOpen: true }),
     deselectNode: () => set({ selectedNodeId: null, inspectorOpen: false }),
     toggleWorkspaceSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
     setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+    setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
     addQuickNote: (note) => set((state) => ({ quickNotes: [...state.quickNotes, note] })),
     removeQuickNote: (noteId) => set((state) => ({
       quickNotes: state.quickNotes.filter((n) => n.id !== noteId),

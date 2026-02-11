@@ -22,7 +22,6 @@ import {
     Sparkles,
     File,
     MessageSquare,
-    Maximize2,
     Trash2,
 } from "lucide-react";
 import type { MindmapNodeData, MindmapFlowNode } from "./types";
@@ -181,16 +180,6 @@ function SmartNodeInner({ data, selected, id }: NodeProps<MindmapFlowNode>) {
             },
         },
         {
-            icon: Maximize2,
-            label: "Expand",
-            onClick: (e) => {
-                e.stopPropagation();
-                if (fileId) {
-                    window.open(`/chat/${fileId}`, "_blank");
-                }
-            },
-        },
-        {
             icon: Trash2,
             label: "Delete",
             onClick: (e) => {
@@ -243,7 +232,7 @@ function SmartNodeInner({ data, selected, id }: NodeProps<MindmapFlowNode>) {
                         // Glow on root / L1
                         depth <= 1 && style.glow,
                     )}
-                    style={{ width: NODE_WIDTH, minHeight: 92 }}
+                    style={{ width: isHovered ? NODE_WIDTH + 40 : NODE_WIDTH, minHeight: 92, transition: "width 0.2s ease" }}
                 >
                     {/* Left accent line */}
                     <div
@@ -276,7 +265,8 @@ function SmartNodeInner({ data, selected, id }: NodeProps<MindmapFlowNode>) {
                             <div className="flex-1 min-w-0">
                                 <h3
                                     className={cn(
-                                        "font-semibold text-sm leading-tight text-[color:var(--card-foreground)] truncate",
+                                        "font-semibold text-sm leading-tight text-[color:var(--card-foreground)]",
+                                        !isHovered && "truncate",
                                         depth === 0 && "text-[15px] font-bold"
                                     )}
                                 >
@@ -305,9 +295,12 @@ function SmartNodeInner({ data, selected, id }: NodeProps<MindmapFlowNode>) {
                         </div>
 
                         {/* ── Description ── */}
-                        {truncatedDesc && (
-                            <p className="text-[11px] leading-relaxed text-[color:var(--muted-foreground)] line-clamp-2 pl-12">
-                                {truncatedDesc}
+                        {description && (
+                            <p className={cn(
+                                "text-[11px] leading-relaxed text-[color:var(--muted-foreground)] pl-12",
+                                !isHovered && "line-clamp-2"
+                            )}>
+                                {description}
                             </p>
                         )}
                     </div>

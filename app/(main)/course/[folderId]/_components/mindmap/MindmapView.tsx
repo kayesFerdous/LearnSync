@@ -229,7 +229,14 @@ function ErrorState({
 
 function MindmapViewInner({ target }: MindmapViewerProps) {
     const { fitView, screenToFlowPosition } = useReactFlow();
-    const { addQuickNote, quickNotes, selectNode } = useWorkspaceStore();
+    const { addQuickNote, quickNotes, selectNode, inspectorOpen, rightPanelOpen } = useWorkspaceStore();
+
+    /* ── Listen for dock "Fit View" event ── */
+    useEffect(() => {
+        const handler = () => fitView({ padding: 0.25, duration: 500 });
+        window.addEventListener("workspace:fitView", handler);
+        return () => window.removeEventListener("workspace:fitView", handler);
+    }, [fitView]);
 
     const {
         data,
@@ -345,9 +352,10 @@ function MindmapViewInner({ target }: MindmapViewerProps) {
                         <MiniMap
                             nodeColor={() => "var(--primary)"}
                             maskColor="var(--background)"
-                            className="!bg-[color:var(--card)]/80 !backdrop-blur-xl !border !border-[color:var(--border)]/50 !rounded-2xl"
+                            className="!bg-[color:var(--card)]/80 !backdrop-blur-xl !border !border-[color:var(--border)]/50 !rounded-2xl !transition-all !duration-300"
                             pannable
                             zoomable
+                            style={{ right: (rightPanelOpen || inspectorOpen) ? 336 : undefined }}
                         />
                     </>
                 )}
@@ -384,7 +392,7 @@ function MindmapViewInner({ target }: MindmapViewerProps) {
 
             {/* Floating top-left toolbar */}
             {showCanvas && (
-                <div className="absolute top-4 left-20 flex items-center gap-2 z-10">
+                <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
                     {/* Context pill */}
                     <div className="flex items-center gap-2 glass-panel px-3.5 py-2 rounded-xl">
                         <LayoutDashboard className="w-4 h-4 text-[color:var(--primary)]" />
