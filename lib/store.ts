@@ -116,7 +116,7 @@ export const useAuthStore = create<AuthState>()(
               email: userData.email,
               picture: userData.picture,
             });
-            
+
             const normalizedUser = userData && userData.settings ? {
               ...userData,
               settings: {
@@ -133,11 +133,11 @@ export const useAuthStore = create<AuthState>()(
               useFontStore.getState().setFont(normalizedUser.settings.font as FontId);
             }
           } else {
-             // If fetching fails (e.g. 401), clear authentication state
-             console.log('[Auth Store] fetchUser failed with status:', response.status);
-             if (response.status === 401) {
-                set({ user: null, isAuthenticated: false });
-             }
+            // If fetching fails (e.g. 401), clear authentication state
+            console.log('[Auth Store] fetchUser failed with status:', response.status);
+            if (response.status === 401) {
+              set({ user: null, isAuthenticated: false });
+            }
           }
         } catch (error) {
           console.error('[Auth Store] Failed to fetch user:', error);
@@ -147,19 +147,19 @@ export const useAuthStore = create<AuthState>()(
       },
       updateUserSettings: async (settings) => {
         const currentUser = get().user;
-        
+
         // 1. Optimistic Update (Immediate UI Reflection)
         // Create an optimistic user object merged with new settings
         let optimisticUser: User | null = null;
         if (currentUser) {
           optimisticUser = {
             ...currentUser,
-            settings: { 
-              ...(currentUser.settings || {}), 
-              ...settings 
+            settings: {
+              ...(currentUser.settings || {}),
+              ...settings
             }
           } as User;
-          
+
           set({ user: optimisticUser });
         }
 
@@ -192,16 +192,16 @@ export const useAuthStore = create<AuthState>()(
           // 3. Confirm with Final Data
           // Use the response from server if available, otherwise keep optimistic
           let finalUser = optimisticUser;
-          
+
           if (responseBody) {
-             finalUser = {
-               ...(optimisticUser || {}),
-               ...responseBody,
-               settings: {
-                 ...(optimisticUser?.settings || {}),
-                 ...(responseBody.settings || {}),
-               }
-             } as User;
+            finalUser = {
+              ...(optimisticUser || {}),
+              ...responseBody,
+              settings: {
+                ...(optimisticUser?.settings || {}),
+                ...(responseBody.settings || {}),
+              }
+            } as User;
           }
 
           set({ user: finalUser });
@@ -210,12 +210,12 @@ export const useAuthStore = create<AuthState>()(
           // (e.g. invalid theme fallback)
           const confirmedTheme = finalUser?.settings?.theme;
           if (confirmedTheme && settings.theme && confirmedTheme !== settings.theme) {
-             useThemeStore.getState().setTheme(confirmedTheme as ThemeId);
+            useThemeStore.getState().setTheme(confirmedTheme as ThemeId);
           }
 
           const confirmedFont = finalUser?.settings?.font;
           if (confirmedFont && settings.font && confirmedFont !== settings.font) {
-             useFontStore.getState().setFont(confirmedFont as FontId);
+            useFontStore.getState().setFont(confirmedFont as FontId);
           }
 
           return finalUser as User;
@@ -224,7 +224,7 @@ export const useAuthStore = create<AuthState>()(
           // 4. Revert on Error
           console.error('Update failed, reverting...', error);
           set({ user: currentUser });
-          
+
           // Revert theme store
           const oldTheme = currentUser?.settings?.theme;
           if (oldTheme) {
@@ -234,7 +234,7 @@ export const useAuthStore = create<AuthState>()(
           if (oldFont) {
             useFontStore.getState().setFont(oldFont as FontId);
           }
-          
+
           throw error;
         }
       },
@@ -249,7 +249,7 @@ export const useAuthStore = create<AuthState>()(
           picture: state.user.picture,
           isAuthenticated: state.isAuthenticated
         } : 'No user data');
-        
+
         if (state?.user) {
           // When rehydrating, sync theme and font stores
           if (state.user.settings?.theme) {
@@ -289,4 +289,49 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({ sidebarOpen: state.sidebarOpen }),
     }
   )
+);
+
+/* ===========================================
+   Workspace Store — Spatial Canvas State
+   =========================================== */
+
+export interface QuickNote {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+}
+
+interface WorkspaceState {
+  selectedNodeId: string | null;
+  inspectorOpen: boolean;
+  sidebarCollapsed: boolean;
+  quickNotes: QuickNote[];
+  selectNode: (nodeId: string) => void;
+  deselectNode: () => void;
+  toggleWorkspaceSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  addQuickNote: (note: QuickNote) => void;
+  removeQuickNote: (noteId: string) => void;
+  updateQuickNote: (noteId: string, text: string) => void;
+}
+
+export const useWorkspaceStore = create<WorkspaceState>()(
+  (set) => ({
+    selectedNodeId: null,
+    inspectorOpen: false,
+    sidebarCollapsed: false,
+    quickNotes: [],
+    selectNode: (nodeId) => set({ selectedNodeId: nodeId, inspectorOpen: true }),
+    deselectNode: () => set({ selectedNodeId: null, inspectorOpen: false }),
+    toggleWorkspaceSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+    setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+    addQuickNote: (note) => set((state) => ({ quickNotes: [...state.quickNotes, note] })),
+    removeQuickNote: (noteId) => set((state) => ({
+      quickNotes: state.quickNotes.filter((n) => n.id !== noteId),
+    })),
+    updateQuickNote: (noteId, text) => set((state) => ({
+      quickNotes: state.quickNotes.map((n) => n.id === noteId ? { ...n, text } : n),
+    })),
+  })
 );
