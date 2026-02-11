@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { BatchUploadModal } from './batch-upload-modal';
 import { CourseSettingsModal } from './course-settings-modal';
 import { FileDeleteDialog } from './file-delete-dialog';
-import { MindmapCanvas } from './mindmap';
+import { MindmapViewer } from './mindmap';
 
 // UI Extension for this component
 export interface CourseFolder extends Folder {
@@ -213,7 +213,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
             <h2 className="text-xl font-semibold">Course Mindmap</h2>
           </div>
         </div>
-        <MindmapCanvas folderId={folder.id} />
+        <MindmapViewer target={{ type: "folder", id: folder.id }} />
       </section>
 
       {/* Recent Activity */}

@@ -25,10 +25,10 @@ export function TopBar() {
   const breadcrumbs = segments.map((segment, index) => {
     const href = `/${segments.slice(0, index + 1).join('/')}`;
     const isLast = index === segments.length - 1;
-    
+
     // Check for override (handle UUIDs or specific segments)
     const label = breadcrumbOverrides[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
-    
+
     return {
       label,
       href,
@@ -60,7 +60,7 @@ export function TopBar() {
 
         {/* Divider */}
         <div className="h-6 w-px bg-border/50 hidden sm:block" />
-        
+
         {/* Breadcrumbs */}
         <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
           <Link href="/dashboard" className="hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent/50">
@@ -81,11 +81,11 @@ export function TopBar() {
           ))}
         </div>
       </div>
-      
+
       <div className="flex items-center gap-3">
         {isAuthenticated && user ? (
           <div className="relative">
-            <button 
+            <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className={cn(
                 "flex items-center gap-3 px-2 py-1.5 rounded-xl transition-all duration-200",
@@ -94,15 +94,15 @@ export function TopBar() {
               )}
             >
               <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-sm font-medium text-foreground">{user.username}</span>
+                <span className="text-sm font-medium text-foreground">{user.username || 'User'}</span>
                 <span className="text-[10px] text-muted-foreground">Online</span>
               </div>
               <div className="relative">
                 <div className="h-9 w-9 rounded-xl overflow-hidden border-2 border-border/50 bg-muted flex items-center justify-center ring-2 ring-transparent hover:ring-primary/20 transition-all">
                   {user.picture && user.picture.trim() !== '' ? (
-                    <img 
-                      src={user.picture} 
-                      alt={user.username} 
+                    <img
+                      src={user.picture}
+                      alt={user.username}
                       className="h-full w-full object-cover"
                       onError={(e) => {
                         console.error('[TopBar] Failed to load profile picture:', user.picture);
@@ -112,7 +112,7 @@ export function TopBar() {
                         if (parent && !parent.querySelector('.fallback-icon')) {
                           const fallback = document.createElement('div');
                           fallback.className = 'fallback-icon h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5';
-                          fallback.innerHTML = `<span class="text-lg font-bold text-primary">${user.username.charAt(0).toUpperCase()}</span>`;
+                          fallback.innerHTML = `<span class="text-lg font-bold text-primary">${(user.username || '?').charAt(0).toUpperCase()}</span>`;
                           parent.appendChild(fallback);
                         }
                       }}
@@ -123,7 +123,7 @@ export function TopBar() {
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
                       <span className="text-lg font-bold text-primary">
-                        {user.username.charAt(0).toUpperCase()}
+                        {(user.username || 'User').charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
@@ -137,13 +137,13 @@ export function TopBar() {
             {isProfileOpen && (
               <>
                 {/* Backdrop */}
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setIsProfileOpen(false)} 
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsProfileOpen(false)}
                 />
                 <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-border/50 bg-popover/95 backdrop-blur-xl p-2 text-popover-foreground shadow-xl z-50 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
                   <div className="px-3 py-2">
-                    <p className="text-sm font-semibold text-foreground">{user.username}</p>
+                    <p className="text-sm font-semibold text-foreground">{user.username || 'User'}</p>
                     <p className="text-xs text-muted-foreground">{user.email}</p>
                   </div>
                   <div className="h-px bg-border/50 my-1" />

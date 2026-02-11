@@ -47,11 +47,25 @@ export type MindmapFlowEdge = Edge;
 
 export type LayoutDirection = "TB" | "LR";
 
+/* ---------- Mindmap target (folder OR conversation) ---------- */
+
+export type MindmapTarget =
+  | { type: "folder"; id: string }
+  | { type: "conversation"; id: string };
+
 /* ---------- Component Props ---------- */
 
-export interface MindmapCanvasProps {
-  /** Unique course / folder ID used to fetch the mindmap */
-  folderId: string;
+export interface MindmapViewerProps {
+  /** Which entity to fetch/generate the mindmap for */
+  target: MindmapTarget;
   /** Optional class name for the wrapper */
+  className?: string;
+}
+
+/* ---------- Legacy compat ---------- */
+
+/** @deprecated Use MindmapViewerProps instead */
+export interface MindmapCanvasProps {
+  folderId: string;
   className?: string;
 }
