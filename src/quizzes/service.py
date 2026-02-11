@@ -44,6 +44,8 @@ async def save_quiz(session: AsyncSession, user_id: UUID, request: MCQRequest, m
             user_id=user_id,
             source_type=source_type,
             source_id=source_id,
+            folder_id=UUID(request.folder_id) if request.folder_id else None,
+            conversation_id=UUID(request.conversation_id) if request.conversation_id else None
         )
         session.add(quiz)
         await session.flush() # Get ID
@@ -74,11 +76,25 @@ async def save_quiz(session: AsyncSession, user_id: UUID, request: MCQRequest, m
         await session.rollback()
         raise
 
-async def get_all_quizzes(session: AsyncSession, user_id: UUID) -> List[Quiz]:
+async def get_all_quizzes(
+    session: AsyncSession, 
+    user_id: UUID, 
+    folder_id: Optional[UUID] = None, 
+    conversation_id: Optional[UUID] = None
+) -> List[Quiz]:
     """
     Retrieves all quizzes for a specific user, ordered by creation date (newest first).
+    Optional filtering by folder_id or conversation_id.
     """
-    stmt = select(Quiz).where(Quiz.user_id == user_id).order_by(Quiz.created_at.desc())
+    stmt = select(Quiz).where(Quiz.user_id == user_id)
+    
+    if folder_id:
+        stmt = stmt.where(Quiz.folder_id == folder_id)
+    
+    if conversation_id:
+        stmt = stmt.where(Quiz.conversation_id == conversation_id)
+        
+    stmt = stmt.order_by(Quiz.created_at.desc())
     result = await session.execute(stmt)
     return result.scalars().all()
 

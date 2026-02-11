@@ -19,6 +19,10 @@ class Quiz(Base):
     # Context Source (optional, but good for history)
     source_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True) # file, folder, conversation
     source_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Foreign Keys for direct association
+    folder_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("folders.id", ondelete="CASCADE"), nullable=True, index=True)
+    conversation_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True, index=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

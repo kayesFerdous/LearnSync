@@ -38,15 +38,19 @@ class QuizQuestionResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class QuizResponse(BaseModel):
+class QuizBase(BaseModel):
     id: UUID
     title: Optional[str]
     source_type: Optional[str]
     source_id: Optional[str]
     created_at: datetime
     updated_at: datetime
-    # We might not want to load questions in the list view, so optional
-    questions: Optional[List[QuizQuestionResponse]] = None
     
     class Config:
         from_attributes = True
+
+class QuizSummary(QuizBase):
+    pass
+
+class QuizResponse(QuizBase):
+    questions: List[QuizQuestionResponse]
