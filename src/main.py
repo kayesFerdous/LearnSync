@@ -15,6 +15,7 @@ from src.api.calendar.router import router as calendar_router
 from src.api.routines.router import router as routine_router
 from src.api.conversations.router import router as conversation_router
 from src.api.admin.router import router as admin_router
+from src.api.question_generation.router import router as mcq_router
 from src.core.lifespan import lifespan
 
 
@@ -28,6 +29,7 @@ app.include_router(calendar_router)
 app.include_router(routine_router)
 app.include_router(conversation_router)
 app.include_router(admin_router)
+app.include_router(mcq_router)
 app.add_middleware(SessionMiddleware, secret_key="amijanikintubolbona")
 # app.include_router(study_router)
 
