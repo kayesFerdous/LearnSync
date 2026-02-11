@@ -10,7 +10,7 @@ export interface QuizGenerationRequest {
 
 export interface QuizQuestion {
     question: string;
-    options: string[];
+    options: { id: string; text: string }[];
     answer: string; // The correct option text or index, depending on backend. Assuming text for now.
     explanation?: string;
 }

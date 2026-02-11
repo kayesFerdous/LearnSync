@@ -31,13 +31,258 @@ const QuizConfigModal: React.FC<QuizConfigModalProps> = ({
         selection: { selectedFileIds, toggleFile, toggleAll, isAllSelected },
         generate,
         isGenerating,
+        quizResult,
     } = useQuizGenerator({ folderId, conversationId });
+
+    const [currentQuestionIndex, setCurrentQuestionIndex] = React.useState(0);
+    const [answers, setAnswers] = React.useState<Record<number, string>>({});
+    const [showResults, setShowResults] = React.useState(false);
+    const [direction, setDirection] = React.useState(0);
 
     const handleGenerate = () => {
         generate();
     };
 
+    // Reset state when quizResult changes or modal closes
+    React.useEffect(() => {
+        if (!isOpen) {
+            setCurrentQuestionIndex(0);
+            setAnswers({});
+            setShowResults(false);
+            setDirection(0);
+        }
+    }, [isOpen]);
+
+    React.useEffect(() => {
+        if (quizResult) {
+            setCurrentQuestionIndex(0);
+            setAnswers({});
+            setShowResults(false);
+        }
+    }, [quizResult]);
+
+    const handleAnswer = (option: string) => {
+        setAnswers((prev) => ({ ...prev, [currentQuestionIndex]: option }));
+    };
+
+    const nextQuestion = () => {
+        if (quizResult && currentQuestionIndex < quizResult.questions.length - 1) {
+            setDirection(1);
+            setCurrentQuestionIndex((prev) => prev + 1);
+        } else {
+            setShowResults(true);
+        }
+    };
+
+    const prevQuestion = () => {
+        if (currentQuestionIndex > 0) {
+            setDirection(-1);
+            setCurrentQuestionIndex((prev) => prev - 1);
+        }
+    };
+
     if (!isOpen) return null;
+
+    const currentQuestion = quizResult?.questions[currentQuestionIndex];
+    const isLastQuestion = quizResult && currentQuestionIndex === quizResult.questions.length - 1;
+
+    // Quiz Taking View
+    if (quizResult && !showResults) {
+        return (
+            <AnimatePresence>
+                {isOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={onClose}
+                            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+                        />
+
+                        {/* Modal Container */}
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+                        >
+                            <div className="pointer-events-auto w-full max-w-2xl min-h-[500px] overflow-hidden rounded-2xl border border-white/20 bg-white/90 shadow-2xl backdrop-blur-xl dark:bg-black/90 dark:border-white/10 flex flex-col">
+                                {/* Header */}
+                                <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white/50 dark:bg-black/50">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                            <Sparkles size={16} />
+                                        </div>
+                                        <span className="font-semibold text-slate-700 dark:text-slate-200">
+                                            Question {currentQuestionIndex + 1} of {quizResult.questions.length}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={onClose}
+                                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                    >
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Progress Bar */}
+                                <div className="h-1 bg-slate-100 dark:bg-slate-800 w-full relative overflow-hidden">
+                                    <motion.div
+                                        className="absolute top-0 left-0 h-full bg-indigo-500"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${((currentQuestionIndex + 1) / quizResult.questions.length) * 100}%` }}
+                                        transition={{ duration: 0.5, ease: "easeInOut" }}
+                                    />
+                                </div>
+
+                                {/* Question Content */}
+                                <div className="flex-1 p-8 relative overflow-hidden">
+                                    <AnimatePresence mode="wait" custom={direction}>
+                                        <motion.div
+                                            key={currentQuestionIndex}
+                                            custom={direction}
+                                            variants={{
+                                                enter: (direction: number) => ({
+                                                    x: direction > 0 ? 300 : -300,
+                                                    opacity: 0,
+                                                    scale: 0.95,
+                                                }),
+                                                center: {
+                                                    x: 0,
+                                                    opacity: 1,
+                                                    scale: 1,
+                                                },
+                                                exit: (direction: number) => ({
+                                                    x: direction < 0 ? 300 : -300,
+                                                    opacity: 0,
+                                                    scale: 0.95,
+                                                }),
+                                            }}
+                                            initial="enter"
+                                            animate="center"
+                                            exit="exit"
+                                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                            className="w-full h-full flex flex-col"
+                                        >
+                                            <h3 className="text-xl font-medium text-slate-900 dark:text-white mb-8 leading-relaxed">
+                                                {currentQuestion?.question}
+                                            </h3>
+
+                                            <div className="flex flex-col gap-3">
+                                                {(currentQuestion?.options || []).map((option) => {
+                                                    const isSelected = answers[currentQuestionIndex] === option.id;
+                                                    return (
+                                                        <motion.button
+                                                            key={option.id}
+                                                            onClick={() => handleAnswer(option.id)}
+                                                            whileHover={{ scale: 1.01, x: 4 }}
+                                                            whileTap={{ scale: 0.99 }}
+                                                            className={cn(
+                                                                "w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center justify-between group",
+                                                                isSelected
+                                                                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-md ring-1 ring-indigo-500/20"
+                                                                    : "border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-4">
+                                                                <div className={cn(
+                                                                    "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-semibold transition-colors",
+                                                                    isSelected
+                                                                        ? "bg-indigo-500 text-white"
+                                                                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400"
+                                                                )}>
+                                                                    {option.id}
+                                                                </div>
+                                                                <span className={cn(
+                                                                    "text-sm font-medium transition-colors",
+                                                                    isSelected ? "text-indigo-900 dark:text-indigo-100" : "text-slate-700 dark:text-slate-300"
+                                                                )}>
+                                                                    {option.text}
+                                                                </span>
+                                                            </div>
+                                                            {isSelected && (
+                                                                <motion.div
+                                                                    initial={{ scale: 0 }}
+                                                                    animate={{ scale: 1 }}
+                                                                    className="text-indigo-500"
+                                                                >
+                                                                    <Check size={18} strokeWidth={3} />
+                                                                </motion.div>
+                                                            )}
+                                                        </motion.button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </motion.div>
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* Footer Navigation */}
+                                <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+                                    <button
+                                        onClick={prevQuestion}
+                                        disabled={currentQuestionIndex === 0}
+                                        className="px-4 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                                    >
+                                        Back
+                                    </button>
+                                    <button
+                                        onClick={nextQuestion}
+                                        disabled={!answers[currentQuestionIndex]}
+                                        className={cn(
+                                            "px-8 py-2.5 rounded-lg text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all",
+                                            !answers[currentQuestionIndex]
+                                                ? "bg-slate-300 dark:bg-slate-700 cursor-not-allowed shadow-none"
+                                                : "bg-indigo-600 hover:bg-indigo-500 hover:shadow-indigo-500/40 transform hover:-translate-y-0.5"
+                                        )}
+                                    >
+                                        {isLastQuestion ? "Finish Quiz" : "Next Question"}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        );
+    }
+
+    // Result View (Placeholder for now, can be expanded)
+    if (showResults && quizResult) {
+        return (
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: 1 }}
+                            className="bg-white dark:bg-slate-900 p-8 rounded-2xl max-w-md w-full text-center shadow-2xl border border-white/20"
+                        >
+                            <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500">
+                                <Sparkles size={40} />
+                            </div>
+                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Quiz Completed!</h2>
+                            <p className="text-slate-500 dark:text-slate-400 mb-8">
+                                You've answered all {quizResult.questions.length} questions.
+                            </p>
+                            <div className="flex gap-3 justify-center">
+                                <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                    Close
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        )
+    }
 
     return (
         <AnimatePresence>
