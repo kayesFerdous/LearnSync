@@ -30,12 +30,12 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center">
-                    {/* Zen Background: Deep slate/black with blur */}
+                    {/* Adaptive Background: Light (slate-50) / Dark (slate-950) */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl transition-all duration-700"
+                        className="absolute inset-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-xl transition-colors duration-500"
                         onClick={onClose}
                     />
 
@@ -50,11 +50,11 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
                                 className="w-full px-8 py-6 flex items-center justify-between pointer-events-auto z-10"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                                        <Sparkles size={14} className="text-white/60" />
+                                    <div className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/5 flex items-center justify-center border border-slate-300 dark:border-white/10">
+                                        <Sparkles size={14} className="text-slate-600 dark:text-white/60" />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-white/40 text-xs font-medium tracking-widest uppercase">
+                                        <span className="text-slate-500 dark:text-white/40 text-xs font-medium tracking-widest uppercase">
                                             Focus Mode
                                         </span>
                                     </div>
@@ -62,22 +62,22 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
 
                                 {/* Progress Indicator */}
                                 <div className="hidden md:flex items-center gap-3">
-                                    <div className="w-48 h-1 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="w-48 h-1 bg-slate-200 dark:bg-white/5 rounded-full overflow-hidden">
                                         <motion.div
-                                            className="h-full bg-white/20"
+                                            className="h-full bg-indigo-500 dark:bg-white/20"
                                             initial={{ width: 0 }}
                                             animate={{ width: `${progress}%` }}
                                             transition={{ duration: 0.5, ease: "circOut" }}
                                         />
                                     </div>
-                                    <span className="text-white/40 text-xs font-mono">
+                                    <span className="text-slate-500 dark:text-white/40 text-xs font-mono">
                                         {currentQuestionIndex + 1} / {totalQuestions}
                                     </span>
                                 </div>
 
                                 <button
                                     onClick={onClose}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                                 >
                                     <X size={18} />
                                 </button>
@@ -118,17 +118,17 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
                                         className="w-full h-full flex flex-col items-center justify-center gap-6"
                                     >
                                         <div className="relative w-16 h-16">
-                                            <div className="absolute inset-0 rounded-full border-4 border-white/10" />
-                                            <div className="absolute inset-0 rounded-full border-4 border-t-white animate-spin" />
+                                            <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-white/10" />
+                                            <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 dark:border-t-white animate-spin" />
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <Sparkles size={20} className="text-white animate-pulse" />
+                                                <Sparkles size={20} className="text-indigo-600 dark:text-white animate-pulse" />
                                             </div>
                                         </div>
                                         <div className="text-center space-y-2">
-                                            <h3 className="text-xl font-medium text-white tracking-tight">
+                                            <h3 className="text-xl font-medium text-slate-900 dark:text-white tracking-tight">
                                                 Crafting Your Focus Session
                                             </h3>
-                                            <p className="text-white/40 text-sm">
+                                            <p className="text-slate-500 dark:text-white/40 text-sm">
                                                 Analyzing content and generating questions...
                                             </p>
                                         </div>

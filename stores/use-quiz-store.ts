@@ -53,6 +53,9 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             }
 
             data.questions.forEach((q, i) => {
+                if (!q.id) {
+                    q.id = `q-loaded-${Date.now()}-${i}`;
+                }
                 if (!q.question_text && (q as any).question) {
                     q.question_text = (q as any).question;
                 }
@@ -109,12 +112,16 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
             // Deep check for question text
             data.questions.forEach((q, i) => {
+                if (!q.id) {
+                    console.warn(`Question ${i} is missing 'id'. Patching with index-based ID.`);
+                    q.id = `q-${Date.now()}-${i}`;
+                }
+
                 if (!q.question_text) {
-                    console.warn(`Question ${i} (${q.id}) is missing 'question_text'. Full object:`, q);
+                    // console.warn(`Question ${i} (${q.id}) is missing 'question_text'. Full object:`, q);
                     // Fallback if the backend sends 'question' instead of 'question_text'
                     if ((q as any).question) {
                         q.question_text = (q as any).question;
-                        console.log(`Patched Question ${i}: used 'question' field.`);
                     }
                 }
             });
@@ -129,7 +136,6 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         } catch (error) {
             console.error("Quiz generation error:", error);
             set({ status: 'idle' });
-            // Alert user?
         }
     },
 

@@ -34,10 +34,10 @@ const QuizSummary: React.FC<QuizSummaryProps> = ({ onClose }) => {
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-4xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/20 flex flex-col md:flex-row h-[600px]"
+            className="w-full max-w-4xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row h-[600px]"
         >
             {/* Left Panel: Score */}
-            <div className="w-full md:w-1/3 bg-slate-50/50 dark:bg-black/20 p-8 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
+            <div className="w-full md:w-1/3 bg-slate-50 dark:bg-black/20 p-8 flex flex-col items-center justify-center text-center border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
                 <div className="relative w-48 h-48 mb-6">
                     <svg className="w-full h-full transform -rotate-90">
                         <circle
@@ -97,7 +97,7 @@ const QuizSummary: React.FC<QuizSummaryProps> = ({ onClose }) => {
             </div>
 
             {/* Right Panel: Review */}
-            <div className="w-full md:w-2/3 p-8 flex flex-col bg-slate-50/30 dark:bg-black/10">
+            <div className="w-full md:w-2/3 p-8 flex flex-col bg-slate-50/30 dark:bg-transparent">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <Award className="text-indigo-500" /> Review Answers
@@ -117,7 +117,7 @@ const QuizSummary: React.FC<QuizSummaryProps> = ({ onClose }) => {
                                 )} />
 
                                 <div className="flex gap-4">
-                                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-500">
+                                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-sm font-bold text-slate-500 dark:text-slate-400">
                                         {index + 1}
                                     </span>
                                     <div className="flex-1">
