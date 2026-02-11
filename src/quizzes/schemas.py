@@ -1,5 +1,7 @@
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
+from datetime import datetime
+from uuid import UUID
 
 class MCQOption(BaseModel):
     id: int = Field(description="The unique integer ID for this option (e.g., 1, 2, 3, 4).")
@@ -22,3 +24,29 @@ class MCQRequest(BaseModel):
     file_ids: Optional[List[str]] = Field(None, description="List of file IDs to generate questions from.")
     folder_id: Optional[str] = Field(None, description="Folder ID to generate questions from.")
     conversation_id: Optional[str] = Field(None, description="Conversation ID to generate questions from.")
+
+class QuizQuestionResponse(BaseModel):
+    id: UUID
+    question_text: str
+    question_type: str
+    options: List[dict] # Or strict MCQOption if structure matches
+    answers: List[int]
+    explanation: Optional[str]
+    reference_text: Optional[str]
+    reference_id: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+class QuizResponse(BaseModel):
+    id: UUID
+    title: Optional[str]
+    source_type: Optional[str]
+    source_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    # We might not want to load questions in the list view, so optional
+    questions: Optional[List[QuizQuestionResponse]] = None
+    
+    class Config:
+        from_attributes = True

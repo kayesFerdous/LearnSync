@@ -7,10 +7,92 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
 
 from src.core.config import settings
+from src.core.config import settings
 from src.core.logging_config import get_logger
-from src.question_generation.schema import MCQRequest, MCQList
+from src.quizzes.schemas import MCQRequest, MCQList
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from src.quizzes.model import Quiz, QuizQuestion
+from uuid import UUID
 
 log = get_logger(__name__)
+
+async def save_quiz(session: AsyncSession, user_id: UUID, request: MCQRequest, mcq_list: MCQList) -> UUID:
+    """
+    Persists the generated MCQs to the database.
+    """
+    try:
+        # Determine source info
+        source_type = "unknown"
+        source_id = None
+        
+        if request.file_ids:
+            source_type = "file"
+            source_id = ",".join(request.file_ids) # Simple CSV for now
+        elif request.folder_id:
+            source_type = "folder"
+            source_id = request.folder_id
+        elif request.conversation_id:
+            source_type = "conversation"
+            source_id = request.conversation_id
+            
+        # Create Quiz
+        quiz = Quiz(
+            title=f"Quiz generated on {request.hardness} difficulty", # Can be improved later
+            user_id=user_id,
+            source_type=source_type,
+            source_id=source_id,
+        )
+        session.add(quiz)
+        await session.flush() # Get ID
+        
+        # Create Questions
+        for q in mcq_list.questions:
+            # Pydantic models to dict for JSON fields
+            options_json = [opt.model_dump() for opt in q.options]
+            
+            quiz_question = QuizQuestion(
+                quiz_id=quiz.id,
+                question_text=q.question,
+                question_type="MCQ",
+                options=options_json,
+                answers=q.answers,
+                explanation=q.explanation,
+                reference_text=q.reference_text,
+                reference_id=q.reference_id
+            )
+            session.add(quiz_question)
+            
+        await session.commit()
+        log.info(f"Saved quiz {quiz.id} with {len(mcq_list.questions)} questions.")
+        return quiz.id
+        
+    except Exception as e:
+        log.error(f"Error saving quiz: {e}", exc_info=True)
+        await session.rollback()
+        raise
+
+async def get_all_quizzes(session: AsyncSession, user_id: UUID) -> List[Quiz]:
+    """
+    Retrieves all quizzes for a specific user, ordered by creation date (newest first).
+    """
+    stmt = select(Quiz).where(Quiz.user_id == user_id).order_by(Quiz.created_at.desc())
+    result = await session.execute(stmt)
+    return result.scalars().all()
+
+async def get_quiz_with_questions(session: AsyncSession, user_id: UUID, quiz_id: UUID) -> Optional[Quiz]:
+    """
+    Retrieves a specific quiz with its questions, ensuring it belongs to the user.
+    """
+    stmt = (
+        select(Quiz)
+        .where(Quiz.id == quiz_id, Quiz.user_id == user_id)
+        .options(selectinload(Quiz.questions))
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def _fetch_context_from_qdrant(qdrant_client: AsyncQdrantClient, scope: MCQRequest) -> str:
