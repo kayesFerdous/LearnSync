@@ -57,7 +57,7 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, questionIndex, to
         <div className="relative w-full max-w-2xl aspect-[4/3] perspective-1000">
             <motion.div
                 className="w-full h-full relative"
-                initial={false}
+                initial={{ rotateY: 0 }}
                 animate={{ rotateY: isFlipped ? 180 : 0 }}
                 transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
                 style={{ transformStyle: 'preserve-3d' }}
@@ -75,9 +75,9 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, questionIndex, to
                     {/* Decorative Gradient Blob */}
                     <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_50%)] pointer-events-none" />
 
-                    <div className="flex-1 flex flex-col p-8 md:p-12 z-10">
+                    <div className="flex-1 flex flex-col p-8 md:p-12 z-10 overflow-y-auto">
                         {/* Header */}
-                        <div className="flex justify-between items-start mb-6">
+                        <div className="flex justify-between items-start mb-6 shrink-0">
                             <span className="text-white/20 text-4xl font-serif font-medium leading-none">
                                 {String(questionIndex).padStart(2, '0')}
                             </span>
@@ -86,13 +86,18 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, questionIndex, to
                             </div>
                         </div>
 
-                        {/* Question Text - PURE WHITE */}
-                        <h2 className="text-2xl md:text-3xl font-medium text-white leading-normal font-serif mb-8 drop-shadow-lg">
-                            {question.question_text}
-                        </h2>
+                        {/* Question Text - PURE WHITE & Forced Visibility */}
+                        <div className="shrink-0 mb-8">
+                            <h2
+                                className="text-2xl md:text-3xl font-medium text-white leading-normal drop-shadow-lg"
+                                style={{ color: '#FFFFFF', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}
+                            >
+                                {question.question_text || "Question text missing..."}
+                            </h2>
+                        </div>
 
                         {/* Options */}
-                        <div className="flex-1 flex flex-col gap-3 justify-end">
+                        <div className="mt-auto flex flex-col gap-3">
                             {question.options.map((option) => {
                                 const isSelected = selectedOptionId === option.id;
                                 return (

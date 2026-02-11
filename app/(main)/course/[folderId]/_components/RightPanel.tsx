@@ -46,6 +46,7 @@ import type { Conversation, FolderFile, FolderFileType, ProcessingStatus } from 
 import type { MindmapFlowNode } from "./mindmap/types";
 import { useFolderFiles } from "@/hooks/use-folder-files";
 import { QuizSummary } from "@/types/quiz";
+import { useQuizStore } from "@/stores/use-quiz-store";
 
 /* ──────── File/Status config ──────── */
 
@@ -329,8 +330,9 @@ function FilesList({ files, loading, themeColor, onOpenUpload, onDelete }: { fil
 }
 
 function QuizzesList({ folderId, themeColor }: { folderId: string; themeColor: string }) {
-    const [quizzes, setQuizzes] = useState<QuizSummary[]>([]); // Use real type
+    const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
     const [loading, setLoading] = useState(true);
+    const { loadQuiz } = useQuizStore();
 
     useEffect(() => {
         const load = async () => {
@@ -366,6 +368,7 @@ function QuizzesList({ folderId, themeColor }: { folderId: string; themeColor: s
             {quizzes.map((quiz) => (
                 <button
                     key={quiz.id}
+                    onClick={() => loadQuiz(quiz.id)}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-[color:var(--muted)]/40 transition-colors group"
                 >
                     <div className="flex items-center gap-3">

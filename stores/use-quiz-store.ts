@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { QuizData, QuizGenerationRequest } from '../types/quiz';
-import axios from 'axios';
 
 interface QuizState {
     status: 'idle' | 'generating' | 'active' | 'summary';
@@ -10,6 +9,7 @@ interface QuizState {
     score: number;
 
     // Actions
+    loadQuiz: (quizId: string) => Promise<void>;
     fetchQuizzes: (folderId: string) => Promise<void>;
     generateQuiz: (request: QuizGenerationRequest) => Promise<void>;
     startQuiz: (quizData: QuizData) => void;
@@ -27,36 +27,109 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     answers: {},
     score: 0,
 
-    fetchQuizzes: async (folderId: string) => {
+    loadQuiz: async (quizId: string) => {
+        set({ status: 'generating' }); // Re-use generating state for loading
         try {
-            // Mock implementation or real endpoint if available
-            // const response = await axios.get(`/mcq/folder/${folderId}`);
-            // For now, we just simulate a fetch or leave it empty as per requirement to "Add action"
-            console.log("Fetching quizzes for folder:", folderId);
+            // Dynamically import fetchQuiz to avoid circular deps if any, or just use fetch directly
+            // Better to use fetch directly or import from api.ts
+            // Since this is a store, we can use fetch directly for simplicity or import.
+            // Let's use fetch directly to match the generateQuiz pattern and avoid imports if possible, 
+            // but importing is cleaner.
+
+            // Assume fetchQuiz is available or use fetch
+            const response = await fetch(`http://localhost:8000/mcq/${quizId}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
+            });
+
+            if (!response.ok) throw new Error("Failed to load quiz");
+
+            const data: QuizData = await response.json();
+
+            // Validate and Patch (same as generate)
+            if (!data || !data.questions || data.questions.length === 0) {
+                throw new Error("Received empty quiz data");
+            }
+
+            data.questions.forEach((q, i) => {
+                if (!q.question_text && (q as any).question) {
+                    q.question_text = (q as any).question;
+                }
+            });
+
+            set({
+                quizData: data,
+                status: 'active',
+                currentQuestionIndex: 0,
+                answers: {},
+                score: 0
+            });
+
         } catch (error) {
-            console.error("Failed to fetch quizzes:", error);
+            console.error("Failed to load quiz:", error);
+            set({ status: 'idle' });
         }
+    },
+
+    fetchQuizzes: async (folderId: string) => {
+        // This action seems to be for fetching the list, which is handled in the component for now.
+        // But if needed here, we can implement it.
+        // For now, keeping it as a placeholder or implementing if the component uses it.
+        // The component uses the api.ts function directly, so this might be redundant or for storing list state.
     },
 
     generateQuiz: async (request: QuizGenerationRequest) => {
         set({ status: 'generating' });
         try {
-            const response = await axios.post<QuizData>(
-                "http://localhost:8000/mcq/generate",
-                request,
-                { withCredentials: true }
-            );
+            console.log("Generating quiz with request:", request);
+
+            const response = await fetch("http://localhost:8000/mcq/generate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                credentials: "include", // Important for cookies/session
+                body: JSON.stringify(request),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText} - ${errorText}`);
+            }
+
+            const data: QuizData = await response.json();
+            console.log("Quiz Generation Response Data:", data);
+
+            // Validate data structure immediately
+            if (!data || !data.questions || data.questions.length === 0) {
+                console.error("Quiz data is empty or missing questions:", data);
+                throw new Error("Received empty quiz data");
+            }
+
+            // Deep check for question text
+            data.questions.forEach((q, i) => {
+                if (!q.question_text) {
+                    console.warn(`Question ${i} (${q.id}) is missing 'question_text'. Full object:`, q);
+                    // Fallback if the backend sends 'question' instead of 'question_text'
+                    if ((q as any).question) {
+                        q.question_text = (q as any).question;
+                        console.log(`Patched Question ${i}: used 'question' field.`);
+                    }
+                }
+            });
+
             set({
-                quizData: response.data,
+                quizData: data,
                 status: 'active',
                 currentQuestionIndex: 0,
                 answers: {},
                 score: 0
             });
         } catch (error) {
-            console.error("Failed to generate quiz:", error);
+            console.error("Quiz generation error:", error);
             set({ status: 'idle' });
-            // Ideally handle error state here
+            // Alert user?
         }
     },
 
@@ -71,45 +144,40 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     },
 
     submitAnswer: (questionId: string, answerId: number | string) => {
-        const { quizData } = get();
+        const { quizData, answers } = get();
         if (!quizData) return;
 
-        // Prevent changing answer if already answered? 
-        // For now, allow changing before moving next, or maybe just once.
-        // The requirement says "Immediate Feedback", implying once answered, it reveals.
-        // Let's assume we record the answer.
+        // Optional: Prevent changing answer if strict mode
+        // if (answers[questionId] !== undefined) return;
 
         set((state) => ({
             answers: { ...state.answers, [questionId]: answerId }
         }));
-
-        // Calculate score on the fly or at end? 
-        // Let's do it at the end or track it.
-        // For immediate feedback, we just store it.
     },
 
     nextQuestion: () => {
-        const { currentQuestionIndex, quizData } = get();
+        const { currentQuestionIndex, quizData, answers } = get();
         if (!quizData) return;
 
-        if (currentQuestionIndex < quizData.questions.length - 1) {
+        const total = quizData.questions.length;
+
+        if (currentQuestionIndex < total - 1) {
+            // Move to next
             set({ currentQuestionIndex: currentQuestionIndex + 1 });
         } else {
-            // Calculate final score
-            const { questions } = quizData;
-            const { answers } = get();
+            // Finish
             let correctCount = 0;
-
-            questions.forEach(q => {
+            quizData.questions.forEach(q => {
                 const userAnswer = answers[q.id];
-                if (q.answers.includes(userAnswer)) {
+                // Ensure comparison is safe (string vs number)
+                if (q.answers.some(a => String(a) === String(userAnswer))) {
                     correctCount++;
                 }
             });
 
             set({
                 status: 'summary',
-                score: (correctCount / questions.length) * 100
+                score: Math.round((correctCount / total) * 100)
             });
         }
     },
@@ -126,11 +194,11 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     },
 
     resetQuiz: () => {
-        set((state) => ({
+        set({
             status: 'active',
             currentQuestionIndex: 0,
             answers: {},
             score: 0
-        }));
+        });
     }
 }));

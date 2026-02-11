@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, ChevronRight } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import { useQuizStore } from '../../stores/use-quiz-store';
 import QuestionCard from './QuestionCard';
 import QuizSummary from './QuizSummary';
@@ -22,8 +22,8 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
 
     if (!isOpen || status === 'idle') return null;
 
-    const currentQuestion = quizData?.questions[currentQuestionIndex];
-    const totalQuestions = quizData?.questions.length || 0;
+    const currentQuestion = quizData?.questions?.[currentQuestionIndex];
+    const totalQuestions = quizData?.questions?.length || 0;
     const progress = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
 
     return (
@@ -106,6 +106,32 @@ const QuizOverlay: React.FC<QuizOverlayProps> = ({ isOpen, onClose }) => {
                                             questionIndex={currentQuestionIndex + 1}
                                             totalQuestions={totalQuestions}
                                         />
+                                    </motion.div>
+                                )}
+
+                                {status === 'generating' && (
+                                    <motion.div
+                                        key="generating"
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        className="w-full h-full flex flex-col items-center justify-center gap-6"
+                                    >
+                                        <div className="relative w-16 h-16">
+                                            <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+                                            <div className="absolute inset-0 rounded-full border-4 border-t-white animate-spin" />
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <Sparkles size={20} className="text-white animate-pulse" />
+                                            </div>
+                                        </div>
+                                        <div className="text-center space-y-2">
+                                            <h3 className="text-xl font-medium text-white tracking-tight">
+                                                Crafting Your Focus Session
+                                            </h3>
+                                            <p className="text-white/40 text-sm">
+                                                Analyzing content and generating questions...
+                                            </p>
+                                        </div>
                                     </motion.div>
                                 )}
 
