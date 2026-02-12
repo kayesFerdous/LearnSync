@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { CourseDashboard, CourseFolder } from './_components/course-dashboard';
+import { CourseDashboard } from './_components/CourseDashboard';
+import { CourseFolder } from './_components/course-dashboard';
 import { Folder, ConversationListResponse } from '@/app/(main)/chat/_lib/types';
 
 // Temporarily hardcoded until available via env var or config
@@ -42,16 +43,8 @@ async function getFolder(folderId: string): Promise<CourseFolder | null> {
 
   if (!folder) return null;
 
-  // We still need to augment the folder with UI-specific metadata
-  // since the backend doesn't store color/icon yet.
-  // The CourseDashboard component handles falling back to generated colors/icons
-  // if these are undefined, so we can pass the folder as-is and let the component handle it.
-  
-  // However, we want to ensure the description is at least populated if missing
   return {
     ...folder,
-    // Add default description if missing (optional)
-    // description: folder.description || "Course Dashboard",
   };
 }
 
@@ -69,3 +62,4 @@ export default async function Page({ params }: { params: Promise<{ folderId: str
 
   return <CourseDashboard folder={folder} />;
 }
+
