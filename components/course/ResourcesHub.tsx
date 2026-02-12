@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { FolderFile, Conversation, FolderFileType } from "@/app/(main)/chat/_lib/types";
 import { useRouter } from "next/navigation";
+import { useQuizStore } from "@/stores/use-quiz-store";
 
 interface ResourcesHubProps {
     files: FolderFile[];
@@ -46,6 +47,7 @@ const getFileIcon = (type: FolderFileType) => {
 
 export function ResourcesHub({ files = [], conversations = [], quizzes = [] }: ResourcesHubProps) {
     const router = useRouter();
+    const { loadQuiz } = useQuizStore();
     // Mock Quizzes for visual parity with request
     return (
         <div className="h-full flex flex-col gap-4">
@@ -94,7 +96,7 @@ export function ResourcesHub({ files = [], conversations = [], quizzes = [] }: R
                 <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                     {quizzes.length > 0 ? (
                         quizzes.map(quiz => (
-                            <div key={quiz.id} className="group flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+                            <div key={quiz.id} onClick={() => loadQuiz(quiz.id)} className="group flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
 
                                 <div className="flex-1 min-w-0">
                                     <div className="font-medium text-sm text-slate-700 truncate group-hover:text-slate-900">{quiz.title}</div>

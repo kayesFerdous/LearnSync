@@ -89,7 +89,7 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: async () => {
         try {
-          await fetch('http://localhost:8000/auth/logout', {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
             method: 'POST',
             credentials: 'include',
           });
@@ -101,7 +101,7 @@ export const useAuthStore = create<AuthState>()(
       },
       fetchUser: async () => {
         try {
-          const response = await fetch('http://localhost:8000/me', {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/me`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const response = await fetch('http://localhost:8000/me/settings', {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/me/settings`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
