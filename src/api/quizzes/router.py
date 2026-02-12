@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from uuid import UUID
-from src.quizzes.schemas import MCQRequest, MCQList, QuizResponse, QuizQuestionResponse, QuizSummary
-from src.quizzes.service import generate_questions, save_quiz, get_all_quizzes, get_quiz_with_questions
+from src.quizzes.schemas import MCQRequest, MCQList, QuizResponse, QuizQuestionResponse, QuizSummary, QuizScoreUpdate
+from src.quizzes.service import generate_questions, save_quiz, get_all_quizzes, get_quiz_with_questions, update_quiz_score
 from src.db.session import get_db
 from src.api.dependencies import get_current_user
 from src.users.model import User
@@ -64,3 +64,19 @@ async def get_quiz_detail(
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
     return quiz
+
+@router.patch("/{quiz_id}/score", response_model=dict)
+async def update_score(
+    quiz_id: UUID,
+    score_update: QuizScoreUpdate,
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Update the score for a specific quiz.
+    """
+    success = await update_quiz_score(session, user.user_id, quiz_id, score_update.score)
+    if not success:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+        
+    return {"message": "Score updated successfully"}

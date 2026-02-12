@@ -38,6 +38,9 @@ class QuizQuestionResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class QuizScoreUpdate(BaseModel):
+    score: int = Field(..., ge=0, description="The score achieved in the quiz.")
+
 class QuizBase(BaseModel):
     id: UUID
     title: Optional[str]
@@ -45,6 +48,7 @@ class QuizBase(BaseModel):
     source_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    score: Optional[int] = None
     
     class Config:
         from_attributes = True

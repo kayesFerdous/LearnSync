@@ -13,12 +13,11 @@ class Quiz(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     title: Mapped[str] = mapped_column(String(255), nullable=True) # E.g. "Quiz on Python"
     
-    # Ownership
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     
-    # Context Source (optional, but good for history)
     source_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True) # file, folder, conversation
     source_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    score: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     # Foreign Keys for direct association
     folder_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("folders.id", ondelete="CASCADE"), nullable=True, index=True)

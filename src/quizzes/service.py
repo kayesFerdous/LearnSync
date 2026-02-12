@@ -242,3 +242,25 @@ Context:
     except Exception as e:
         log.error(f"Error generating MCQs: {e}", exc_info=True)
         raise
+
+async def update_quiz_score(session: AsyncSession, user_id: UUID, quiz_id: UUID, score: int) -> bool:
+    """
+    Updates the score for a specific quiz.
+    Returns True if successful, False if quiz not found or doesn't belong to user.
+    """
+    try:
+        stmt = select(Quiz).where(Quiz.id == quiz_id, Quiz.user_id == user_id)
+        result = await session.execute(stmt)
+        quiz = result.scalar_one_or_none()
+        
+        if not quiz:
+            return False
+            
+        quiz.score = score
+        await session.commit()
+        return True
+        
+    except Exception as e:
+        log.error(f"Error updating quiz score: {e}", exc_info=True)
+        await session.rollback()
+        raise
