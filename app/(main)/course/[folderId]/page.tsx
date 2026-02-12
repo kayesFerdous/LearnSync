@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { WorkspaceLayout } from './_components/WorkspaceLayout';
+import { CourseDashboard } from './_components/CourseDashboard';
 import { CourseFolder } from './_components/course-dashboard';
 import { Folder, ConversationListResponse } from '@/app/(main)/chat/_lib/types';
 
@@ -60,6 +60,6 @@ export default async function Page({ params }: { params: Promise<{ folderId: str
     );
   }
 
-  return <WorkspaceLayout folder={folder} />;
+  return <CourseDashboard folder={folder} />;
 }
 

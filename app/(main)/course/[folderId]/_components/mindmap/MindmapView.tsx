@@ -227,7 +227,7 @@ function ErrorState({
 
 /* ────────────────── Inner Flow ────────────────── */
 
-function MindmapViewInner({ target }: MindmapViewerProps) {
+function MindmapViewInner({ target, isInteractive: _isInteractive }: MindmapViewerProps) {
     const { fitView, screenToFlowPosition } = useReactFlow();
     const { addQuickNote, quickNotes, selectNode, inspectorOpen, rightPanelOpen } = useWorkspaceStore();
 
@@ -319,20 +319,30 @@ function MindmapViewInner({ target }: MindmapViewerProps) {
     const showError = isError || !!(generateError && is404 && !data);
     const showCanvas = !!data?.root;
 
+    // specific interactive mode check props
+    const isInteractive = _isInteractive !== false; // Default to true if undefined
+
     return (
         <div className="w-full h-full relative">
             {/* React Flow Canvas — always rendered for the background */}
             <ReactFlow
                 nodes={showCanvas ? nodes : []}
                 edges={showCanvas ? edges : []}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onNodeClick={onNodeClick}
-                onDoubleClick={onDoubleClickPane}
+                onNodesChange={isInteractive ? onNodesChange : undefined}
+                onEdgesChange={isInteractive ? onEdgesChange : undefined}
+                onNodeClick={isInteractive ? onNodeClick : undefined}
+                onDoubleClick={isInteractive ? onDoubleClickPane : undefined}
                 nodeTypes={nodeTypes}
                 fitView
-                minZoom={0.1}
-                maxZoom={2.5}
+                minZoom={isInteractive ? 0.1 : 0.5}
+                maxZoom={isInteractive ? 2.5 : 0.5}
+                nodesDraggable={isInteractive}
+                nodesConnectable={isInteractive}
+                elementsSelectable={isInteractive}
+                zoomOnScroll={isInteractive}
+                panOnScroll={isInteractive}
+                zoomOnDoubleClick={isInteractive}
+                panOnDrag={isInteractive}
                 proOptions={{ hideAttribution: true }}
                 className="!bg-transparent"
             >
@@ -343,7 +353,7 @@ function MindmapViewInner({ target }: MindmapViewerProps) {
                     color="var(--border)"
                     style={{ opacity: 0.4 }}
                 />
-                {showCanvas && (
+                {showCanvas && isInteractive && (
                     <>
                         <Controls
                             showInteractive={false}
@@ -391,7 +401,7 @@ function MindmapViewInner({ target }: MindmapViewerProps) {
             )}
 
             {/* Floating top-left toolbar */}
-            {showCanvas && (
+            {showCanvas && isInteractive && (
                 <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
                     {/* Context pill */}
                     <div className="flex items-center gap-2 glass-panel px-3.5 py-2 rounded-xl">
@@ -451,6 +461,9 @@ function MindmapViewInner({ target }: MindmapViewerProps) {
 /* ────────────────── Public Export ────────────────── */
 
 export function MindmapView(props: MindmapViewerProps) {
+    // Inject isInteractive into the target object for internal consumption if needed,
+    // though passing it directly to MindmapViewInner is cleaner.
+    // Actually, MindmapViewInner takes MindmapViewerProps, so we just pass props through.
     return (
         <ReactFlowProvider>
             <MindmapViewInner {...props} />

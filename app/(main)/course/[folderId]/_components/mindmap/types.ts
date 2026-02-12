@@ -60,6 +60,8 @@ export interface MindmapViewerProps {
   target: MindmapTarget;
   /** Optional class name for the wrapper */
   className?: string;
+  /** Whether the mindmap is interactive (zoom, pan, drag). Default: true */
+  isInteractive?: boolean;
 }
 
 /* ---------- Legacy compat ---------- */
