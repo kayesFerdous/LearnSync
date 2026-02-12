@@ -230,7 +230,7 @@ function ErrorState({
 
 /* ────────────────── Inner Flow ────────────────── */
 
-function MindmapViewInner({ target, isInteractive: _isInteractive, files }: MindmapViewerProps) {
+function MindmapViewInner({ target, isInteractive: _isInteractive, files, onDataLoaded }: MindmapViewerProps) {
     const { fitView, screenToFlowPosition } = useReactFlow();
     const { addQuickNote, quickNotes, selectNode, inspectorOpen, rightPanelOpen } = useWorkspaceStore();
     const [showFileList, setShowFileList] = useState(false);
@@ -254,6 +254,11 @@ function MindmapViewInner({ target, isInteractive: _isInteractive, files }: Mind
         generateMap,
         regenerateMap,
     } = useMindmap(target);
+
+    // Notify parent about data state
+    useEffect(() => {
+        onDataLoaded?.(!!data);
+    }, [data, onDataLoaded]);
 
     const [nodes, setNodes, onNodesChange] = useNodesState<MindmapFlowNode>([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState<MindmapFlowEdge>([]);

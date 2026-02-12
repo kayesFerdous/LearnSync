@@ -66,6 +66,8 @@ export interface MindmapViewerProps {
   isInteractive?: boolean;
   /** Optional file list to display when clicking context pill */
   files?: FolderFile[];
+  /** Callback to notify parent if map data exists */
+  onDataLoaded?: (hasData: boolean) => void;
 }
 
 /* ---------- Legacy compat ---------- */

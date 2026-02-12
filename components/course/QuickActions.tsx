@@ -1,12 +1,10 @@
 "use client";
 
-import React from "react";
 import {
     FileUp,
     Sparkles,
     MessageSquare,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface QuickActionsProps {
     onGenerateQuiz: () => void;
@@ -22,10 +20,10 @@ export function QuickActions({ onGenerateQuiz, onUploadFile, onChat }: QuickActi
             </h3>
             <div className="grid grid-cols-1 gap-3 flex-1">
                 <ActionButton
-                    icon={Sparkles}
-                    label="Generate Quiz"
-                    desc="Test your knowledge"
-                    onClick={onGenerateQuiz}
+                    icon={MessageSquare}
+                    label="Chat with Tutor"
+                    desc="Ask questions"
+                    onClick={onChat}
                 />
                 <ActionButton
                     icon={FileUp}
@@ -34,10 +32,10 @@ export function QuickActions({ onGenerateQuiz, onUploadFile, onChat }: QuickActi
                     onClick={onUploadFile}
                 />
                 <ActionButton
-                    icon={MessageSquare}
-                    label="Chat with Tutor"
-                    desc="Ask questions"
-                    onClick={onChat}
+                    icon={Sparkles}
+                    label="Generate Quiz"
+                    desc="Test your knowledge"
+                    onClick={onGenerateQuiz}
                 />
             </div>
         </div>

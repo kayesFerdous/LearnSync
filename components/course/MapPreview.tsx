@@ -14,6 +14,7 @@ interface MapPreviewProps {
 
 export function MapPreview({ folderId, files }: MapPreviewProps) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [hasMapData, setHasMapData] = useState(false);
 
     // We use a layoutId to animate between the card and the full screen view
     // The content is rendered in both, but stylistically different
@@ -30,28 +31,36 @@ export function MapPreview({ folderId, files }: MapPreviewProps) {
                 onClick={() => setIsExpanded(true)}
             >
                 {/* Map View (Locked) */}
-                <div className="absolute inset-0 z-0 pointer-events-none opacity-60 grayscale-[0.3] group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-500">
+                <div className={cn(
+                    "absolute inset-0 z-0 transition-all duration-500",
+                    hasMapData
+                        ? "pointer-events-none opacity-60 grayscale-[0.3] group-hover:grayscale-0 group-hover:opacity-80"
+                        : "pointer-events-auto opacity-100"
+                )}>
                     <MindmapView
                         target={{ type: "folder", id: folderId }}
                         isInteractive={false}
                         files={files}
+                        onDataLoaded={setHasMapData}
                     />
                 </div>
 
                 {/* Overlay / CTA */}
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/10 backdrop-blur-[1px] group-hover:backdrop-blur-[0px] transition-all">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="bg-white/90 backdrop-blur-md text-slate-900 px-6 py-3 rounded-xl font-medium shadow-lg border border-slate-200 flex items-center gap-2 group/btn"
-                    >
-                        <MapIcon className="w-4 h-4 text-slate-500 group-hover/btn:text-blue-500 transition-colors" />
-                        Explore Full Map
-                    </motion.button>
-                    <p className="mt-3 text-xs font-semibold tracking-wider text-slate-500 uppercase opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                        Click to Expand
-                    </p>
-                </div>
+                {hasMapData && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/10 backdrop-blur-[1px] group-hover:backdrop-blur-[0px] transition-all">
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-white/90 backdrop-blur-md text-slate-900 px-6 py-3 rounded-xl font-medium shadow-lg border border-slate-200 flex items-center gap-2 group/btn"
+                        >
+                            <MapIcon className="w-4 h-4 text-slate-500 group-hover/btn:text-blue-500 transition-colors" />
+                            Explore Full Map
+                        </motion.button>
+                        <p className="mt-3 text-xs font-semibold tracking-wider text-slate-500 uppercase opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                            Click to Expand
+                        </p>
+                    </div>
+                )}
             </motion.div>
 
 
@@ -95,6 +104,7 @@ export function MapPreview({ folderId, files }: MapPreviewProps) {
                                 target={{ type: "folder", id: folderId }}
                                 isInteractive={true}
                                 files={files}
+                                onDataLoaded={setHasMapData}
                             />
                         </div>
                     </motion.div>
