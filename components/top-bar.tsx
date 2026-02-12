@@ -12,6 +12,12 @@ export function TopBar() {
   const { breadcrumbOverrides, sidebarOpen, toggleSidebar } = useUiStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
+  const [imageError, setImageError] = useState(false);
+
+  // Reset image error state when user picture changes
+  useEffect(() => {
+    setImageError(false);
+  }, [user?.picture]);
 
   // Only fetch user if not already loaded (handles page refresh without localStorage)
   useEffect(() => {
@@ -99,26 +105,13 @@ export function TopBar() {
               </div>
               <div className="relative">
                 <div className="h-9 w-9 rounded-xl overflow-hidden border-2 border-border/50 bg-muted flex items-center justify-center ring-2 ring-transparent hover:ring-primary/20 transition-all">
-                  {user.picture && user.picture.trim() !== '' ? (
+                  {user.picture && user.picture.trim() !== '' && !imageError ? (
                     <img
                       src={user.picture}
                       alt={user.username}
                       className="h-full w-full object-cover"
-                      onError={(e) => {
-                        console.error('[TopBar] Failed to load profile picture:', user.picture);
-                        // Hide the broken image and show fallback
-                        e.currentTarget.style.display = 'none';
-                        const parent = e.currentTarget.parentElement;
-                        if (parent && !parent.querySelector('.fallback-icon')) {
-                          const fallback = document.createElement('div');
-                          fallback.className = 'fallback-icon h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5';
-                          fallback.innerHTML = `<span class="text-lg font-bold text-primary">${(user.username || '?').charAt(0).toUpperCase()}</span>`;
-                          parent.appendChild(fallback);
-                        }
-                      }}
-                      onLoad={() => {
-                        console.log('[TopBar] Profile picture loaded successfully:', user.picture);
-                      }}
+                      referrerPolicy="no-referrer"
+                      onError={() => setImageError(true)}
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
