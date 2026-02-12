@@ -9,6 +9,7 @@ import type { CourseFolder } from "./course-dashboard";
 import { CourseInfoCard } from "@/components/course/CourseInfoCard";
 import { MapPreview } from "@/components/course/MapPreview";
 import { ActionHub } from "@/components/course/ActionHub";
+import { QuickActions } from "@/components/course/QuickActions";
 import { BatchUploadModal } from "./batch-upload-modal";
 import QuizConfigModal from "@/components/quiz/QuizConfigModal";
 import QuizOverlay from "@/components/quiz/QuizOverlay";
@@ -60,18 +61,37 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
     }, [folder.id, router]);
 
     return (
-        <div className="min-h-full bg-slate-50 p-6 md:p-8 font-sans text-slate-900">
-            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-4rem)] min-h-[600px]">
+        <div className="min-h-full bg-slate-50 p-6 md:p-8 pb-10 font-sans text-slate-900">
+            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-6rem)] min-h-[600px]">
 
-                {/* ── Left Column: Course Identity (3 cols) ── */}
-                <div className="lg:col-span-3 h-full">
-                    <CourseInfoCard
-                        title={folderName}
-                        icon={folderIcon}
-                        progress={0} // Placeholder for now, could be calculated from quiz results
-                        themeColor={themeColor}
-                        totalFiles={files.length}
-                    />
+                {/* ── Left Column: Course Identity + Quick Actions (3 cols) ── */}
+                <div className="lg:col-span-3 h-full flex flex-col gap-6">
+                    {/* Top Portion (4/7) */}
+                    <div className="flex-[4] min-h-0">
+                        <CourseInfoCard
+                            title={folderName}
+                            icon={folderIcon}
+                            progress={0}
+                            themeColor={themeColor}
+                            totalFiles={files.length}
+                        />
+                    </div>
+                    {/* Bottom Portion (3/7) */}
+                    <div className="flex-[3] min-h-0 hidden lg:block">
+                        <QuickActions
+                            onGenerateQuiz={() => setIsQuizModalOpen(true)}
+                            onUploadFile={() => setIsUploadModalOpen(true)}
+                            onChat={handleChatNavigation}
+                        />
+                    </div>
+                    {/* Mobile Only: Show Quick Actions below */}
+                    <div className="block lg:hidden">
+                        <QuickActions
+                            onGenerateQuiz={() => setIsQuizModalOpen(true)}
+                            onUploadFile={() => setIsUploadModalOpen(true)}
+                            onChat={handleChatNavigation}
+                        />
+                    </div>
                 </div>
 
                 {/* ── Center Stage: Map Preview (6 cols) ── */}
@@ -79,13 +99,9 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
                     <MapPreview folderId={folder.id} />
                 </div>
 
-                {/* ── Right Column: Action Hub (3 cols) ── */}
+                {/* ── Right Column: Recent Activity (3 cols) ── */}
                 <div className="lg:col-span-3 h-full">
-                    <ActionHub
-                        onGenerateQuiz={() => setIsQuizModalOpen(true)}
-                        onUploadFile={() => setIsUploadModalOpen(true)}
-                        onChat={handleChatNavigation}
-                    />
+                    <ActionHub />
                 </div>
             </div>
 
