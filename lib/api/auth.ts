@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface SignupRequest {
   username: string;
@@ -56,7 +56,7 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
           responseData.detail
         );
       }
-      
+
       if (response.status === 422) {
         // Validation error
         throw new AuthApiError(

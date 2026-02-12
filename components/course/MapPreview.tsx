@@ -5,13 +5,16 @@ import { Copy, Maximize2, Minimize2, Map as MapIcon, RotateCcw } from "lucide-re
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { MindmapView } from "@/app/(main)/course/[folderId]/_components/mindmap/MindmapView";
+import type { FolderFile } from "@/app/(main)/chat/_lib/types";
 
 interface MapPreviewProps {
     folderId: string;
+    files?: FolderFile[];
 }
 
-export function MapPreview({ folderId }: MapPreviewProps) {
+export function MapPreview({ folderId, files }: MapPreviewProps) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [hasMapData, setHasMapData] = useState(false);
 
     // We use a layoutId to animate between the card and the full screen view
     // The content is rendered in both, but stylistically different
@@ -28,27 +31,36 @@ export function MapPreview({ folderId }: MapPreviewProps) {
                 onClick={() => setIsExpanded(true)}
             >
                 {/* Map View (Locked) */}
-                <div className="absolute inset-0 z-0 pointer-events-none opacity-60 grayscale-[0.3] group-hover:grayscale-0 group-hover:opacity-80 transition-all duration-500">
+                <div className={cn(
+                    "absolute inset-0 z-0 transition-all duration-500",
+                    hasMapData
+                        ? "pointer-events-none opacity-60 grayscale-[0.3] group-hover:grayscale-0 group-hover:opacity-80"
+                        : "pointer-events-auto opacity-100"
+                )}>
                     <MindmapView
                         target={{ type: "folder", id: folderId }}
                         isInteractive={false}
+                        files={files}
+                        onDataLoaded={setHasMapData}
                     />
                 </div>
 
                 {/* Overlay / CTA */}
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/10 backdrop-blur-[1px] group-hover:backdrop-blur-[0px] transition-all">
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="bg-white/90 backdrop-blur-md text-slate-900 px-6 py-3 rounded-xl font-medium shadow-lg border border-slate-200 flex items-center gap-2 group/btn"
-                    >
-                        <MapIcon className="w-4 h-4 text-slate-500 group-hover/btn:text-blue-500 transition-colors" />
-                        Explore Full Map
-                    </motion.button>
-                    <p className="mt-3 text-xs font-semibold tracking-wider text-slate-500 uppercase opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                        Click to Expand
-                    </p>
-                </div>
+                {hasMapData && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/10 backdrop-blur-[1px] group-hover:backdrop-blur-[0px] transition-all">
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-white/90 backdrop-blur-md text-slate-900 px-6 py-3 rounded-xl font-medium shadow-lg border border-slate-200 flex items-center gap-2 group/btn"
+                        >
+                            <MapIcon className="w-4 h-4 text-slate-500 group-hover/btn:text-blue-500 transition-colors" />
+                            Explore Full Map
+                        </motion.button>
+                        <p className="mt-3 text-xs font-semibold tracking-wider text-slate-500 uppercase opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                            Click to Expand
+                        </p>
+                    </div>
+                )}
             </motion.div>
 
 
@@ -69,22 +81,11 @@ export function MapPreview({ folderId }: MapPreviewProps) {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="absolute top-4 left-4 right-4 z-50 flex justify-between items-start pointer-events-none"
+                            className="absolute top-4 left-4 right-4 z-50 flex justify-end items-start pointer-events-none"
                         >
-                            {/* Title / Context (Optional) */}
-                            <div className="pointer-events-auto bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2 shadow-sm flex items-center gap-3">
-                                <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                                    <MapIcon className="w-4 h-4" />
-                                </div>
-                                <div>
-                                    <h2 className="text-sm font-semibold text-slate-900">Knowledge Map</h2>
-                                    <p className="text-[10px] text-slate-500 leading-tight">Interactive View</p>
-                                </div>
-                            </div>
 
-                            {/* Actions */}
+                            {/* Actions (Minimize) */}
                             <div className="pointer-events-auto flex items-center gap-2">
-                                {/* We could add Fit View or Reset here if accessible via event */}
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -102,6 +103,8 @@ export function MapPreview({ folderId }: MapPreviewProps) {
                             <MindmapView
                                 target={{ type: "folder", id: folderId }}
                                 isInteractive={true}
+                                files={files}
+                                onDataLoaded={setHasMapData}
                             />
                         </div>
                     </motion.div>

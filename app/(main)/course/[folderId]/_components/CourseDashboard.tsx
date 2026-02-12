@@ -15,6 +15,8 @@ import QuizConfigModal from "@/components/quiz/QuizConfigModal";
 import QuizOverlay from "@/components/quiz/QuizOverlay";
 import { FolderFile } from "@/app/(main)/chat/_lib/types";
 
+import { CourseSettingsModal } from "@/components/course/CourseSettingsModal";
+
 interface CourseDashboardProps {
     folder: CourseFolder;
 }
@@ -23,6 +25,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
     const router = useRouter();
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [files, setFiles] = useState<FolderFile[]>([]);
     const [quizzes, setQuizzes] = useState<any[]>([]);
 
@@ -78,6 +81,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
                             icon={folderIcon}
                             themeColor={themeColor}
                             totalFiles={files.length}
+                            onEdit={() => setIsSettingsOpen(true)}
                         />
                     </div>
                     {/* Bottom Portion (3/7) */}
@@ -100,7 +104,10 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
 
                 {/* ── Center Stage: Map Preview (6 cols) ── */}
                 <div className="lg:col-span-6 h-full flex flex-col">
-                    <MapPreview folderId={folder.id} />
+                    <MapPreview
+                        folderId={folder.id}
+                        files={files}
+                    />
                 </div>
 
                 {/* ── Right Column: Resources Hub (3 cols) ── */}
@@ -131,6 +138,20 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
             <QuizOverlay
                 isOpen={quizStatus !== 'idle'}
                 onClose={exitQuiz}
+            />
+
+            <CourseSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                folderId={folder.id}
+                initialName={folderName}
+                initialIcon={folderIcon}
+                initialColor={themeColor}
+                onUpdate={(data) => {
+                    setFolderName(data.name);
+                    setFolderIcon(data.icon);
+                    setFolderTheme(data.color);
+                }}
             />
         </div>
     );

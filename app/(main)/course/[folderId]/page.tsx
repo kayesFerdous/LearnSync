@@ -4,7 +4,7 @@ import { CourseFolder } from './_components/course-dashboard';
 import { Folder, ConversationListResponse } from '@/app/(main)/chat/_lib/types';
 
 // Temporarily hardcoded until available via env var or config
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 async function getFoldersWithCookies(): Promise<Folder[]> {
   const cookieStore = await cookies();

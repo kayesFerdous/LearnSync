@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export interface User {
   user_id: string;
@@ -55,7 +55,7 @@ export class AdminApiError extends Error {
 export async function getUsers(params: GetUsersParams = {}): Promise<UsersResponse> {
   try {
     const queryParams = new URLSearchParams();
-    
+
     if (params.skip !== undefined) queryParams.set('skip', params.skip.toString());
     if (params.limit !== undefined) queryParams.set('limit', params.limit.toString());
     if (params.search) queryParams.set('search', params.search);
@@ -63,7 +63,7 @@ export async function getUsers(params: GetUsersParams = {}): Promise<UsersRespon
     if (params.sort_order) queryParams.set('sort_order', params.sort_order);
 
     const url = `${API_BASE_URL}/admin/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {

@@ -10,7 +10,7 @@ import { useAuthStore } from '@/lib/store';
 export default function AuthPage() {
     const router = useRouter();
     const authStore = useAuthStore();
-    
+
     const [isLogin, setIsLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -23,13 +23,13 @@ export default function AuthPage() {
     const [username, setUsername] = useState('');
 
     const handleGoogleLogin = () => {
-        window.location.href = 'http://localhost:8000/auth/login/google';
+        window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/login/google`;
     };
 
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');
-        
+
         // Client-side validation
         if (!isLogin) {
             if (password !== confirmPassword) {
@@ -60,7 +60,7 @@ export default function AuthPage() {
                 // Fetch user details after successful auth to get full user object including picture
                 await authStore.fetchUser();
             }
-            
+
             router.push('/dashboard');
         } catch (error) {
             if (error instanceof AuthApiError) {

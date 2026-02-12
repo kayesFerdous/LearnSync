@@ -272,10 +272,10 @@ const allDayEvent = await createEvent({
 The API base URL is configured in `_lib/api.ts`:
 
 ```typescript
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 ```
 
-Update this to match your backend server URL in production.
+Configure the URL using the `NEXT_PUBLIC_API_URL` environment variable in your `.env` file.
 
 ## Integration in Calendar Page
 

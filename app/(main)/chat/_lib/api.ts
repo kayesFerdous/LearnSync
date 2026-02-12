@@ -20,8 +20,8 @@ import type {
   DeleteFileResponse
 } from './types';
 
-export const BACKEND_URL = 'http://localhost:8000/chat_bot';
-const API_BASE_URL = 'http://localhost:8000';
+export const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/chat_bot';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Maximum file size for uploads (10MB per file)
 export const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10,485,760 bytes
