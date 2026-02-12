@@ -40,6 +40,7 @@ import type { QuickNote } from "@/lib/store";
 import { SmartNode } from "./SmartNode";
 import { layoutElements } from "./mindmap-layout";
 import { useMindmap } from "./use-mindmap";
+import { MindmapGenerationModal } from "./MindmapGenerationModal";
 import type {
     MindmapViewerProps,
     MindmapFlowNode,
@@ -234,6 +235,8 @@ function MindmapViewInner({ target, isInteractive: _isInteractive, files, onData
     const { fitView, screenToFlowPosition } = useReactFlow();
     const { addQuickNote, quickNotes, selectNode, inspectorOpen, rightPanelOpen } = useWorkspaceStore();
     const [showFileList, setShowFileList] = useState(false);
+    const [isGenModalOpen, setIsGenModalOpen] = useState(false);
+    const [genMode, setGenMode] = useState<'generate' | 'regenerate'>('generate');
 
     /* ── Listen for dock "Fit View" event ── */
     useEffect(() => {
@@ -254,6 +257,26 @@ function MindmapViewInner({ target, isInteractive: _isInteractive, files, onData
         generateMap,
         regenerateMap,
     } = useMindmap(target);
+
+    // Modal Handlers
+    const handleGenerateClick = () => {
+        setGenMode('generate');
+        setIsGenModalOpen(true);
+    };
+
+    const handleRegenerateClick = () => {
+        setGenMode('regenerate');
+        setIsGenModalOpen(true);
+    };
+
+    const handleConfirmGenerate = (fileIds: string[]) => {
+        if (genMode === 'generate') {
+            generateMap(fileIds);
+        } else {
+            regenerateMap(fileIds);
+        }
+        setIsGenModalOpen(false);
+    };
 
     // Notify parent about data state
     useEffect(() => {
@@ -333,6 +356,14 @@ function MindmapViewInner({ target, isInteractive: _isInteractive, files, onData
 
     return (
         <div className="w-full h-full relative">
+            <MindmapGenerationModal
+                isOpen={isGenModalOpen}
+                onClose={() => setIsGenModalOpen(false)}
+                files={files || []}
+                onGenerate={handleConfirmGenerate}
+                isGenerating={isGenerating || isRegenerating}
+                mode={genMode}
+            />
             {/* React Flow Canvas — always rendered for the background */}
             <ReactFlow
                 nodes={showCanvas ? nodes : []}
@@ -384,7 +415,7 @@ function MindmapViewInner({ target, isInteractive: _isInteractive, files, onData
             {showLoading && <CanvasSkeleton label="Loading mindmap…" />}
             {showGenerating && <CanvasSkeleton label="Analyzing files…" />}
             {showEmpty && !showError && (
-                <EmptyState onGenerate={generateMap} isGenerating={isGenerating} />
+                <EmptyState onGenerate={handleGenerateClick} isGenerating={isGenerating} />
             )}
             {showError && (
                 <ErrorState
@@ -476,7 +507,7 @@ function MindmapViewInner({ target, isInteractive: _isInteractive, files, onData
 
                     {/* Regenerate */}
                     <button
-                        onClick={regenerateMap}
+                        onClick={handleRegenerateClick}
                         disabled={isRegenerating}
                         title="Regenerate mindmap"
                         className={cn(

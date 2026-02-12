@@ -39,7 +39,8 @@ async function getMindmap(
 /** POST — generate (or regenerate) a mindmap. */
 async function postMindmap(
   target: MindmapTarget,
-  forceRegenerate = false
+  forceRegenerate = false,
+  fileIds?: string[]
 ): Promise<MindmapResponse> {
   const url = forceRegenerate
     ? `${baseUrl(target)}?force_regenerate=true`
@@ -47,6 +48,8 @@ async function postMindmap(
 
   const res = await fetch(url, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_ids: fileIds }),
     credentials: "include",
   });
 
