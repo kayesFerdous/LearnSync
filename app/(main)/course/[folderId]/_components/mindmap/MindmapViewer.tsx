@@ -291,7 +291,7 @@ function MindmapFlowInner({ target, className }: MindmapViewerProps) {
       <div className={wrapperCls}>
         <ErrorState
           message={error?.message ?? "Could not load mindmap"}
-          onRetry={generateMap}
+          onRetry={() => generateMap()}
         />
       </div>
     );
@@ -313,10 +313,10 @@ function MindmapFlowInner({ target, className }: MindmapViewerProps) {
         {generateError ? (
           <ErrorState
             message={generateError.message}
-            onRetry={generateMap}
+            onRetry={() => generateMap()}
           />
         ) : (
-          <EmptyState onGenerate={generateMap} isGenerating={isGenerating} />
+          <EmptyState onGenerate={() => generateMap()} isGenerating={isGenerating} />
         )}
       </div>
     );
@@ -408,7 +408,7 @@ function MindmapFlowInner({ target, className }: MindmapViewerProps) {
 
         {/* Regenerate */}
         <button
-          onClick={regenerateMap}
+          onClick={() => regenerateMap()}
           disabled={isRegenerating}
           title="Regenerate mindmap (force rebuild)"
           className={cn(
