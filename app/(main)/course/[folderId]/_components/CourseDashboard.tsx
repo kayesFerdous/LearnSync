@@ -100,7 +100,10 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
 
                 {/* ── Center Stage: Map Preview (6 cols) ── */}
                 <div className="lg:col-span-6 h-full flex flex-col">
-                    <MapPreview folderId={folder.id} />
+                    <MapPreview
+                        folderId={folder.id}
+                        files={files}
+                    />
                 </div>
 
                 {/* ── Right Column: Resources Hub (3 cols) ── */}
