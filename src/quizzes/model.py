@@ -12,6 +12,7 @@ class Quiz(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     title: Mapped[str] = mapped_column(String(255), nullable=True) # E.g. "Quiz on Python"
+    difficulty: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
     

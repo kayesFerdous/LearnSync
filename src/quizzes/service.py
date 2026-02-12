@@ -41,6 +41,7 @@ async def save_quiz(session: AsyncSession, user_id: UUID, request: MCQRequest, m
         # Create Quiz
         quiz = Quiz(
             title=f"Quiz generated on {request.hardness} difficulty", # Can be improved later
+            difficulty=request.hardness,
             user_id=user_id,
             source_type=source_type,
             source_id=source_id,

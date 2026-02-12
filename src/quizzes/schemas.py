@@ -44,6 +44,7 @@ class QuizScoreUpdate(BaseModel):
 class QuizBase(BaseModel):
     id: UUID
     title: Optional[str]
+    difficulty: Optional[str] = None
     source_type: Optional[str]
     source_id: Optional[str]
     created_at: datetime
