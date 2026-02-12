@@ -11,6 +11,7 @@ interface QuizState {
     currentQuestionIndex: number;
     answers: Record<string, number | string>; // map questionId to answerId
     score: number;
+    lastQuizUpdate: number;
 
     // Actions
     loadQuiz: (quizId: string) => Promise<void>;
@@ -21,6 +22,7 @@ interface QuizState {
     prevQuestion: () => void; // Optional/Debug
     exitQuiz: () => void;
     resetQuiz: () => void;
+    saveScore: (quizId: string, score: number) => Promise<void>;
 }
 
 export const useQuizStore = create<QuizState>((set, get) => ({
@@ -30,6 +32,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     currentQuestionIndex: 0,
     answers: {},
     score: 0,
+    lastQuizUpdate: 0,
 
     loadQuiz: async (quizId: string) => {
         set({ status: 'generating' });
@@ -62,7 +65,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
                 viewState: 'question',
                 currentQuestionIndex: 0,
                 answers: {},
-                score: 0
+                score: data.score || 0
             });
 
         } catch (error) {
@@ -74,6 +77,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     generateQuiz: async (request: QuizGenerationRequest) => {
         set({ status: 'generating' });
         try {
+            // Using full URL to match other calls, though relative usually works with proxy
             const response = await fetch("http://localhost:8000/mcq/generate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -137,7 +141,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     },
 
     nextQuestion: () => {
-        const { currentQuestionIndex, quizData, answers } = get();
+        const { currentQuestionIndex, quizData, answers, saveScore } = get();
         if (!quizData) return;
 
         const total = quizData.questions.length;
@@ -157,10 +161,15 @@ export const useQuizStore = create<QuizState>((set, get) => ({
                 }
             });
 
+            const finalScore = Math.round((correctCount / total) * 100);
+
             set({
                 status: 'summary',
-                score: Math.round((correctCount / total) * 100)
+                score: finalScore
             });
+
+            // Persist the score to the backend
+            saveScore(quizData.id, finalScore);
         }
     },
 
@@ -186,5 +195,25 @@ export const useQuizStore = create<QuizState>((set, get) => ({
             answers: {},
             score: 0
         });
+    },
+
+    saveScore: async (quizId: string, score: number) => {
+        try {
+            const response = await fetch(`http://localhost:8000/mcq/${quizId}/score`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ score })
+            });
+
+            if (!response.ok) {
+                console.warn("Failed to save quiz score:", await response.text());
+            } else {
+                console.log("Quiz score saved successfully.");
+                set({ lastQuizUpdate: Date.now() }); // Trigger refresh
+            }
+        } catch (error) {
+            console.error("Error saving quiz score:", error);
+        }
     }
 }));

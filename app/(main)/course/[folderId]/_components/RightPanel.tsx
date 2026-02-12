@@ -332,7 +332,7 @@ function FilesList({ files, loading, themeColor, onOpenUpload, onDelete }: { fil
 function QuizzesList({ folderId, themeColor }: { folderId: string; themeColor: string }) {
     const [quizzes, setQuizzes] = useState<QuizSummary[]>([]);
     const [loading, setLoading] = useState(true);
-    const { loadQuiz } = useQuizStore();
+    const { loadQuiz, lastQuizUpdate } = useQuizStore();
 
     useEffect(() => {
         const load = async () => {
@@ -346,7 +346,7 @@ function QuizzesList({ folderId, themeColor }: { folderId: string; themeColor: s
             }
         };
         load();
-    }, [folderId]);
+    }, [folderId, lastQuizUpdate]);
 
     if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-[color:var(--primary)]" /></div>;
 
@@ -354,8 +354,14 @@ function QuizzesList({ folderId, themeColor }: { folderId: string; themeColor: s
         return <EmptyState icon={Gamepad2} label="No quizzes taken" subLabel="Generate a quiz to start practicing" />;
     }
 
-    const getDifficultyColor = (diff: string) => {
-        switch (diff) {
+    const getDifficultyColor = (quiz: QuizSummary) => {
+        // Fallback: try to parse difficulty from title if not present
+        const difficulty = quiz.difficulty ||
+            (quiz.title.includes("Easy") ? "Easy" :
+                quiz.title.includes("Medium") ? "Medium" :
+                    quiz.title.includes("Hard") ? "Hard" : "Medium");
+
+        switch (difficulty) {
             case "Easy": return "bg-emerald-500";
             case "Medium": return "bg-amber-500";
             case "Hard": return "bg-rose-500";
@@ -372,7 +378,7 @@ function QuizzesList({ folderId, themeColor }: { folderId: string; themeColor: s
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-[color:var(--muted)]/40 transition-colors group"
                 >
                     <div className="flex items-center gap-3">
-                        <div className={cn("w-2 h-2 rounded-full", getDifficultyColor(quiz.difficulty))} title={quiz.difficulty} />
+                        <div className={cn("w-2 h-2 rounded-full", getDifficultyColor(quiz))} title="Difficulty" />
                         <div className="text-left">
                             <span className="block text-sm font-bold text-[color:var(--foreground)] group-hover:text-[color:var(--primary)] transition-colors">
                                 {quiz.title}

@@ -31,6 +31,7 @@ export interface QuizData {
     source_id: string;
     created_at: string;
     questions: QuizQuestion[];
+    score: number | null;
 }
 
 export interface QuizSummary {
@@ -38,8 +39,10 @@ export interface QuizSummary {
     title: string;
     score: number | null;
     created_at: string;
-    difficulty: QuizDifficulty;
-    question_count: number;
+    source_type: "folder" | "conversation";
+    source_id: string;
+    updated_at: string;
+    difficulty?: QuizDifficulty;
 }
 
 export type QuizGenerationResponse = QuizData;
