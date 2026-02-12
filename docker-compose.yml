@@ -1,7 +1,26 @@
 services:
+  api:
+    build: .
+    container_name: fastapi_api
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://kayes:bolbona@db:5432/dome
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - db
+      - qdrant
+
   db:
     image: postgres:16-alpine
     container_name: postgres_db
+    restart: always
     environment:
       POSTGRES_USER: kayes
       POSTGRES_PASSWORD: bolbona
@@ -14,6 +33,7 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant_db
+    restart: always
     ports:
       - "6333:6333"
     volumes:
