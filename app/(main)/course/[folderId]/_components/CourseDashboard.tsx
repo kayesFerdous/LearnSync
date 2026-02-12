@@ -4,11 +4,11 @@ import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUiStore } from "@/lib/store";
 import { useQuizStore } from "@/stores/use-quiz-store";
-import { updateFolder, fetchFolderFiles } from "@/app/(main)/chat/_lib/api";
+import { updateFolder, fetchFolderFiles, fetchQuizzes } from "@/app/(main)/chat/_lib/api";
 import type { CourseFolder } from "./course-dashboard";
 import { CourseInfoCard } from "@/components/course/CourseInfoCard";
 import { MapPreview } from "@/components/course/MapPreview";
-import { ActionHub } from "@/components/course/ActionHub";
+import { ResourcesHub } from "@/components/course/ResourcesHub";
 import { QuickActions } from "@/components/course/QuickActions";
 import { BatchUploadModal } from "./batch-upload-modal";
 import QuizConfigModal from "@/components/quiz/QuizConfigModal";
@@ -24,6 +24,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
     const [files, setFiles] = useState<FolderFile[]>([]);
+    const [quizzes, setQuizzes] = useState<any[]>([]);
 
     // Initial folder state
     const [folderName, setFolderName] = useState(folder.name);
@@ -41,10 +42,14 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         setBreadcrumbOverride(folder.id, folderName);
     }, [folder.id, folderName, setBreadcrumbOverride]);
 
-    // Fetch files count
+    // Fetch files and quizzes
     useEffect(() => {
         fetchFolderFiles(folder.id)
             .then((res) => setFiles(res.files))
+            .catch(console.error);
+
+        fetchQuizzes(folder.id)
+            .then(setQuizzes)
             .catch(console.error);
     }, [folder.id]);
 
@@ -62,16 +67,15 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
 
     return (
         <div className="min-h-full bg-slate-50 p-6 md:p-8 pb-10 font-sans text-slate-900">
-            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-6rem)] min-h-[600px]">
+            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
 
                 {/* ── Left Column: Course Identity + Quick Actions (3 cols) ── */}
                 <div className="lg:col-span-3 h-full flex flex-col gap-6">
                     {/* Top Portion (4/7) */}
-                    <div className="flex-[4] min-h-0">
+                    <div className="flex-[5] min-h-0">
                         <CourseInfoCard
                             title={folderName}
                             icon={folderIcon}
-                            progress={0}
                             themeColor={themeColor}
                             totalFiles={files.length}
                         />
@@ -99,9 +103,13 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
                     <MapPreview folderId={folder.id} />
                 </div>
 
-                {/* ── Right Column: Recent Activity (3 cols) ── */}
+                {/* ── Right Column: Resources Hub (3 cols) ── */}
                 <div className="lg:col-span-3 h-full">
-                    <ActionHub />
+                    <ResourcesHub
+                        files={files}
+                        conversations={folder.conversations || []}
+                        quizzes={quizzes}
+                    />
                 </div>
             </div>
 

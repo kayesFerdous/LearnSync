@@ -25,21 +25,18 @@ export function QuickActions({ onGenerateQuiz, onUploadFile, onChat }: QuickActi
                     icon={Sparkles}
                     label="Generate Quiz"
                     desc="Test your knowledge"
-                    color="bg-amber-50 text-amber-600 border-amber-100"
                     onClick={onGenerateQuiz}
                 />
                 <ActionButton
                     icon={FileUp}
                     label="Upload Materials"
                     desc="Add PDFs, Docs, URLs"
-                    color="bg-blue-50 text-blue-600 border-blue-100"
                     onClick={onUploadFile}
                 />
                 <ActionButton
                     icon={MessageSquare}
                     label="Chat with Tutor"
                     desc="Ask questions"
-                    color="bg-emerald-50 text-emerald-600 border-emerald-100"
                     onClick={onChat}
                 />
             </div>
@@ -47,14 +44,14 @@ export function QuickActions({ onGenerateQuiz, onUploadFile, onChat }: QuickActi
     );
 }
 
-function ActionButton({ icon: Icon, label, desc, color, onClick }: any) {
+function ActionButton({ icon: Icon, label, desc, onClick }: any) {
     return (
         <button
             onClick={onClick}
-            className="flex items-center gap-4 w-full p-4 bg-white border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-slate-200 hover:-translate-y-0.5 transition-all duration-300 group text-left h-full"
+            className="flex items-center gap-3 w-full p-3 bg-white border border-slate-100 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-md hover:border-slate-200 hover:-translate-y-0.5 transition-all duration-300 group text-left h-full"
         >
-            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", color)}>
-                <Icon className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 text-slate-500 group-hover:bg-slate-100 group-hover:text-slate-700 transition-colors">
+                <Icon className="w-5 h-5" />
             </div>
             <div>
                 <span className="block text-sm font-bold text-slate-800 group-hover:text-slate-900">

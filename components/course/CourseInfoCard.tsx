@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 interface CourseInfoCardProps {
     title: string;
     icon?: string;
-    progress?: number;
     themeColor?: string;
     createdAt?: string;
     totalFiles?: number;
@@ -16,7 +15,6 @@ interface CourseInfoCardProps {
 export function CourseInfoCard({
     title,
     icon,
-    progress = 0,
     themeColor = "#3b82f6",
     totalFiles = 0
 }: CourseInfoCardProps) {
@@ -53,32 +51,9 @@ export function CourseInfoCard({
                 </p>
             </div>
 
-            {/* Bottom Section: Progress */}
-            <div className="relative z-10 mt-8">
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        Mastery
-                    </span>
-                    <span className="text-sm font-bold text-slate-700">
-                        {progress}%
-                    </span>
-                </div>
-
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                        className="h-full rounded-full transition-all duration-1000 ease-out"
-                        style={{
-                            width: `${progress}%`,
-                            backgroundColor: themeColor
-                        }}
-                    />
-                </div>
-
-                {progress === 0 && (
-                    <p className="text-xs text-slate-400 mt-3">
-                        Start by exploring the map or taking a quiz.
-                    </p>
-                )}
+            {/* Bottom Section: Removed Progress */}
+            <div className="relative z-10 mt-auto">
+                {/* Empty for now, or could add something else */}
             </div>
         </div>
     );
