@@ -52,7 +52,8 @@ class MindmapGenerationInput(BaseModel):
 async def _fetch_folder_files(
     db: AsyncSession,
     folder_id: UUID,
-    user_id: UUID
+    user_id: UUID,
+    file_ids: Optional[List[UUID]] = None
 ) -> tuple[List[File], Optional[Folder]]:
     """
     Fetch all files belonging to a folder and verify ownership.
@@ -76,10 +77,15 @@ async def _fetch_folder_files(
     if not folder:
         return [], None
     
-    # Fetch all files in the folder
-    files_stmt = select(File).where(
-        File.folder_id == folder_id
-    ).order_by(File.created_at.asc())
+    # Fetch files in the folder (optionally filtered by file_ids)
+    stmt = select(File).where(File.folder_id == folder_id)
+    
+    if file_ids:
+        stmt = stmt.where(File.id.in_(file_ids))
+        
+    stmt = stmt.order_by(File.created_at.asc())
+    
+    files_stmt = stmt
     
     files_result = await db.execute(files_stmt)
     files = files_result.scalars().all()
@@ -90,7 +96,8 @@ async def _fetch_folder_files(
 async def _fetch_conversation_files(
     db: AsyncSession,
     conversation_id: UUID,
-    user_id: UUID
+    user_id: UUID,
+    file_ids: Optional[List[UUID]] = None
 ) -> tuple[List[File], Optional[Conversation]]:
     """
     Fetch all files belonging to a conversation and verify ownership.
@@ -114,10 +121,15 @@ async def _fetch_conversation_files(
     if not conversation:
         return [], None
     
-    # Fetch all files in the conversation
-    files_stmt = select(File).where(
-        File.conversation_id == conversation_id
-    ).order_by(File.created_at.asc())
+    # Fetch files in the conversation (optionally filtered by file_ids)
+    stmt = select(File).where(File.conversation_id == conversation_id)
+    
+    if file_ids:
+        stmt = stmt.where(File.id.in_(file_ids))
+        
+    stmt = stmt.order_by(File.created_at.asc())
+    
+    files_stmt = stmt
     
     files_result = await db.execute(files_stmt)
     files = files_result.scalars().all()
@@ -447,7 +459,8 @@ async def generate_folder_mindmap(
     folder_id: UUID,
     user_id: UUID,
     llm: BaseChatModel,
-    force_regenerate: bool = False
+    force_regenerate: bool = False,
+    file_ids: Optional[List[UUID]] = None
 ) -> Optional[MindmapNode]:
     """
     Generate a mindmap for all files in a folder.
@@ -463,14 +476,14 @@ async def generate_folder_mindmap(
     Returns:
         MindmapNode representing the folder's file structure, or None if folder not found
     """
-    # Check for existing mindmap unless force regenerate
-    if not force_regenerate:
+    # Check for existing mindmap unless force regenerate or specific files requested
+    if not force_regenerate and not file_ids:
         existing_mindmap = await get_saved_mindmap(db, user_id, folder_id=folder_id)
         if existing_mindmap:
             logger.info(f"Returning cached mindmap for folder {folder_id}")
             return existing_mindmap
     
-    files, folder = await _fetch_folder_files(db, folder_id, user_id)
+    files, folder = await _fetch_folder_files(db, folder_id, user_id, file_ids)
     
     if folder is None:
         return None
@@ -480,9 +493,10 @@ async def generate_folder_mindmap(
     
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
     
-    # Save to database
-    await _save_mindmap_to_db(db, user_id, mindmap, folder_id=folder_id)
-    logger.info(f"Saved mindmap for folder {folder_id} to database")
+    # Save to database only if we're generating for the whole folder (no specific file_ids)
+    if not file_ids:
+        await _save_mindmap_to_db(db, user_id, mindmap, folder_id=folder_id)
+        logger.info(f"Saved mindmap for folder {folder_id} to database")
     
     return mindmap
 
@@ -492,7 +506,8 @@ async def generate_conversation_mindmap(
     conversation_id: UUID,
     user_id: UUID,
     llm: BaseChatModel,
-    force_regenerate: bool = False
+    force_regenerate: bool = False,
+    file_ids: Optional[List[UUID]] = None
 ) -> Optional[MindmapNode]:
     """
     Generate a mindmap for all files in a conversation.
@@ -508,14 +523,14 @@ async def generate_conversation_mindmap(
     Returns:
         MindmapNode representing the conversation's file structure, or None if conversation not found
     """
-    # Check for existing mindmap unless force regenerate
-    if not force_regenerate:
+    # Check for existing mindmap unless force regenerate or specific files requested
+    if not force_regenerate and not file_ids:
         existing_mindmap = await get_saved_mindmap(db, user_id, conversation_id=conversation_id)
         if existing_mindmap:
             logger.info(f"Returning cached mindmap for conversation {conversation_id}")
             return existing_mindmap
     
-    files, conversation = await _fetch_conversation_files(db, conversation_id, user_id)
+    files, conversation = await _fetch_conversation_files(db, conversation_id, user_id, file_ids)
     
     if conversation is None:
         return None
@@ -525,8 +540,9 @@ async def generate_conversation_mindmap(
     
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
     
-    # Save to database
-    await _save_mindmap_to_db(db, user_id, mindmap, conversation_id=conversation_id)
-    logger.info(f"Saved mindmap for conversation {conversation_id} to database")
+    # Save to database only if we're generating for the whole conversation (no specific file_ids)
+    if not file_ids:
+        await _save_mindmap_to_db(db, user_id, mindmap, conversation_id=conversation_id)
+        logger.info(f"Saved mindmap for conversation {conversation_id} to database")
     
     return mindmap

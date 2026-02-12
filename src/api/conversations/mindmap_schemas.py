@@ -38,3 +38,15 @@ class MindmapResponse(BaseModel):
         description="Timestamp when the mindmap was generated"
     )
     context: str = Field(description="Context information (folder name or conversation title)")
+
+
+class MindmapCreateRequest(BaseModel):
+    """
+    Request body for creating a mindmap.
+    
+    Allows specifying a subset of files to include in the mindmap.
+    """
+    file_ids: List[str] = Field(
+        default_factory=list,
+        description="Optional list of file UUIDs to include. If empty, all files in the context will be used."
+    )

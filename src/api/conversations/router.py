@@ -1,7 +1,7 @@
 import json
 from uuid import UUID
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query
+from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query, Body
 from fastapi.responses import StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from src.api.conversations.schemas import (
     ConversationUpdate,
     ConversationResponse
 )
-from src.api.conversations.mindmap_schemas import MindmapResponse, MindmapNodeResponse
+from src.api.conversations.mindmap_schemas import MindmapResponse, MindmapNodeResponse, MindmapCreateRequest
 from src.services.mindmap_service import generate_folder_mindmap, generate_conversation_mindmap, get_saved_mindmap
 from src.api.dependencies import get_current_user
 from src.db.session import get_db
@@ -285,6 +285,7 @@ async def delete_existing_folder(
 async def generate_folder_mindmap_endpoint(
     folder_id: str,
     request: Request,
+    body: MindmapCreateRequest = Body(default_factory=MindmapCreateRequest),
     force_regenerate: bool = Query(False),
     user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -315,8 +316,16 @@ async def generate_folder_mindmap_endpoint(
         # Get the Gemini LLM from app state
         gemini_llm = request.app.state.gemini_llm_temp_0
         
+        # Parse file_ids
+        file_uuids = []
+        if body and body.file_ids:
+            try:
+                file_uuids = [UUID(fid) for fid in body.file_ids]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid file ID format")
+        
         # Generate the mindmap
-        mindmap = await generate_folder_mindmap(db, uuid_id, user.user_id, gemini_llm, force_regenerate)
+        mindmap = await generate_folder_mindmap(db, uuid_id, user.user_id, gemini_llm, force_regenerate, file_ids=file_uuids)
         
         if mindmap is None:
             raise HTTPException(status_code=404, detail="Folder not found")
@@ -340,6 +349,7 @@ async def generate_folder_mindmap_endpoint(
 async def generate_conversation_mindmap_endpoint(
     conversation_id: str,
     request: Request,
+    body: MindmapCreateRequest = Body(default_factory=MindmapCreateRequest),
     user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -369,8 +379,16 @@ async def generate_conversation_mindmap_endpoint(
         # Get the Gemini LLM from app state
         gemini_llm = request.app.state.gemini_llm_temp_0
         
+        # Parse file_ids
+        file_uuids = []
+        if body and body.file_ids:
+            try:
+                file_uuids = [UUID(fid) for fid in body.file_ids]
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid file ID format")
+        
         # Generate the mindmap
-        mindmap = await generate_conversation_mindmap(db, uuid_id, user.user_id, gemini_llm)
+        mindmap = await generate_conversation_mindmap(db, uuid_id, user.user_id, gemini_llm, file_ids=file_uuids)
         
         if mindmap is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
