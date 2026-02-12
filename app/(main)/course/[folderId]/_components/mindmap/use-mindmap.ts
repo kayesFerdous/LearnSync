@@ -86,7 +86,7 @@ export function useMindmap(target: MindmapTarget) {
 
   // ── 2. POST generate ──
   const generateMutation = useMutation({
-    mutationFn: () => postMindmap(target, false),
+    mutationFn: (fileIds?: string[]) => postMindmap(target, false, fileIds),
     onSuccess: (data) => {
       // Replace the GET cache so we don't refetch
       qc.setQueryData(key, data);
@@ -95,7 +95,7 @@ export function useMindmap(target: MindmapTarget) {
 
   // ── 3. POST force-regenerate ──
   const regenerateMutation = useMutation({
-    mutationFn: () => postMindmap(target, true),
+    mutationFn: (fileIds?: string[]) => postMindmap(target, true, fileIds),
     onSuccess: (data) => {
       qc.setQueryData(key, data);
     },
@@ -122,7 +122,7 @@ export function useMindmap(target: MindmapTarget) {
     regenerateError: regenerateMutation.error ?? null,
 
     // Actions
-    generateMap: () => generateMutation.mutate(),
-    regenerateMap: () => regenerateMutation.mutate(),
+    generateMap: (fileIds?: string[]) => generateMutation.mutate(fileIds),
+    regenerateMap: (fileIds?: string[]) => regenerateMutation.mutate(fileIds),
   };
 }
