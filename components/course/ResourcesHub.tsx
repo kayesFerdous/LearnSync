@@ -95,14 +95,20 @@ export function ResourcesHub({ files = [], conversations = [], quizzes = [] }: R
                     {quizzes.length > 0 ? (
                         quizzes.map(quiz => (
                             <div key={quiz.id} className="group flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                                <div className={cn(
-                                    "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0",
-                                    quiz.status === 'completed' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
-                                )}>
-                                    {quiz.status === 'completed' ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                                </div>
+
                                 <div className="flex-1 min-w-0">
                                     <div className="font-medium text-sm text-slate-700 truncate group-hover:text-slate-900">{quiz.title}</div>
+                                    {quiz.difficulty && (
+                                        <span className={cn(
+                                            "inline-block mt-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide",
+                                            quiz.difficulty.toLowerCase() === 'easy' && "bg-emerald-100 text-emerald-700",
+                                            quiz.difficulty.toLowerCase() === 'medium' && "bg-amber-100 text-amber-700",
+                                            quiz.difficulty.toLowerCase() === 'hard' && "bg-rose-100 text-rose-700",
+                                            !['easy', 'medium', 'hard'].includes(quiz.difficulty.toLowerCase()) && "bg-slate-100 text-slate-500"
+                                        )}>
+                                            {quiz.difficulty}
+                                        </span>
+                                    )}
                                 </div>
                                 {quiz.score !== null && quiz.score !== undefined ? (
                                     <span className="text-xs font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{quiz.score}%</span>
