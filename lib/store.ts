@@ -101,7 +101,7 @@ export const useAuthStore = create<AuthState>()(
       },
       fetchUser: async () => {
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/me/`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/me`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
