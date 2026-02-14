@@ -84,7 +84,7 @@ async def stream_generator(
         yield f"data: {json.dumps(jsonable_encoder(error_packet))}\n\n"
 
 
-@router.post("/")
+@router.post("")
 async def create_conversation_chat(
     request: Request,
     payload: ConversationRequest,
@@ -155,7 +155,7 @@ async def continue_conversation_chat(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@router.get("/", response_model=ConversationListResponse)
+@router.get("", response_model=ConversationListResponse)
 async def get_conversations(
     user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

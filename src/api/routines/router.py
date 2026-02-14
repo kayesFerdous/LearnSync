@@ -61,7 +61,7 @@ async def generate_routine_from_image(
         )
 
 
-@router.get("/", response_model=schemas.RoutineResponse)
+@router.get("", response_model=schemas.RoutineResponse)
 async def get_my_routine(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -75,7 +75,7 @@ async def get_my_routine(
     return routine
 
 
-@router.post("/", response_model=schemas.RoutineResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=schemas.RoutineResponse, status_code=status.HTTP_201_CREATED)
 async def create_or_replace_routine(
     routine_data: schemas.RoutineCreate,
     user: User = Depends(get_current_user),
@@ -88,7 +88,7 @@ async def create_or_replace_routine(
     return await service.create_or_replace_routine(db, user.user_id, routine_data)
 
 
-@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_routine(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

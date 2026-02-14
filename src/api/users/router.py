@@ -9,7 +9,7 @@ from src.users.crud import update_user_settings as crud_update_user_settings, up
 
 router = APIRouter(prefix="/me", tags=["User Info"])
 
-@router.get("/", response_model=UserResponse)
+@router.get("", response_model=UserResponse)
 async def get_user_info(user: User = Depends(get_current_user)):
     """
     Returns the current authenticated user's profile information.
@@ -17,7 +17,7 @@ async def get_user_info(user: User = Depends(get_current_user)):
     return user
 
 
-@router.patch("/", response_model=UserResponse)
+@router.patch("", response_model=UserResponse)
 async def update_user_info(
     update_data: UserUpdate,
     user: User = Depends(get_current_user),
