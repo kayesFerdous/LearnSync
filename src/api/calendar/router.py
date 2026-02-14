@@ -9,7 +9,7 @@ router = APIRouter(
     tags=["Calendar"]
 )
 
-@router.get("/", response_model=EventList)
+@router.get("", response_model=EventList)
 async def list_events(
     request: EventRequest = Depends(),
     calendar_id: str = Query("primary", description="Calendar ID to list events from"),
@@ -30,7 +30,7 @@ async def list_events(
     return EventList(events=events)
 
 
-@router.post("/", response_model=Event, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=Event, status_code=status.HTTP_201_CREATED)
 async def create_event(
     body: EventCreate,
     calendar_id: str = Query("primary", description="Calendar ID to create the event in"),

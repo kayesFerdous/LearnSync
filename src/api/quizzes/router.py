@@ -37,7 +37,7 @@ async def generate_mcqs(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=List[QuizSummary])
+@router.get("", response_model=List[QuizSummary])
 async def get_quizzes(
     folder_id: Optional[UUID] = None,
     conversation_id: Optional[UUID] = None,
