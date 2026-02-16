@@ -13,7 +13,7 @@ import type { MindmapResponse, MindmapTarget } from "./types";
 
 /* ────────────── API plumbing ────────────── */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_BASE = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 /** Build the correct URL depending on folder vs conversation target */
 function baseUrl(target: MindmapTarget): string {

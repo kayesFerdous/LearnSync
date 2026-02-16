@@ -149,7 +149,6 @@ export function useChat() {
     tag: string | null,
     file: File | null
   ) => {
-    const tagForRequest = tag ?? 'chatter';
     const now = Date.now();
     const userMessageId = `${now}`;
     const assistantId = `${now}-ai`;
@@ -174,7 +173,8 @@ export function useChat() {
 
     try {
       // Build payload
-      const payload: { message?: string; tag: string; image?: string; file_upload?: { object_key: string; original_filename: string } } = { tag: tagForRequest };
+      const payload: { message?: string; tag?: string; image?: string; file_upload?: { object_key: string; original_filename: string } } = {};
+      if (tag) payload.tag = tag;
       if (userMessage) payload.message = userMessage;
       if (file) {
         if (file.type === 'application/pdf') {

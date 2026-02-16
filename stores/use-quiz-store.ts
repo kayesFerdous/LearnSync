@@ -37,7 +37,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     loadQuiz: async (quizId: string) => {
         set({ status: 'generating' });
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/mcq/${quizId}`, {
+            const response = await fetch(`${process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/mcq/${quizId}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include'
@@ -78,7 +78,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         set({ status: 'generating' });
         try {
             // Using full URL to match other calls, though relative usually works with proxy
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/mcq/generate`, {
+            const response = await fetch(`${process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/mcq/generate`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
@@ -199,7 +199,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
     saveScore: async (quizId: string, score: number) => {
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/mcq/${quizId}/score`, {
+            const response = await fetch(`${process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/mcq/${quizId}/score`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
