@@ -5,7 +5,7 @@ from langgraph.graph.state import StateGraph
 
 from src.agents.model import AgentState
 from src.agents.nodes.calendar_node import make_calendar_node
-from src.agents.nodes.tool_selection_node import make_tool_selection_node
+from src.agents.nodes.route_intent_node import make_route_intent_node
 from src.agents.nodes.chat_node import make_chat_node
 from src.agents.nodes.routine_node import make_routine_node
 from src.agents.nodes.routine_approval_node import make_routine_approval_node
@@ -15,27 +15,28 @@ async def build_graph(
     groq_llm: BaseChatModel, 
     gemini_llm: BaseChatModel, 
     gemini_llm_temp_0: BaseChatModel,
+    route_intent_llm,
     checkpointer: AsyncPostgresSaver
 ):
     graph = StateGraph(AgentState)
     
     chat_node = make_chat_node(groq_llm)
     calendar_node = make_calendar_node(gemini_llm) 
-    tool_selection_node = make_tool_selection_node()
+    route_intent_node = make_route_intent_node(route_intent_llm)
     routine_node = make_routine_node(gemini_llm_temp_0)
     routine_approval_node = make_routine_approval_node()
     rag_node = make_rag_node(gemini_llm)
 
     graph.add_node("chat_node", chat_node)
     graph.add_node("calendar_node", calendar_node)
-    graph.add_node("tool_selection", tool_selection_node)
+    graph.add_node("route_intent", route_intent_node)
     graph.add_node("routine_node", routine_node)
     graph.add_node("routine_approval_node", routine_approval_node)
     graph.add_node("rag_node", rag_node)
 
-    graph.add_edge(START, "tool_selection")
+    graph.add_edge(START, "route_intent")
     graph.add_conditional_edges(
-        "tool_selection",
+        "route_intent",
         lambda state: state["tool"],
     )
     graph.add_edge("chat_node", END)

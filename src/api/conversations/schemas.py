@@ -8,7 +8,7 @@ class ConversationRequest(BaseModel):
     message: str | None = None
     image: str | None = None
     user_input: str | dict | None  = None
-    tag: str
+    tag: str | None = None  # Made optional for auto-routing
 
 
 class ConversationResponse(BaseModel):

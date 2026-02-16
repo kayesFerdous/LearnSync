@@ -14,5 +14,5 @@ class AgentState(TypedDict):
     scratchpad: dict
     next_agent: Optional[AgentName]
     metadata: dict
-    tag: str
+    tag: str | None  # Allow None for auto-routing
     tool: Optional[str]

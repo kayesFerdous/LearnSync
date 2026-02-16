@@ -1,13 +1,13 @@
+from typing import Literal
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
+from pydantic import BaseModel, Field
 from pydantic.types import SecretStr
 
 from ..core.config import settings
 
-# Use the chat history and retrieved context to answer the user's question as clearly and conversationally as possible.
-    # Context:
-    # {context}
+
 async def setup_prompt_template():
     RAG_PROMPT_WITH_HISTORY = """
     You are Kayes' friendly and knowledgeable AI assistant, designed to help visitors learn about Kayes' work, experience, and skills. 
@@ -30,6 +30,22 @@ async def setup_prompt_template():
         template=RAG_PROMPT_WITH_HISTORY,
         input_variables=["chat_history", "context", "question"]
     )
+
+class Route(BaseModel):
+    tag: Literal["scheduler", "rag", "chatter"] = Field(
+        ...,
+        description="The classification tag for the user's input"
+    )
+
+
+async def setup_route_intent_llm():
+    llm = ChatGroq(
+        model="llama-3.1-8b-instant", #llama-3.3-70b-versatile, llama-3.1-8b-instant
+        temperature=0,
+        max_tokens=50,
+        api_key=SecretStr(settings.GROQ_API_KEY),
+    )
+    return llm.with_structured_output(Route)
 
 
 # async def setup_vector_store(

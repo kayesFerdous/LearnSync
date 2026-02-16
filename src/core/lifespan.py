@@ -7,7 +7,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_qdrant import FastEmbedSparse
 
 from src.agents.graph import build_graph
-from src.services.llm_service import setup_gemini_llm, setup_groq_llm
+from src.services.llm_service import setup_gemini_llm, setup_groq_llm, setup_route_intent_llm
 from src.core.logging_config import setup
 from src.core.config import settings
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -19,6 +19,7 @@ async def lifespan(app: FastAPI):
     app.state.groq_llm = await setup_groq_llm()
     app.state.gemini_llm = await setup_gemini_llm(model="gemini-2.5-flash", max_tokens=900000)
     app.state.gemini_llm_temp_0 = await setup_gemini_llm(temperature=0, max_tokens=900000)
+    app.state.route_intent_llm = await setup_route_intent_llm()
     app.state.r2_client = await get_r2_client()
 
     # Qdrant Client (async)
@@ -47,6 +48,7 @@ async def lifespan(app: FastAPI):
             groq_llm=app.state.groq_llm, 
             gemini_llm=app.state.gemini_llm,
             gemini_llm_temp_0=app.state.gemini_llm_temp_0,
+            route_intent_llm=app.state.route_intent_llm,
             checkpointer=checkpointer
         )
         yield
