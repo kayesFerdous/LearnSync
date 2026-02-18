@@ -220,39 +220,28 @@ export function ChatWindow({
               if (isContinuation) {
                 // Additional (follow-up) message — no avatar, hover timestamp
                 return (
-                  <ChatEvent
-                    key={msg.id}
-                    className={cn('group rounded-lg px-2', isMe && 'flex-row-reverse')}
-                  >
-                    <ChatEventAddon className={cn(isMe && 'items-end')}>
-                      <ChatEventTime
-                        timestamp={ts}
-                        format="time"
-                        className="text-right text-[10px] group-hover:visible invisible text-muted-foreground"
-                      />
-                    </ChatEventAddon>
-                    <ChatEventBody
-                      className={cn(isMe && 'items-end')}
-                    >
+                  <ChatEvent key={msg.id} className="group rounded-md px-2 py-0.5 hover:bg-accent/20">
+                    <ChatEventAddon className="w-10 shrink-0" />
+                    <ChatEventBody>
                       <ChatEventContent
-                        className={cn(
-                          'text-sm leading-relaxed',
-                          isMe
-                            ? 'bg-muted text-foreground border border-border rounded-2xl rounded-tr-md px-3 py-2 w-fit max-w-[75%]'
-                            : 'px-0 py-0 bg-transparent shadow-none border-none',
-                        )}
+                        className="text-sm leading-relaxed text-foreground px-0 py-0 bg-transparent shadow-none border-none whitespace-pre-wrap break-words"
                       >
                         {msg.content}
                       </ChatEventContent>
+                      <ChatEventTime
+                        timestamp={ts}
+                        format="time"
+                        className="text-[10px] text-muted-foreground invisible group-hover:visible mt-0.5"
+                      />
                     </ChatEventBody>
                   </ChatEvent>
                 );
               }
 
-              // Primary message — show avatar
+              // Primary message — show avatar and author line (always left aligned)
               return (
-                <ChatEvent key={msg.id} className={cn('mt-3 rounded-lg px-2', isMe && 'flex-row-reverse')}>
-                  <ChatEventAddon className={cn(isMe && 'items-end')}>
+                <ChatEvent key={msg.id} className="mt-4 rounded-md px-2 py-0.5 hover:bg-accent/20">
+                  <ChatEventAddon>
                     {isMe ? (
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
@@ -267,12 +256,8 @@ export function ChatWindow({
                       />
                     )}
                   </ChatEventAddon>
-                  <ChatEventBody
-                    className={cn(isMe && 'items-end')}
-                  >
-                    <ChatEventTitle
-                      className={cn(isMe && 'flex-row-reverse')}
-                    >
+                  <ChatEventBody>
+                    <ChatEventTitle>
                       <span className="text-sm font-semibold">
                         {isMe ? 'You' : activeContact.username}
                       </span>
@@ -283,12 +268,7 @@ export function ChatWindow({
                       />
                     </ChatEventTitle>
                     <ChatEventContent
-                      className={cn(
-                        'text-sm leading-relaxed',
-                        isMe
-                          ? 'bg-muted text-foreground border border-border rounded-2xl rounded-tr-md px-3 py-2 w-fit max-w-[75%]'
-                          : 'px-0 py-0 bg-transparent shadow-none border-none',
-                      )}
+                      className="text-sm leading-relaxed text-foreground px-0 py-0 bg-transparent shadow-none border-none whitespace-pre-wrap break-words"
                     >
                       {msg.content}
                     </ChatEventContent>
