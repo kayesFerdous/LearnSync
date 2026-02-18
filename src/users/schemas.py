@@ -60,3 +60,15 @@ class UserRead(UserBase):
 class UserWithIdentity(UserRead):
     """Comprehensive schema including identity information."""
     identity: UserIdentityRead | None = None
+
+
+class UserPublic(BaseModel):
+    """Public user profile information."""
+    user_id: UUID
+    username: str = Field(..., max_length=150)
+    picture: str | None = Field(None, max_length=150)
+    created_at: datetime
+    is_admin: bool
+    subscribed: bool
+
+    model_config = ConfigDict(from_attributes=True)

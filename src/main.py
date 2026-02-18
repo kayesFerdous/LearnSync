@@ -10,7 +10,8 @@ from src.api.auth.router import router as auth_router
 # from src.api.routes.study_bot import router as study_router
 from src.api.uploads.router import router as upload_router
 from src.api.conversations.router import router as agent_router
-from src.api.users.router import router as user_router
+from src.api.me.router import router as me_router
+from src.api.users.router import router as users_router
 from src.api.calendar.router import router as calendar_router
 from src.api.routines.router import router as routine_router
 from src.api.conversations.router import router as conversation_router
@@ -25,7 +26,8 @@ app.include_router(agent_router)
 # app.include_router(editor_router)
 app.include_router(auth_router)
 app.include_router(upload_router)
-app.include_router(user_router)
+app.include_router(me_router)
+app.include_router(users_router)
 app.include_router(calendar_router)
 app.include_router(routine_router)
 app.include_router(conversation_router)

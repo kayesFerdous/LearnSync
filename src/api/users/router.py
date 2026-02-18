@@ -1,85 +1,44 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
 
-from src.api.dependencies import get_current_user
-from src.api.users.schemas import UserResponse, UserSettings, UserSettingsUpdate, UserUpdate
-from src.users.model import User
 from src.db.session import get_db
-from src.users.crud import update_user_settings as crud_update_user_settings, update_user_profile
+from src.api.dependencies import get_current_user
+from src.users.model import User
+from src.users.crud import get_users, get_user_by_id
+from src.users.schemas import UserRead, UserPublic
 
-router = APIRouter(prefix="/me", tags=["User Info"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.get("", response_model=UserResponse)
-async def get_user_info(user: User = Depends(get_current_user)):
+
+@router.get("/{user_id}", response_model=UserPublic)
+async def get_user(
+    user_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Returns the current authenticated user's profile information.
+    Get a user's public profile by ID.
     """
+    user = await get_user_by_id(user_id, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     return user
 
 
-@router.patch("", response_model=UserResponse)
-async def update_user_info(
-    update_data: UserUpdate,
+@router.get("", response_model=List[UserRead])
+async def search_users(
+    search: str | None = Query(None, description="Search by username or email"),
+    skip: int = 0,
+    limit: int = 10,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Update the authenticated user's profile (username, picture).
+    Search for users by username or email.
     """
-    # Filter out None values so we only update what was sent
-    data = update_data.model_dump(exclude_none=True)
-    
-    if not data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="No fields provided to update"
-        )
-
-    updated_user = await update_user_profile(
-        user_id=str(user.user_id),
-        update_data=data,
-        db=db
-    )
-    
-    if not updated_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="User not found"
-        )
-        
-    return updated_user
-
-
-@router.patch("/settings", response_model=UserSettings)
-async def update_user_settings(
-    settings_data: UserSettingsUpdate,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Update the authenticated user's settings (theme, timezone).
-    """
-    # Filter out None values so we only update what was sent
-    update_data = settings_data.model_dump(exclude_none=True)
-    
-    if not update_data:
-         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="No settings provided to update"
-        )
-
-    updated_settings = await crud_update_user_settings(
-        user_id=str(user.user_id),
-        settings_data=update_data,
-        db=db
-    )
-    
-    if not updated_settings:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="User settings not found"
-        )
-        
-    return updated_settings
-
-    
+    users = await get_users(db, skip=skip, limit=limit, search=search)
+    return users
