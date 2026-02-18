@@ -2,9 +2,10 @@
 
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
-import { useAuthStore, useUiStore } from "@/lib/store";
+import { useUiStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 export default function MainLayout({
   children,
@@ -12,7 +13,9 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const { sidebarOpen } = useUiStore();
+  const pathname = usePathname();
   const [isHydrated, setIsHydrated] = useState(false);
+  const isMessagingPage = pathname.startsWith("/messaging");
 
   // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
@@ -25,14 +28,27 @@ export default function MainLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div
+      className={cn(
+        "bg-background",
+        isMessagingPage ? "h-screen overflow-hidden" : "min-h-screen",
+      )}
+    >
       <Sidebar />
-      <main className={cn(
-        "flex flex-col min-h-screen transition-all duration-300 ease-out",
-        sidebarOpen ? "md:ml-72" : "md:ml-0"
-      )}>
+      <main
+        className={cn(
+          "flex flex-col transition-all duration-300 ease-out",
+          isMessagingPage ? "h-screen overflow-hidden" : "min-h-screen",
+          sidebarOpen ? "md:ml-72" : "md:ml-0",
+        )}
+      >
         <TopBar />
-        <div className="flex-1 overflow-auto relative">
+        <div
+          className={cn(
+            "flex-1 relative min-h-0",
+            isMessagingPage ? "overflow-hidden" : "overflow-auto",
+          )}
+        >
           {children}
         </div>
       </main>

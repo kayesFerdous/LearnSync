@@ -22,7 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${spaceMono.variable} antialiased bg-background text-foreground`}>
+      <body suppressHydrationWarning className={`${spaceMono.variable} antialiased bg-background text-foreground`}>
         <QueryProvider>
           <ThemeProvider>
             {children}

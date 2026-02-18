@@ -26,6 +26,14 @@ export function useMessaging() {
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // Pending contact — synthetic entry for brand-new conversations not yet in contacts list
+  const [pendingContact, setPendingContactState] = useState<Contact | null>(null);
+  const pendingContactRef = useRef<Contact | null>(null);
+  const setPendingContact = (c: Contact | null) => {
+    pendingContactRef.current = c;
+    setPendingContactState(c);
+  };
+
   // Sending state
   const [isSending, setIsSending] = useState(false);
 
@@ -145,6 +153,11 @@ export function useMessaging() {
               : c,
           ),
         );
+        // If this was a brand-new conversation (pending contact), refresh contacts list
+        if (pendingContactRef.current?.user_id === activeContactId) {
+          setPendingContact(null);
+          loadContacts().catch(() => {});
+        }
       } catch {
         // Remove optimistic on failure
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
@@ -152,7 +165,7 @@ export function useMessaging() {
         setIsSending(false);
       }
     },
-    [activeContactId, isSending],
+    [activeContactId, isSending, loadContacts],
   );
 
   // ─── WebSocket incoming message ───────────────────────────────────────────
@@ -160,8 +173,8 @@ export function useMessaging() {
   const handleWsMessage = useCallback((event: WsNewMessageEvent) => {
     const currentContact = activeContactRef.current;
 
-    if (event.sender_id === currentContact) {
-      // Active conversation — append incoming real-time message
+    if (event.sender_id === currentContact || event.receiver_id === currentContact) {
+      // Active conversation — append incoming real-time message (deduplicate by id)
       const msg: Message = {
         id: event.id,
         sender_id: event.sender_id,
@@ -170,9 +183,16 @@ export function useMessaging() {
         created_at: event.created_at,
         read_at: event.read_at,
       };
-      setMessages((prev) => [msg, ...prev]);
-      // Mark it as read since the user is looking at it
-      markAsRead(event.sender_id).catch(() => {});
+      setMessages((prev) => {
+        // Skip if this message is already present (REST response already added it,
+        // or optimistic placeholder with the same real id was swapped in)
+        if (prev.some((m) => m.id === event.id)) return prev;
+        return [msg, ...prev];
+      });
+      // Mark it as read since the user is looking at it (only for messages from the other person)
+      if (event.sender_id === currentContact) {
+        markAsRead(event.sender_id).catch(() => {});
+      }
     } else {
       // Different conversation — bump unread count
       setContacts((prev) => {
@@ -225,20 +245,35 @@ export function useMessaging() {
   }, [searchQuery]);
 
   const startNewConversation = useCallback(
-    async (userId: string) => {
+    async (
+      userId: string,
+      userInfo?: { username: string; email: string; picture?: string | null },
+    ) => {
       setNewMsgOpen(false);
       setSearchQuery('');
       setSearchResults([]);
 
-      // Check if contact already exists
-      const existing = contacts.find((c) => c.user_id === userId);
-      if (!existing) {
-        // Reload contacts to include the new one (will appear after first message)
-        await loadContacts();
+      // If the user isn't in contacts yet, create a synthetic pending contact
+      // so the ChatWindow can render with a header + input immediately.
+      const alreadyInContacts = contacts.some((c) => c.user_id === userId);
+      if (!alreadyInContacts) {
+        if (userInfo) {
+          setPendingContact({
+            user_id: userId,
+            username: userInfo.username,
+            email: userInfo.email,
+            profile_picture: userInfo.picture ?? null,
+            last_message: null,
+            unread_count: 0,
+          });
+        }
+      } else {
+        setPendingContact(null);
       }
+
       selectContact(userId);
     },
-    [contacts, loadContacts, selectContact],
+    [contacts, selectContact],
   );
 
   // Total unread count for sidebar badge
@@ -250,6 +285,7 @@ export function useMessaging() {
     contactsLoading,
     totalUnread,
     loadContacts,
+    pendingContact,
 
     // Active conversation
     activeContactId,

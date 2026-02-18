@@ -1,9 +1,11 @@
 'use client';
 
 import { Fragment, useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, CheckCheck, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+} from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { Chat } from '@/components/chat/chat';
 import {
   ChatHeader,
@@ -121,15 +123,16 @@ export function ChatWindow({
 
   const initials = getInitials(activeContact.username);
   const groups = groupByDate(messages);
+  const subtitle = activeContact.email ? `${activeContact.email}` : 'Direct message';
 
   return (
-    <Chat className="flex-1 h-full">
+    <Chat className="flex-1 h-full min-h-0 bg-card">
       {/* ── Header ── */}
-      <ChatHeader className="border-b border-border/50">
+      <ChatHeader className="border-b border-border/60 bg-card/95 px-3 py-2.5">
         {/* Back button (mobile) */}
         {onBack && (
           <ChatHeaderAddon>
-            <ChatHeaderButton onClick={onBack} className="md:hidden">
+            <ChatHeaderButton onClick={onBack} className="md:hidden text-muted-foreground">
               <ArrowLeft className="h-5 w-5" />
             </ChatHeaderButton>
           </ChatHeaderAddon>
@@ -137,7 +140,7 @@ export function ChatWindow({
 
         {/* Avatar */}
         <ChatHeaderAddon>
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-9 w-9 ring-1 ring-border/60">
             {activeContact.profile_picture && (
               <AvatarImage
                 src={activeContact.profile_picture}
@@ -152,30 +155,28 @@ export function ChatWindow({
 
         {/* Name / email */}
         <ChatHeaderMain>
-          <span className="font-semibold text-sm">{activeContact.username}</span>
-          <span className="flex-1 grid">
+          <span className="flex-1 min-w-0 grid leading-tight">
+            <span className="font-semibold text-sm truncate">
+              {activeContact.username}
+            </span>
             <span className="text-xs text-muted-foreground truncate">
-              {activeContact.email}
+              {subtitle}
             </span>
           </span>
         </ChatHeaderMain>
 
-        {/* Actions */}
-        <ChatHeaderAddon>
-          {messagesLoading && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-1" />
-          )}
-          <ChatHeaderButton title="Mark all as read" className="text-muted-foreground">
-            <CheckCheck className="h-5 w-5" />
-          </ChatHeaderButton>
-        </ChatHeaderAddon>
+        {messagesLoading && (
+          <ChatHeaderAddon className="ml-auto">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </ChatHeaderAddon>
+        )}
       </ChatHeader>
 
       {/* ── Messages ── */}
       <ChatMessages
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="scrollbar-thin"
+        className="scrollbar-thin px-3 md:px-4 py-3 min-h-0"
       >
         {/* Load more indicator (shown at bottom of reversed list = oldest end) */}
         {hasMore && (
@@ -221,10 +222,7 @@ export function ChatWindow({
                 return (
                   <ChatEvent
                     key={msg.id}
-                    className={cn(
-                      'hover:bg-accent/40 group',
-                      isMe && 'flex-row-reverse',
-                    )}
+                    className={cn('group rounded-lg px-2', isMe && 'flex-row-reverse')}
                   >
                     <ChatEventAddon className={cn(isMe && 'items-end')}>
                       <ChatEventTime
@@ -238,10 +236,10 @@ export function ChatWindow({
                     >
                       <ChatEventContent
                         className={cn(
-                          'text-sm',
+                          'text-sm leading-relaxed',
                           isMe
-                            ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3 py-2 w-fit max-w-[75%]'
-                            : '',
+                            ? 'bg-muted text-foreground border border-border rounded-2xl rounded-tr-md px-3 py-2 w-fit max-w-[75%]'
+                            : 'px-0 py-0 bg-transparent shadow-none border-none',
                         )}
                       >
                         {msg.content}
@@ -253,13 +251,7 @@ export function ChatWindow({
 
               // Primary message — show avatar
               return (
-                <ChatEvent
-                  key={msg.id}
-                  className={cn(
-                    'hover:bg-accent/40 mt-3',
-                    isMe && 'flex-row-reverse',
-                  )}
-                >
+                <ChatEvent key={msg.id} className={cn('mt-3 rounded-lg px-2', isMe && 'flex-row-reverse')}>
                   <ChatEventAddon className={cn(isMe && 'items-end')}>
                     {isMe ? (
                       <Avatar className="h-8 w-8">
@@ -292,10 +284,10 @@ export function ChatWindow({
                     </ChatEventTitle>
                     <ChatEventContent
                       className={cn(
-                        'text-sm',
+                        'text-sm leading-relaxed',
                         isMe
-                          ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-3 py-2 w-fit max-w-[75%]'
-                          : '',
+                          ? 'bg-muted text-foreground border border-border rounded-2xl rounded-tr-md px-3 py-2 w-fit max-w-[75%]'
+                          : 'px-0 py-0 bg-transparent shadow-none border-none',
                       )}
                     >
                       {msg.content}
@@ -306,27 +298,27 @@ export function ChatWindow({
             })}
 
             {/* Date separator */}
-            <ChatEvent className="items-center gap-1 my-3">
-              <Separator className="flex-1 bg-border/60" />
+            <ChatEvent className="items-center gap-2 my-4 px-1">
+              <div className="flex-1 h-px bg-border/60" />
               <ChatEventTime
                 timestamp={new Date(msgs[0].created_at).getTime()}
                 format="longDate"
-                className="text-xs font-semibold text-muted-foreground min-w-max px-2"
+                className="text-[11px] font-semibold text-muted-foreground min-w-max px-1"
               />
-              <Separator className="flex-1 bg-border/60" />
+              <div className="flex-1 h-px bg-border/60" />
             </ChatEvent>
           </Fragment>
         ))}
       </ChatMessages>
 
       {/* ── Toolbar ── */}
-      <ChatToolbar>
+      <ChatToolbar className="border-t border-border/60 bg-card px-3 py-2">
         <ChatToolbarTextarea
           placeholder={`Message ${activeContact.username}…`}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onSubmit={handleSubmit}
-          className="text-sm"
+          className="text-sm rounded-md px-2"
         />
         <ChatToolbarAddon align="inline-end">
           <ChatToolbarButton

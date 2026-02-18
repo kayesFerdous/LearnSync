@@ -48,7 +48,7 @@ export function Chat({ children, className, ...props }: ChatProps) {
   return (
     <div
       className={cn(
-        "h-full overflow-hidden flex flex-col @container/chat",
+        "h-full min-h-0 overflow-hidden flex flex-col @container/chat",
         className,
       )}
       {...props}

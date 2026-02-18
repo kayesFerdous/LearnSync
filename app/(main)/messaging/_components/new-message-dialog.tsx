@@ -13,7 +13,7 @@ interface NewMessageDialogProps {
   onSearchChange: (v: string) => void;
   searchResults: SearchUser[];
   searchLoading: boolean;
-  onSelect: (userId: string) => void;
+  onSelect: (userId: string, userInfo: { username: string; email: string; picture?: string | null }) => void;
 }
 
 function getInitials(name: string) {
@@ -117,7 +117,13 @@ export function NewMessageDialog({
             {searchResults.map((user) => (
               <button
                 key={user.user_id}
-                onClick={() => onSelect(user.user_id)}
+                onClick={() =>
+                  onSelect(user.user_id, {
+                    username: user.username,
+                    email: user.email,
+                    picture: user.picture,
+                  })
+                }
                 className={cn(
                   'w-full flex items-center gap-3 px-4 py-3 text-left',
                   'hover:bg-accent/70 transition-colors',

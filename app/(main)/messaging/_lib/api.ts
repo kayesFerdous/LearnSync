@@ -57,11 +57,10 @@ export async function markAsRead(senderId: string): Promise<void> {
   });
 }
 
-/** GET /admin/users?search=... (admin-only; stop-gap until dedicated endpoint) */
+/** GET /users?search=... */
 export async function searchUsers(query: string): Promise<SearchUser[]> {
   if (!query.trim()) return [];
-  const res = await apiFetch<{ users: SearchUser[]; total: number }>(
-    `/admin/users?search=${encodeURIComponent(query)}&limit=10`,
+  return apiFetch<SearchUser[]>(
+    `/users?search=${encodeURIComponent(query)}&limit=10`,
   );
-  return res.users;
 }
