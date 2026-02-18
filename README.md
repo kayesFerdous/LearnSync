@@ -47,6 +47,28 @@
 
 ---
 
+### 🧠 Intelligent Learning Tools
+
+#### Interactive Mind Maps & Knowledge Graphs
+- **Visual Learning**: Automatically generate interactive mind maps from your course materials
+- **Spatial Workspace**: Explore concepts in a 2D infinite canvas powered by React Flow
+- **Smart Layouts**: Auto-arranged nodes using Dagre for optimal readability
+- **Deep Integration**: Seamlessly connected to your chat contexts and course documents
+
+#### Smart Quiz System
+- **AI-Generated Assessments**: Create quizzes instantly from your notes and uploaded files
+- **Adaptive Difficulty**: Customize difficulty levels to match your learning progress
+- **Performance Tracking**: Detailed score summaries and feedback on answers
+- **Knowledge Reinforcement**: Test your understanding of specific topics or entire courses
+
+#### Modern Course Dashboard
+- **Centralized Management**: Manage all your courses in a clean, "Zen-style" dashboard
+- **Quick Actions Hub**: One-click access to common tasks for each course
+- **Customizable Identity**: Personalize course icons, themes, and colors
+- **Interactive Previews**: Mini-map previews of your course knowledge graph
+
+---
+
 ### 📅 Advanced Calendar Management
 
 #### Full-Featured Calendar
@@ -375,6 +397,7 @@
 - **Styling**: Tailwind CSS 4
 - **Calendar**: FullCalendar with timezone support
 - **Editor**: TipTap with rich text extensions
+- **Mind Mapping**: React Flow (@xyflow/react) with Dagre layout engine
 - **PDF Viewing**: react-pdf with zoom and rotation controls
 - **State Management**: Zustand for global state
 - **HTTP Client**: Axios for API communication
