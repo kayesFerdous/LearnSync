@@ -66,6 +66,8 @@ interface ChatWindowProps {
   hasMore: boolean;
   isSending: boolean;
   currentUserId: string | undefined;
+  currentUserName?: string;
+  currentUserPicture?: string | null;
   onSend: (content: string) => void;
   onLoadMore: () => void;
   onBack?: () => void;
@@ -78,6 +80,8 @@ export function ChatWindow({
   hasMore,
   isSending,
   currentUserId,
+  currentUserName,
+  currentUserPicture,
   onSend,
   onLoadMore,
   onBack,
@@ -122,6 +126,7 @@ export function ChatWindow({
   }
 
   const initials = getInitials(activeContact.username);
+  const myInitials = getInitials(currentUserName || 'Me');
   const groups = groupByDate(messages);
   const subtitle = activeContact.email ? `${activeContact.email}` : 'Direct message';
 
@@ -244,8 +249,11 @@ export function ChatWindow({
                   <ChatEventAddon>
                     {isMe ? (
                       <Avatar className="h-8 w-8">
+                        {currentUserPicture && (
+                          <AvatarImage src={currentUserPicture} alt={currentUserName || 'You'} />
+                        )}
                         <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
-                          Me
+                          {myInitials}
                         </AvatarFallback>
                       </Avatar>
                     ) : (

@@ -107,6 +107,8 @@ export default function MessagingPage() {
           hasMore={hasMore}
           isSending={isSending}
           currentUserId={user?.user_id}
+          currentUserName={user?.username}
+          currentUserPicture={user?.picture}
           onSend={sendMessage}
           onLoadMore={loadOlderMessages}
           onBack={() => setMobileView('contacts')}

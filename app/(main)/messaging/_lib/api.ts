@@ -23,9 +23,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+type RawContact = Omit<Contact, 'profile_picture'> & {
+  profile_picture?: string | null;
+  picture?: string | null;
+};
+
+function normalizeContact(contact: RawContact): Contact {
+  return {
+    ...contact,
+    profile_picture: contact.profile_picture ?? contact.picture ?? null,
+  };
+}
+
 /** GET /messaging/contacts */
 export async function getContacts(): Promise<Contact[]> {
-  return apiFetch<Contact[]>('/messaging/contacts');
+  const contacts = await apiFetch<RawContact[]>('/messaging/contacts');
+  return contacts.map(normalizeContact);
 }
 
 /** GET /messaging/history/{user_id} */
