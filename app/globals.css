@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme {
   --color-background: var(--background);
@@ -67,6 +71,7 @@
 
   body {
     font-family: var(--app-font);
+    @apply bg-background text-foreground;
   }
 
   :root,
@@ -96,6 +101,9 @@
     --theme-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --theme-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     --theme-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+  * {
+    @apply border-border outline-ring/50;
   }
 }
 
@@ -458,7 +466,6 @@
   border-color: var(--border) !important;
 }
 
-
 @layer utilities {
   .scrollbar-custom {
     scrollbar-width: thin;
@@ -530,3 +537,4 @@
     opacity: 0.4;
   }
 }
+
