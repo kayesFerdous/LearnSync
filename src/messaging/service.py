@@ -108,7 +108,7 @@ async def get_recent_contacts(
             "user_id": user.user_id,
             "username": user.username,
             "email": user.email,
-            "profile_picture": user.profile_picture,
+            "picture": user.picture,
             "last_message": last_msg,
             "unread_count": unread_count
         })

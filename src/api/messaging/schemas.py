@@ -25,7 +25,7 @@ class ContactResponse(BaseModel):
     user_id: UUID
     username: str
     email: str | None = None
-    profile_picture: str | None = None
+    picture: str | None = None
     last_message: MessageResponse | None = None
     unread_count: int = 0
     
