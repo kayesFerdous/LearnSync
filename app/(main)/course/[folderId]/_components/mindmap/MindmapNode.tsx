@@ -41,12 +41,31 @@ const DOC_TYPE_ICONS: Record<string, React.ElementType> = {
   folder: FolderOpen,
 };
 
-function getIcon(docType?: string): React.ElementType {
-  if (!docType) return Sparkles;
+function getIconType(docType?: string): string {
+  if (!docType) return "sparkles";
   const key = Object.keys(DOC_TYPE_ICONS).find(
     (k) => docType.toLowerCase().includes(k.toLowerCase())
   );
-  return key ? DOC_TYPE_ICONS[key] : File;
+  return key || "file";
+}
+
+function renderIconByType(iconType: string, size: number, strokeWidth: number) {
+  const iconProps = { size, strokeWidth };
+  switch (iconType) {
+    case "Lecture Slides": return <Presentation {...iconProps} />;
+    case "Lecture Notes": return <BookOpen {...iconProps} />;
+    case "pdf": return <FileText {...iconProps} />;
+    case "video": return <Video {...iconProps} />;
+    case "link": return <Link2 {...iconProps} />;
+    case "image": return <Image {...iconProps} />;
+    case "audio": return <Music {...iconProps} />;
+    case "code": return <Code {...iconProps} />;
+    case "html": return <Globe {...iconProps} />;
+    case "markdown": return <FileText {...iconProps} />;
+    case "folder": return <FolderOpen {...iconProps} />;
+    case "sparkles": return <Sparkles {...iconProps} />;
+    default: return <File {...iconProps} />;
+  }
 }
 
 /* ---------- Depth-based visual tiers ---------- */
@@ -107,7 +126,7 @@ function depthStyle(depth: number): DepthStyle {
 
 function MindmapNodeInner({ data, selected }: NodeProps<MindmapFlowNode>) {
   const { label, description, depth, docType, fileId, childCount, isLeaf } = data;
-  const Icon = getIcon(docType);
+  const iconType = getIconType(docType);
   const style = depthStyle(depth);
 
   const isClickable = !!fileId;
@@ -159,7 +178,7 @@ function MindmapNodeInner({ data, selected }: NodeProps<MindmapFlowNode>) {
                 style.iconFg
               )}
             >
-              <Icon size={16} strokeWidth={2} />
+              {renderIconByType(iconType, 16, 2)}
             </div>
 
             {/* Title + metadata */}
