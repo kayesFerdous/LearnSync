@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Mail, Lock, MousePointer2, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, MousePointer2, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signup, login, AuthApiError } from '@/lib/api/auth';
+import { signup, login, resendVerification, AuthApiError } from '@/lib/api/auth';
 import { useAuthStore } from '@/lib/store';
+
+const PENDING_VERIFICATION_EMAIL_KEY = 'pending_verification_email';
 
 export default function AuthPage() {
     const router = useRouter();
@@ -14,7 +16,11 @@ export default function AuthPage() {
     const [isLogin, setIsLogin] = useState(true);
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isResending, setIsResending] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const [verificationPending, setVerificationPending] = useState(false);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
     // Form state
     const [email, setEmail] = useState('');
@@ -26,6 +32,57 @@ export default function AuthPage() {
         console.log('[Auth Page] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
     }, []);
 
+    useEffect(() => {
+        if (cooldownSeconds <= 0) {
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setCooldownSeconds((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [cooldownSeconds]);
+
+    const setPendingVerificationEmail = (value: string) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, value);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        if (!email.trim() || cooldownSeconds > 0) {
+            return;
+        }
+
+        setErrorMessage('');
+        setSuccessMessage('');
+        setIsResending(true);
+
+        try {
+            const response = await resendVerification({ email });
+            setSuccessMessage(response.message || 'Verification email sent.');
+            setCooldownSeconds(60);
+        } catch (error) {
+            if (error instanceof AuthApiError) {
+                setErrorMessage(error.message);
+                if (error.statusCode === 429) {
+                    setCooldownSeconds(60);
+                }
+            } else {
+                setErrorMessage('Unable to resend verification email. Please try again.');
+            }
+        } finally {
+            setIsResending(false);
+        }
+    };
+
     const handleGoogleLogin = () => {
         window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/login/google`;
     };
@@ -33,6 +90,7 @@ export default function AuthPage() {
     const handleEmailAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMessage('');
+        setSuccessMessage('');
 
         // Client-side validation
         if (!isLogin) {
@@ -58,17 +116,30 @@ export default function AuthPage() {
                 await login({ email, password });
                 // Fetch user details after successful auth to get full user object including picture
                 await authStore.fetchUser();
+                router.push('/dashboard');
             } else {
                 // Signup
-                await signup({ username, email, password });
-                // Fetch user details after successful auth to get full user object including picture
-                await authStore.fetchUser();
-            }
+                const response = await signup({ username, email, password });
+                if (response.requires_email_verification) {
+                    setPendingVerificationEmail(email);
+                    setVerificationPending(true);
+                    setSuccessMessage(response.message || 'Signup successful. Please verify your email.');
+                    setCooldownSeconds(60);
+                    return;
+                }
 
-            router.push('/dashboard');
+                await authStore.fetchUser();
+                router.push('/dashboard');
+            }
         } catch (error) {
             if (error instanceof AuthApiError) {
-                setErrorMessage(error.message);
+                if (isLogin && error.statusCode === 403) {
+                    setVerificationPending(true);
+                    setPendingVerificationEmail(email);
+                    setErrorMessage('Email not verified yet. Please verify your email, then sign in.');
+                } else {
+                    setErrorMessage(error.message);
+                }
             } else {
                 setErrorMessage('An unexpected error occurred. Please try again.');
             }
@@ -84,7 +155,7 @@ export default function AuthPage() {
                 <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl mix-blend-screen animate-pulse" style={{ animationDuration: '4s' }}></div>
             </div>
 
-            <div className="w-full max-w-[480px] z-10">
+            <div className="w-full max-w-120 z-10">
                 <div className="bg-[#121217] border border-zinc-800/50 rounded-3xl shadow-2xl overflow-hidden p-8">
 
                     {/* Top Icon */}
@@ -102,7 +173,12 @@ export default function AuthPage() {
                         <p className="text-zinc-500 text-sm">
                             {isLogin ? 'New to the workspace? ' : 'Already have an account? '}
                             <button
-                                onClick={() => setIsLogin(!isLogin)}
+                                onClick={() => {
+                                    setIsLogin(!isLogin);
+                                    setVerificationPending(false);
+                                    setErrorMessage('');
+                                    setSuccessMessage('');
+                                }}
                                 className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors cursor-pointer"
                             >
                                 {isLogin ? 'Create an account' : 'Sign in'}
@@ -113,8 +189,50 @@ export default function AuthPage() {
                     {/* Error Message */}
                     {errorMessage && (
                         <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-3 flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                             <p className="text-sm text-red-500">{errorMessage}</p>
+                        </div>
+                    )}
+
+                    {/* Success Message */}
+                    {successMessage && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-3 flex items-start gap-2 mt-3">
+                            <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <p className="text-sm text-emerald-300">{successMessage}</p>
+                        </div>
+                    )}
+
+                    {verificationPending && (
+                        <div className="bg-zinc-900/70 border border-zinc-700 rounded-xl p-4 mt-4 space-y-3">
+                            <p className="text-sm text-zinc-300">
+                                Check your inbox for a verification link to finish setting up your account.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleResendVerification}
+                                    disabled={isResending || cooldownSeconds > 0 || !email.trim()}
+                                    className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800/60 disabled:text-zinc-500 disabled:cursor-not-allowed text-xs text-zinc-200 transition-colors"
+                                >
+                                    {isResending
+                                        ? 'Sending...'
+                                        : cooldownSeconds > 0
+                                            ? `Resend in ${cooldownSeconds}s`
+                                            : 'Resend verification email'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsLogin(true);
+                                        setVerificationPending(false);
+                                        setErrorMessage('');
+                                        setSuccessMessage('');
+                                    }}
+                                    className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+                                >
+                                    Back to sign in
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -133,7 +251,7 @@ export default function AuthPage() {
                                         type="text"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
-                                        className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block w-full pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
+                                        className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
                                         placeholder="Kalam"
                                         required={!isLogin}
                                         maxLength={150}
@@ -152,7 +270,7 @@ export default function AuthPage() {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block w-full pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
+                                    className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
                                     placeholder="you@studio.dev"
                                     required
                                 />
@@ -176,7 +294,7 @@ export default function AuthPage() {
                                     type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block w-full pl-10 pr-14 p-3 placeholder-zinc-600 transition-all outline-none"
+                                    className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 pr-14 p-3 placeholder-zinc-600 transition-all outline-none"
                                     placeholder="Enter your password"
                                     required
                                 />
@@ -201,7 +319,7 @@ export default function AuthPage() {
                                         type="password"
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block w-full pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
+                                        className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
                                         placeholder="Confirm your password"
                                         required={!isLogin}
                                     />
@@ -211,11 +329,15 @@ export default function AuthPage() {
 
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || (verificationPending && !isLogin)}
                             className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 px-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all duration-200 mt-2 cursor-pointer flex items-center justify-center gap-2"
                         >
                             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                            {isLoading ? 'Please wait...' : (isLogin ? 'Continue to dashboard' : 'Create account')}
+                            {isLoading
+                                ? 'Please wait...'
+                                : (isLogin
+                                    ? 'Continue to dashboard'
+                                    : (verificationPending ? 'Check your email' : 'Create account'))}
                         </button>
                     </form>
 
