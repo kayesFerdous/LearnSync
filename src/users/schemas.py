@@ -21,10 +21,13 @@ class UserIdentityCreate(UserIdentityBase):
     access_token: str | None = None
     refresh_token: str | None = None
     expires_at: datetime | None = None
+    is_email_verified: bool = False
+    email_verified_at: datetime | None = None
 
 
 class UserIdentityRead(UserIdentityBase):
-    pass
+    is_email_verified: bool = False
+    email_verified_at: datetime | None = None
 
 # ... (rest of the code)
 class UserBase(BaseModel):

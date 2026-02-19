@@ -28,6 +28,10 @@ class LoginRequest(BaseModel):
     email: ValidEmail
     password: str
 
+
+class ResendVerificationRequest(BaseModel):
+    email: ValidEmail
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -36,5 +40,15 @@ class Token(BaseModel):
 class AuthResponse(BaseModel):
     user_id: UUID
     message: str = "Authentication successful"
+
+
+class SignupResponse(BaseModel):
+    user_id: UUID
+    message: str = "Signup successful. Please verify your email"
+    requires_email_verification: bool = True
+
+
+class MessageResponse(BaseModel):
+    message: str
 
 

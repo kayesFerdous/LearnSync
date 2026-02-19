@@ -39,4 +39,5 @@ dependencies = [
     "fastembed>=0.7.4",
     "email-validator>=2.3.0",
     "disposable-email-domains>=0.0.161",
+    "httpx>=0.28.1",
 ]
