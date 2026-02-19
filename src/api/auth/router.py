@@ -2,21 +2,36 @@ import logging
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from authlib.integrations.base_client.errors import OAuthError
-from fastapi import APIRouter, Depends, Request, Response, status, HTTPException
+from fastapi import APIRouter, Depends, Request, Response, status, HTTPException, Query
 
 from src.users.service import (
-    create_user_by_email, 
-    get_or_create_user, 
-    authenticate_user, 
-    InvalidCredentialsException, 
-    UserAlreadyExistsException
+    EmailNotVerifiedException,
+    EmailVerificationDeliveryException,
+    EmailVerificationResendTooSoonException,
+    EmailVerificationTokenExpiredException,
+    EmailVerificationTokenInvalidException,
+    InvalidCredentialsException,
+    UserAlreadyExistsException,
+    authenticate_user,
+    create_and_send_email_verification,
+    create_user_by_email,
+    get_or_create_user,
+    resend_verification_email,
+    verify_email_token,
 )
 from src.db.session import get_db
 from src.core.config import settings
 from src.services.google_auth import oauth
 from src.auth.service import create_access_token
 from src.api.dependencies import get_current_user
-from src.api.auth.schemas import AuthResponse, SignupRequest, LoginRequest
+from src.api.auth.schemas import (
+    AuthResponse,
+    LoginRequest,
+    MessageResponse,
+    ResendVerificationRequest,
+    SignupRequest,
+    SignupResponse,
+)
 
 # Use a standard logger for logging events and errors.
 log = logging.getLogger(__name__)
@@ -29,14 +44,21 @@ SERVER_URL = settings.SERVER_LINK
 COOKIE_SECURE = settings.COOKIE_SECURE
 
 
+def _frontend_success_url() -> str:
+    return f"{FRONTEND_LINK.rstrip('/')}{settings.EMAIL_VERIFICATION_SUCCESS_PATH}"
+
+
+def _frontend_error_url(error_code: str) -> str:
+    return f"{FRONTEND_LINK.rstrip('/')}{settings.EMAIL_VERIFICATION_ERROR_PATH}?error={error_code}"
+
+
 @router.post(
     "/signup", 
-    response_model=AuthResponse,
+    response_model=SignupResponse,
     summary="Initiate email SignUp"
 )
 async def signup(
     user_info: SignupRequest, 
-    response: Response,
     db: AsyncSession = Depends(get_db)
 ):
     try:
@@ -44,28 +66,31 @@ async def signup(
         new_user = await create_user_by_email(user_info, db)
 
         if new_user:
-            user_id = new_user.user_id
-            
-            # Generate token for immediate login after signup
-            jwt_token = await create_access_token(str(user_id))
-            
-            response.set_cookie(
-                key=settings.COOKIE_NAME,
-                value=jwt_token,
-                httponly=True,
-                samesite="lax",
-                max_age=60 * 60 * 24 * 7,
-                secure=COOKIE_SECURE,
+            await create_and_send_email_verification(
+                email=new_user.email,
+                username=new_user.username,
+                db=db,
+                enforce_cooldown=False,
             )
-            
-            return AuthResponse(
-                user_id=user_id,
-                message="Login successful",
+
+            return SignupResponse(
+                user_id=new_user.user_id,
+                message="Signup successful. Please check your email to verify your account.",
             )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not create account",
+        )
     except UserAlreadyExistsException as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+    except EmailVerificationDeliveryException as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
         )
     except Exception as e:
         log.error(f"Signup error: {e}", exc_info=True)
@@ -112,12 +137,77 @@ async def login_email(
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
+    except EmailNotVerifiedException as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
     except Exception as e:
         log.error(f"Login error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal login error"
         )
+
+
+@router.post(
+    "/resend-verification",
+    response_model=MessageResponse,
+    summary="Resend email verification link",
+)
+async def resend_verification(
+    payload: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        await resend_verification_email(payload.email, db)
+        return MessageResponse(
+            message="If an account exists and is not verified, a verification email has been sent.",
+        )
+    except EmailVerificationResendTooSoonException as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(e),
+        )
+    except EmailVerificationDeliveryException as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        )
+    except Exception as e:
+        log.error(f"Resend verification error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal resend verification error",
+        )
+
+
+@router.get("/verify-email", summary="Verify email with one-time magic link")
+async def verify_email(
+    token: str = Query(..., min_length=20),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        user = await verify_email_token(token, db)
+        jwt_token = await create_access_token(str(user.user_id))
+
+        redirect = RedirectResponse(url=_frontend_success_url())
+        redirect.set_cookie(
+            key=settings.COOKIE_NAME,
+            value=jwt_token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7,
+            secure=COOKIE_SECURE,
+        )
+        return redirect
+    except EmailVerificationTokenExpiredException:
+        return RedirectResponse(url=_frontend_error_url("expired_token"))
+    except EmailVerificationTokenInvalidException:
+        return RedirectResponse(url=_frontend_error_url("invalid_token"))
+    except Exception as e:
+        log.error(f"Verify email error: {e}", exc_info=True)
+        return RedirectResponse(url=_frontend_error_url("verification_failed"))
 
 
 @router.get("/login/google", summary="Initiate Google OAuth login")
@@ -127,8 +217,7 @@ async def login(request: Request):
     The `redirect_uri` informs Google where to send the user back after authentication.
     """
     # An absolute URI is required by Google for the redirect.
-    # redirect_uri = f"{SERVER_URL}/auth/callback"
-    redirect_uri = "http://localhost:8000/auth/callback"
+    redirect_uri = f"{SERVER_URL.rstrip('/')}/auth/callback"
     return await oauth.google.authorize_redirect( #type: ignore
         request,
         redirect_uri,

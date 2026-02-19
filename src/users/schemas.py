@@ -21,10 +21,13 @@ class UserIdentityCreate(UserIdentityBase):
     access_token: str | None = None
     refresh_token: str | None = None
     expires_at: datetime | None = None
+    is_email_verified: bool = False
+    email_verified_at: datetime | None = None
 
 
 class UserIdentityRead(UserIdentityBase):
-    pass
+    is_email_verified: bool = False
+    email_verified_at: datetime | None = None
 
 # ... (rest of the code)
 class UserBase(BaseModel):
@@ -60,3 +63,15 @@ class UserRead(UserBase):
 class UserWithIdentity(UserRead):
     """Comprehensive schema including identity information."""
     identity: UserIdentityRead | None = None
+
+
+class UserPublic(BaseModel):
+    """Public user profile information."""
+    user_id: UUID
+    username: str = Field(..., max_length=150)
+    picture: str | None = Field(None, max_length=150)
+    created_at: datetime
+    is_admin: bool
+    subscribed: bool
+
+    model_config = ConfigDict(from_attributes=True)

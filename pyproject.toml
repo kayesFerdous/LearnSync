@@ -20,7 +20,7 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "python-multipart>=0.0.20",
     # "supabase>=2.24.0",
-    "uvicorn>=0.37.0",
+    "uvicorn[standard]>=0.37.0",
     "python-pptx>=0.6.23",
     "boto3>=1.42.17",
     "authlib>=1.6.6",
@@ -39,4 +39,5 @@ dependencies = [
     "fastembed>=0.7.4",
     "email-validator>=2.3.0",
     "disposable-email-domains>=0.0.161",
+    "httpx>=0.28.1",
 ]

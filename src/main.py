@@ -10,12 +10,14 @@ from src.api.auth.router import router as auth_router
 # from src.api.routes.study_bot import router as study_router
 from src.api.uploads.router import router as upload_router
 from src.api.conversations.router import router as agent_router
-from src.api.users.router import router as user_router
+from src.api.me.router import router as me_router
+from src.api.users.router import router as users_router
 from src.api.calendar.router import router as calendar_router
 from src.api.routines.router import router as routine_router
 from src.api.conversations.router import router as conversation_router
 from src.api.admin.router import router as admin_router
 from src.api.quizzes.router import router as mcq_router
+from src.api.messaging.router import router as messaging_router
 from src.core.lifespan import lifespan
 
 
@@ -24,12 +26,14 @@ app.include_router(agent_router)
 # app.include_router(editor_router)
 app.include_router(auth_router)
 app.include_router(upload_router)
-app.include_router(user_router)
+app.include_router(me_router)
+app.include_router(users_router)
 app.include_router(calendar_router)
 app.include_router(routine_router)
 app.include_router(conversation_router)
 app.include_router(admin_router)
 app.include_router(mcq_router)
+app.include_router(messaging_router)
 app.add_middleware(SessionMiddleware, secret_key="amijanikintubolbona")
 
 app.add_middleware(

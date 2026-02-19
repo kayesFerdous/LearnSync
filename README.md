@@ -119,6 +119,23 @@ PINECONE_API_KEY=your_pinecone_api_key
 # Application Configuration
 PDF_PATH=/path/to/pdf/storage
 FRONTEND_LINK=http://localhost:3000
+SERVER_LINK=http://localhost:8000
+COOKIE_NAME=access_token
+COOKIE_SECURE=false
+
+# Auth / JWT
+JWT_SECRET_KEY=replace_with_a_long_random_secret
+ACCESS_TOKEN_EXPIRE_MINUTES=10080
+ALGORITHM=HS256
+
+# Brevo (Email Verification)
+BREVO_API_KEY=your_brevo_api_key
+BREVO_FROM_EMAIL=noreply@yourdomain.com
+BREVO_FROM_NAME=Your App
+EMAIL_VERIFICATION_TOKEN_TTL_SECONDS=900
+EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS=60
+EMAIL_VERIFICATION_SUCCESS_PATH=/auth/verified
+EMAIL_VERIFICATION_ERROR_PATH=/auth/verify-error
 
 # Supabase Configuration
 SUPABASE_URL=your_supabase_url

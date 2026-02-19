@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     # SUPABASE_BUCKET: str
     # SUPABASE_FOLDER: str
 
+    #INFO: email providers credentials
+    BREVO_API_KEY: str
+    BREVO_FROM_EMAIL: str
+    BREVO_FROM_NAME: str
+
+    EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: int = 900
+    EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: int = 60
+    EMAIL_VERIFICATION_SUCCESS_PATH: str = "/auth/verified"
+    EMAIL_VERIFICATION_ERROR_PATH: str = "/auth/verify-error"
+
     #INFO: cloudflare credentials
     R2_ACCOUNT_ID: str
     R2_ACCESS_KEY_ID: str
