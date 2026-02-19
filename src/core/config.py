@@ -24,9 +24,10 @@ class Settings(BaseSettings):
     # SUPABASE_BUCKET: str
     # SUPABASE_FOLDER: str
 
-    #INFO: RESEND credentials
-    RESEND_API_KEY: str
-    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+    #INFO: email providers credentials
+    BREVO_API_KEY: str
+    BREVO_FROM_EMAIL: str
+    BREVO_FROM_NAME: str
 
     EMAIL_VERIFICATION_TOKEN_TTL_SECONDS: int = 900
     EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: int = 60

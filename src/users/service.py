@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.auth.schemas import SignupRequest, LoginRequest
 from src.core.config import settings
-from src.services.resend_email import EmailDeliveryException, send_verification_email
+from src.services.brevo_email import EmailDeliveryException, send_verification_email
 from src.users.crud import (
     create_email_verification_token,
     create_user,

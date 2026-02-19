@@ -128,9 +128,10 @@ JWT_SECRET_KEY=replace_with_a_long_random_secret
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 ALGORITHM=HS256
 
-# Resend (Email Verification)
-RESEND_API_KEY=re_xxx
-RESEND_FROM_EMAIL=onboarding@resend.dev
+# Brevo (Email Verification)
+BREVO_API_KEY=your_brevo_api_key
+BREVO_FROM_EMAIL=noreply@yourdomain.com
+BREVO_FROM_NAME=Your App
 EMAIL_VERIFICATION_TOKEN_TTL_SECONDS=900
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS=60
 EMAIL_VERIFICATION_SUCCESS_PATH=/auth/verified
