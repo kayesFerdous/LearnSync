@@ -7,7 +7,7 @@ import type {
   CalendarEventParams,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export class CalendarApiError extends Error {
   constructor(
@@ -43,7 +43,7 @@ export async function listEvents(
 ): Promise<EventListResponse> {
   try {
     const queryString = buildQueryString(params);
-    const response = await fetch(`${API_BASE_URL}/calendar/${queryString}`, {
+    const response = await fetch(`${API_BASE_URL}/calendar${queryString}`, {
       method: 'GET',
       credentials: 'include', // Important for httpOnly cookies
       headers: {
@@ -84,7 +84,7 @@ export async function createEvent(
 ): Promise<CalendarEvent> {
   try {
     const queryString = buildQueryString(params);
-    const response = await fetch(`${API_BASE_URL}/calendar/${queryString}`, {
+    const response = await fetch(`${API_BASE_URL}/calendar${queryString}`, {
       method: 'POST',
       credentials: 'include', // Important for httpOnly cookies
       headers: {

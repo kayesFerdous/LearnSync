@@ -8,7 +8,7 @@ import type {
   ApprovedRoutine,
 } from './types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export class RoutineApiError extends Error {
   constructor(
@@ -27,7 +27,7 @@ export class RoutineApiError extends Error {
  */
 export async function getRoutine(): Promise<Routine | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/routines/`, {
+    const response = await fetch(`${API_BASE_URL}/routines`, {
       method: 'GET',
       credentials: 'include',
       headers: {
@@ -71,7 +71,7 @@ export async function createRoutine(
   routineData: CreateRoutineRequest
 ): Promise<Routine> {
   try {
-    const response = await fetch(`${API_BASE_URL}/routines/`, {
+    const response = await fetch(`${API_BASE_URL}/routines`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -109,7 +109,7 @@ export async function createRoutine(
  */
 export async function deleteRoutine(): Promise<void> {
   try {
-    const response = await fetch(`${API_BASE_URL}/routines/`, {
+    const response = await fetch(`${API_BASE_URL}/routines`, {
       method: 'DELETE',
       credentials: 'include',
       headers: {

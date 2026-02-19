@@ -20,8 +20,8 @@ import type {
   DeleteFileResponse
 } from './types';
 
-export const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/chat_bot';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+export const BACKEND_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/chat_bot';
+const API_BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Maximum file size for uploads (10MB per file)
 export const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10,485,760 bytes
@@ -441,7 +441,7 @@ export const processStream = async (
  * Returns folders with nested conversations and root-level conversations
  */
 export const fetchConversations = async (): Promise<ConversationListResponse> => {
-  const response = await fetch(`${API_BASE_URL}/conversation/`, {
+  const response = await fetch(`${API_BASE_URL}/conversation`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
