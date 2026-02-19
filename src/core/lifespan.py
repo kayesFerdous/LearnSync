@@ -16,7 +16,7 @@ from src.services.storage.r2 import get_r2_client
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup()
-    app.state.groq_llm = await setup_groq_llm()
+    app.state.groq_llm = await setup_groq_llm(max_tokens=500, temperature=0.5)
     app.state.gemini_llm = await setup_gemini_llm(model="gemini-2.5-flash", max_tokens=900000)
     app.state.gemini_llm_temp_0 = await setup_gemini_llm(temperature=0, max_tokens=900000)
     app.state.route_intent_llm = await setup_route_intent_llm()
