@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { UserSearch } from "@/components/user-search";
 
 export function TopBar() {
   const { user, isAuthenticated, logout, fetchUser } = useAuthStore();
@@ -86,6 +87,10 @@ export function TopBar() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="flex-1 flex justify-center px-6">
+        <UserSearch />
       </div>
 
       <div className="flex items-center gap-3">
