@@ -25,7 +25,7 @@ async def build_graph(
     route_intent_node = make_route_intent_node(route_intent_llm)
     routine_node = make_routine_node(gemini_llm_temp_0)
     routine_approval_node = make_routine_approval_node()
-    rag_node = make_rag_node(gemini_llm)
+    rag_node = make_rag_node(gemini_llm, groq_llm)
 
     graph.add_node("chat_node", chat_node)
     graph.add_node("calendar_node", calendar_node)
