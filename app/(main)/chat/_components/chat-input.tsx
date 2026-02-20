@@ -299,15 +299,6 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf, onOpenBatchModal }
         </button>
       </div>
 
-      {/* Drop hint overlay */}
-      {isDragOver && (
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center rounded-4xl border-2 border-dashed border-primary/50">
-          <span className="text-sm font-medium text-primary bg-background/80 px-3 py-1 rounded-full backdrop-blur-sm">
-            Drop to scope context
-          </span>
-        </div>
-      )}
-
       {/* Disclaimer */}
       <div className="text-center mt-2 mb-2">
         <p className="text-[10px] text-muted-foreground/60">AI can make mistakes. Check important info.</p>
