@@ -288,6 +288,41 @@ async def get_folder_files(
     return result.all()
 
 
+async def get_conversation_files(
+    db: AsyncSession,
+    conversation_id: UUID,
+    user_id: UUID
+) -> list[File]:
+    """
+    Retrieves all files for a specific conversation belonging to a user.
+    Only loads columns needed for UI rendering.
+    """
+    # First verify the conversation belongs to the user
+    conv_stmt = select(Conversation.id).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == user_id
+    )
+    conv_result = await db.execute(conv_stmt)
+    conversation = conv_result.scalar_one_or_none()
+    
+    if not conversation:
+        return None  # Conversation not found or doesn't belong to user
+    
+    # Get only needed columns for UI
+    stmt = select(
+        File.id,
+        File.filename,
+        File.file_type,
+        File.status,
+        File.created_at
+    ).where(
+        File.conversation_id == conversation_id
+    ).order_by(File.created_at.desc())
+    
+    result = await db.execute(stmt)
+    return result.all()
+
+
 async def delete_file(
     db: AsyncSession,
     file_id: UUID,

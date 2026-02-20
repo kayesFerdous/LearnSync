@@ -30,6 +30,7 @@ from src.conversations.service import (
     get_file_status,
     cancel_upload,
     get_folder_files,
+    get_conversation_files,
     delete_file
 )
 from src.conversations.model import FileType as ModelFileType
@@ -359,6 +360,41 @@ async def get_files_for_folder(
         total=len(response_files)
     )
 
+@router.get("/conversations/{conversation_id}/files", response_model=FolderFilesListResponse)
+async def get_files_for_conversation(
+    conversation_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all files for a specific conversation.
+    Returns file information suitable for UI rendering.
+    """
+    try:
+        uuid_conversation_id = UUID(conversation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid conversation ID format")
+
+    files = await get_conversation_files(db, uuid_conversation_id, user.user_id)
+    
+    if files is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    response_files = [
+        FolderFileResponse(
+            id=str(f.id),
+            filename=f.filename,
+            file_type=FileType(f.file_type.value),
+            status=ProcessingStatus(f.status.value),
+            created_at=f.created_at
+        )
+        for f in files
+    ]
+    
+    return FolderFilesListResponse(
+        files=response_files,
+        total=len(response_files)
+    )
 
 @router.delete("/files/{file_id}", response_model=DeleteFileResponse)
 async def delete_file_endpoint(
