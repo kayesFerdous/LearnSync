@@ -190,7 +190,16 @@ export function ConversationFileDropdown({ conversationId, folderId }: Conversat
                             files.map((file) => (
                                 <div
                                     key={file.id}
-                                    className="flex items-start gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors group"
+                                    draggable
+                                    onDragStart={(e) => {
+                                        e.dataTransfer.setData(
+                                            'application/x-file-scope',
+                                            JSON.stringify({ id: file.id, filename: file.filename })
+                                        );
+                                        e.dataTransfer.effectAllowed = 'copy';
+                                    }}
+                                    className="flex items-start gap-3 p-2 rounded-lg hover:bg-accent/50 transition-colors group cursor-grab active:cursor-grabbing active:opacity-70 select-none"
+                                    title="Drag to chat input to scope this file"
                                 >
                                     <div className="mt-0.5 shrink-0 bg-background p-1.5 rounded-md border border-border/50">
                                         {getFileIcon(file.file_type, file.filename)}

@@ -147,7 +147,8 @@ export function useChat() {
   const sendMessage = useCallback(async (
     userMessage: string,
     tag: string | null,
-    file: File | null
+    file: File | null,
+    fileIds: string[] = []
   ) => {
     const now = Date.now();
     const userMessageId = `${now}`;
@@ -173,9 +174,10 @@ export function useChat() {
 
     try {
       // Build payload
-      const payload: { message?: string; tag?: string; image?: string; file_upload?: { object_key: string; original_filename: string } } = {};
+      const payload: { message?: string; tag?: string; image?: string; file_upload?: { object_key: string; original_filename: string }; file_ids?: string[] } = {};
       if (tag) payload.tag = tag;
       if (userMessage) payload.message = userMessage;
+      if (fileIds.length > 0) payload.file_ids = fileIds;
       if (file) {
         if (file.type === 'application/pdf') {
           setThinkingStatus(assistantId, 'Uploading file...');
