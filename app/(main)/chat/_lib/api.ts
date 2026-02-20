@@ -725,6 +725,27 @@ export const fetchFolderFiles = async (folderId: string): Promise<FolderFilesRes
 };
 
 /**
+ * Fetch all files in a conversation
+ * GET /uploads/conversations/{conversation_id}/files
+ */
+export const fetchConversationFiles = async (conversationId: string): Promise<FolderFilesResponse> => {
+  const response = await fetch(`${API_BASE_URL}/uploads/conversations/${conversationId}/files`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Conversation not found');
+    }
+    throw new Error(`Failed to fetch conversation files (${response.status})`);
+  }
+
+  return response.json();
+};
+
+/**
  * Delete a file permanently
  * DELETE /uploads/files/{file_id}
  */

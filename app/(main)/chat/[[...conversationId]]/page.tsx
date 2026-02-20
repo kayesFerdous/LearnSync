@@ -7,7 +7,7 @@ import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2, ChevronDown, Che
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
 import { useViewerState } from '@/app/(main)/chat/_lib/use-viewer-state';
-import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer, CourseSetup, BatchUploadModal } from '@/app/(main)/chat/_components';
+import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer, CourseSetup, BatchUploadModal, ConversationFileDropdown } from '@/app/(main)/chat/_components';
 import { showErrorToast, showSuccessToast } from '@/app/(main)/chat/_lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -717,7 +717,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
               <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-custom">
                 <div className="w-full max-w-4xl mx-auto px-2 md:px-4">
                   {/* Header */}
-                  <div className="shrink-0 py-2 text-center pt-2 md:pt-4">
+                  <div className="shrink-0 py-2 text-center pt-2 md:pt-4 flex flex-col items-center gap-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
                       <Sparkles className="h-4 w-4 text-primary" />
                       <span>AI Assistant</span>
@@ -728,6 +728,9 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         </>
                       )}
                     </div>
+                    {currentConversationId && (
+                      <ConversationFileDropdown conversationId={currentConversationId} />
+                    )}
                   </div>
 
                   {/* Messages */}
