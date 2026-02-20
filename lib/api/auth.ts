@@ -141,7 +141,7 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
         throw new AuthApiError(
           'Incorrect credentials.',
           response.status,
-          responseData.detail
+          responseData.detail || 'Incorrect credentials'
         );
       }
 

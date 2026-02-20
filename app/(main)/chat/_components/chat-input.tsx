@@ -10,9 +10,10 @@ interface ChatInputProps {
   onSend: (message: string, tag: string | null, file: File | null) => void;
   onPdfSelect: (file: File | null) => void;
   selectedPdf: File | null;
+  onOpenBatchModal: () => void;
 }
 
-export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) {
+export function ChatInput({ onSend, onPdfSelect, selectedPdf, onOpenBatchModal }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showTags, setShowTags] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -92,7 +93,7 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
 
     setImageError(null);
     onSend(input.trim(), selectedTag, selectedFile || selectedPdf);
-    
+
     // Reset state
     setInput('');
     setSelectedTag(null);
@@ -217,7 +218,13 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
 
         {/* Attach Button */}
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (isImageOnlyMode) {
+              fileInputRef.current?.click();
+            } else {
+              onOpenBatchModal();
+            }
+          }}
           className={cn(
             "p-3 rounded-full transition-colors shrink-0",
             isImageOnlyMode
@@ -243,8 +250,8 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
                   : "bg-primary/10 text-primary border-primary/20"
               )}>
                 @{CHAT_TAGS.find(t => t.id === selectedTag)?.label}
-                <button 
-                  onClick={() => { setSelectedTag(null); setSelectedFile(null); setImageError(null); }} 
+                <button
+                  onClick={() => { setSelectedTag(null); setSelectedFile(null); setImageError(null); }}
                   className="hover:text-primary/70 ml-1"
                 >
                   <X className="h-3 w-3" />
@@ -260,8 +267,8 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
               )}>
                 {isImageOnlyMode ? <ImageIcon className="h-3 w-3 mr-1" /> : <FileIcon className="h-3 w-3 mr-1" />}
                 <span className="max-w-[100px] truncate">{selectedFile.name}</span>
-                <button 
-                  onClick={() => { setSelectedFile(null); setImageError(null); }} 
+                <button
+                  onClick={() => { setSelectedFile(null); setImageError(null); }}
                   className="hover:opacity-70 ml-1"
                 >
                   <X className="h-3 w-3" />
@@ -272,8 +279,8 @@ export function ChatInput({ onSend, onPdfSelect, selectedPdf }: ChatInputProps) 
               <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-medium animate-in zoom-in duration-200 border bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
                 <FileText className="h-3 w-3 mr-1" />
                 <span className="max-w-[100px] truncate">{selectedPdf.name}</span>
-                <button 
-                  onClick={() => onPdfSelect(null)} 
+                <button
+                  onClick={() => onPdfSelect(null)}
                   className="hover:opacity-70 ml-1"
                 >
                   <X className="h-3 w-3" />

@@ -7,7 +7,7 @@ import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2, ChevronDown, Che
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
 import { useViewerState } from '@/app/(main)/chat/_lib/use-viewer-state';
-import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer, CourseSetup } from '@/app/(main)/chat/_components';
+import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer, CourseSetup, BatchUploadModal } from '@/app/(main)/chat/_components';
 import { showErrorToast, showSuccessToast } from '@/app/(main)/chat/_lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +45,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const dividerRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     conversationId: string | null;
@@ -247,6 +248,13 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     // Start a new chat inside the created course folder
     handleNewChatInFolder(folderId);
     showSuccessToast('Course created successfully');
+  };
+
+  const handleBatchUploadSuccess = (conversationId: string) => {
+    setIsBatchModalOpen(false);
+    if (conversationId !== currentConversationId) {
+      handleConversationClick(conversationId);
+    }
   };
 
   const toggleFolder = (folderId: string) => {
@@ -751,6 +759,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     onSend={sendMessage}
                     onPdfSelect={handlePdfSelect}
                     selectedPdf={viewerContent?.type === 'pdf' ? viewerContent.data : null}
+                    onOpenBatchModal={() => setIsBatchModalOpen(true)}
                   />
                 </div>
               </div>
@@ -802,6 +811,16 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         type={deleteConfirmation.type}
+      />
+
+      {/* Batch Upload Modal */}
+      <BatchUploadModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={handleBatchUploadSuccess}
+        folderId={null} // Explicitly null for chat context
+        conversationId={currentConversationId}
+        folderContext={false} // Force navigation on new conversation creation
       />
 
       {/* Toast Notifications */}

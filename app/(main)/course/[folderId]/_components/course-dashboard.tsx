@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { 
-  PlusCircle, 
-  Upload, 
-  Settings, 
+import {
+  PlusCircle,
+  Upload,
+  Settings,
   MessageSquare,
   Clock,
   BookOpen,
@@ -29,7 +29,7 @@ import {
 import { Folder, FolderFile, FolderFileType, ProcessingStatus } from '@/app/(main)/chat/_lib/types';
 import { fetchFolderFiles, updateFolder } from '@/app/(main)/chat/_lib/api';
 import { cn } from '@/lib/utils';
-import { BatchUploadModal } from './batch-upload-modal';
+import { BatchUploadModal } from '@/app/(main)/chat/_components';
 import { CourseSettingsModal } from './course-settings-modal';
 import { FileDeleteDialog } from './file-delete-dialog';
 import { MindmapViewer } from './mindmap';
@@ -81,7 +81,7 @@ export const getFolderMetadata = (id: string) => {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
   const colorIndex = Math.abs(hash) % colors.length;
-  
+
   return {
     color: colors[colorIndex],
     icon: "📚" // Default icon
@@ -96,12 +96,12 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
   const [filesLoading, setFilesLoading] = useState(true);
   const [filesError, setFilesError] = useState<string | null>(null);
   const [fileToDelete, setFileToDelete] = useState<FolderFile | null>(null);
-  
+
   // Local state for folder customization (updates after save)
   const [folderName, setFolderName] = useState(folder.name);
   const [folderIcon, setFolderIcon] = useState<string | undefined>(folder.icon);
   const [folderTheme, setFolderTheme] = useState<string | undefined>(folder.theme);
-  
+
   // Use provided color/icon or fallback to generated ones
   // We check folder.theme first, then folder.color (legacy/extension), then generated
   const metadata = getFolderMetadata(folder.id);
@@ -124,7 +124,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
         setFilesLoading(false);
       }
     };
-    
+
     loadFiles();
   }, [folder.id]);
 
@@ -144,27 +144,27 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
   // Handle folder settings save
   const handleSettingsSave = useCallback(async (data: { name?: string; icon?: string; color?: string }) => {
     await updateFolder(folder.id, data);
-    
+
     // Update local state after successful save
     if (data.name) setFolderName(data.name);
     if (data.icon) setFolderIcon(data.icon);
     if (data.color) setFolderTheme(data.color);
-    
+
     // Trigger a soft refresh to update sidebar, etc.
     router.refresh();
   }, [folder.id, router]);
 
   return (
-    <div 
+    <div
       className="min-h-screen p-6 space-y-8 transition-colors duration-500"
-      style={{ 
+      style={{
         '--theme-color': themeColor,
         background: `linear-gradient(to bottom, ${themeColor}15 0%, transparent 400px)`
       } as React.CSSProperties}
     >
       {/* Hero Section */}
       <section className="flex flex-col items-center justify-center py-12 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <div 
+        <div
           className="w-24 h-24 flex items-center justify-center rounded-2xl text-6xl shadow-xl bg-background border-2 transition-transform hover:scale-105 duration-300"
           style={{ borderColor: themeColor }}
         >
@@ -182,21 +182,21 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
 
       {/* Quick Actions Grid */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
-        <QuickActionCard 
+        <QuickActionCard
           icon={<PlusCircle className="w-6 h-6" />}
           title="New Chat"
           description="Start a new conversation context"
           themeColor={themeColor}
           onClick={() => router.push(`/chat?folderId=${folder.id}`)}
         />
-        <QuickActionCard 
+        <QuickActionCard
           icon={<Upload className="w-6 h-6" />}
           title="Upload Documents"
           description="Add documents to knowledge base"
           themeColor={themeColor}
           onClick={() => setIsUploadModalOpen(true)}
         />
-        <QuickActionCard 
+        <QuickActionCard
           icon={<Settings className="w-6 h-6" />}
           title="Course Settings"
           description="Customize appearance and name"
@@ -229,13 +229,13 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           {folder.conversations && folder.conversations.length > 0 ? (
             <div className="divide-y">
               {folder.conversations.map((conversation) => (
-                <div 
+                <div
                   key={conversation.id}
                   className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
                   onClick={() => router.push(`/chat/${conversation.id}`)}
                 >
                   <div className="flex items-center gap-4">
-                    <div 
+                    <div
                       className="p-2 rounded-lg bg-muted text-muted-foreground group-hover:text-white group-hover:bg-[var(--theme-color)] transition-all duration-300 ring-1 ring-transparent group-hover:ring-[var(--theme-color)]"
                       style={{ '--theme-color': themeColor } as React.CSSProperties}
                     >
@@ -246,7 +246,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
                         {conversation.title || 'Untitled Conversation'}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {conversation.updated_at 
+                        {conversation.updated_at
                           ? format(new Date(conversation.updated_at), 'MMM d, yyyy • h:mm a')
                           : format(new Date(conversation.created_at), 'MMM d, yyyy • h:mm a')
                         }
@@ -261,7 +261,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
             </div>
           ) : (
             <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
-              <div 
+              <div
                 className="p-4 rounded-full bg-muted/50"
                 style={{ color: themeColor }}
               >
@@ -303,9 +303,9 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           ) : files.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
               {files.map((file) => (
-                <FileCard 
-                  key={file.id} 
-                  file={file} 
+                <FileCard
+                  key={file.id}
+                  file={file}
                   themeColor={themeColor}
                   onDelete={(f) => setFileToDelete(f)}
                 />
@@ -313,7 +313,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
             </div>
           ) : (
             <div className="p-12 text-center text-muted-foreground flex flex-col items-center gap-3">
-              <div 
+              <div
                 className="p-4 rounded-full bg-muted/50"
                 style={{ color: themeColor }}
               >
@@ -382,7 +382,7 @@ function QuickActionCard({ icon, title, description, themeColor, onClick }: Quic
         '--theme-color': themeColor
       } as React.CSSProperties}
     >
-      <div 
+      <div
         className="p-3 rounded-lg mb-4 text-white shadow-md transition-transform group-hover:scale-110 duration-300"
         style={{ backgroundColor: themeColor }}
       >
@@ -409,14 +409,14 @@ function FileCard({ file, themeColor, onDelete }: FileCardProps) {
   const status = statusConfig[file.status] || statusConfig.pending;
   const FileIcon = typeConfig.icon;
   const StatusIcon = status.icon;
-  
+
   // Truncate filename if too long
-  const displayName = file.filename.length > 28 
-    ? file.filename.slice(0, 25) + '...' 
+  const displayName = file.filename.length > 28
+    ? file.filename.slice(0, 25) + '...'
     : file.filename;
-  
+
   return (
-    <div 
+    <div
       className={cn(
         "group relative flex flex-col p-4 rounded-xl border bg-card transition-all duration-300",
         "hover:shadow-md hover:border-[var(--theme-color)]/30 hover:-translate-y-0.5"
@@ -425,24 +425,24 @@ function FileCard({ file, themeColor, onDelete }: FileCardProps) {
     >
       {/* File Type Icon + Actions */}
       <div className="flex items-start justify-between mb-3">
-        <div 
+        <div
           className="p-2.5 rounded-lg transition-transform group-hover:scale-105 duration-300"
           style={{ backgroundColor: `${typeConfig.color}15` }}
         >
           <FileIcon className="w-5 h-5" style={{ color: typeConfig.color }} />
         </div>
-        
+
         <div className="flex items-center gap-1.5">
           {/* Status Badge */}
-          <div 
+          <div
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
               status.bgColor
             )}
           >
-            <StatusIcon 
-              className={cn("w-3 h-3", file.status === 'processing' && "animate-spin")} 
-              style={{ color: status.color }} 
+            <StatusIcon
+              className={cn("w-3 h-3", file.status === 'processing' && "animate-spin")}
+              style={{ color: status.color }}
             />
             <span style={{ color: status.color }}>{status.label}</span>
           </div>
@@ -468,21 +468,21 @@ function FileCard({ file, themeColor, onDelete }: FileCardProps) {
           )}
         </div>
       </div>
-      
+
       {/* File Info */}
       <div className="flex-1 min-w-0">
-        <h4 
+        <h4
           className="font-medium text-sm text-foreground truncate mb-1 group-hover:text-[var(--theme-color)] transition-colors"
           title={file.filename}
         >
           {displayName}
         </h4>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span 
+          <span
             className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide"
-            style={{ 
-              backgroundColor: `${typeConfig.color}15`, 
-              color: typeConfig.color 
+            style={{
+              backgroundColor: `${typeConfig.color}15`,
+              color: typeConfig.color
             }}
           >
             {typeConfig.label}

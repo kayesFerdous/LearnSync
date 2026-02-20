@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { MindmapView } from "./mindmap/MindmapView";
 import { ContextualDock } from "./ContextualDock";
 import { RightPanel } from "./RightPanel";
-import { BatchUploadModal } from "./batch-upload-modal";
+import { BatchUploadModal } from "@/app/(main)/chat/_components";
 import { CourseSettingsModal } from "./course-settings-modal";
 import { FileDeleteDialog } from "./file-delete-dialog";
 import QuizConfigModal from "@/components/quiz/QuizConfigModal";

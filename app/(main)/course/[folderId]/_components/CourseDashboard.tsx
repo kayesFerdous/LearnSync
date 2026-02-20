@@ -10,7 +10,7 @@ import { CourseInfoCard } from "@/components/course/CourseInfoCard";
 import { MapPreview } from "@/components/course/MapPreview";
 import { ResourcesHub } from "@/components/course/ResourcesHub";
 import { QuickActions } from "@/components/course/QuickActions";
-import { BatchUploadModal } from "./batch-upload-modal";
+import { BatchUploadModal } from "@/app/(main)/chat/_components";
 import QuizConfigModal from "@/components/quiz/QuizConfigModal";
 import QuizOverlay from "@/components/quiz/QuizOverlay";
 import { FolderFile } from "@/app/(main)/chat/_lib/types";
