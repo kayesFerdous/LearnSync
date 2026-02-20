@@ -149,7 +149,7 @@ export function ConversationFileDropdown({ conversationId }: ConversationFileDro
             </button>
 
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-72 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
+                <div className="absolute top-full left-0 mt-2 w-72 bg-popover/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-2">
                     {/* Header */}
                     <div className="px-3 py-2 border-b border-border/50 bg-muted/30 flex items-center justify-between">
                         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

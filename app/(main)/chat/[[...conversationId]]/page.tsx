@@ -696,14 +696,22 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
           className={`h-full flex flex-col bg-background relative ${isDragging ? '' : 'transition-all duration-300 ease-in-out'}`}
           style={{ width: leftWidth }}
         >
-          {/* Sidebar Toggle Button */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
-            aria-label="Toggle sidebar"
-          >
-            {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-          </button>
+          {/* Top Left Controls */}
+          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
+              aria-label="Toggle sidebar"
+            >
+              {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+            </button>
+            {viewState !== 'course-setup' && currentConversationId && (
+              <div className="theme-shadow rounded-xl bg-background border border-border">
+                <ConversationFileDropdown conversationId={currentConversationId} />
+              </div>
+            )}
+          </div>
 
           {viewState === 'course-setup' ? (
             <CourseSetup
@@ -728,11 +736,6 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                         </>
                       )}
                     </div>
-                    {currentConversationId && (
-                      <div className="absolute right-0 top-2 md:top-4 z-10">
-                        <ConversationFileDropdown conversationId={currentConversationId} />
-                      </div>
-                    )}
                   </div>
 
                   {/* Messages */}
