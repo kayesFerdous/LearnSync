@@ -12,16 +12,17 @@ import {
     Loader2,
     ChevronDown
 } from 'lucide-react';
-import { fetchConversationFiles } from '@/app/(main)/chat/_lib/api';
+import { fetchConversationFiles, fetchFolderFiles } from '@/app/(main)/chat/_lib/api';
 import type { FolderFile, ProcessingStatus } from '@/app/(main)/chat/_lib/types';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ConversationFileDropdownProps {
     conversationId: string;
+    folderId?: string | null;
 }
 
-export function ConversationFileDropdown({ conversationId }: ConversationFileDropdownProps) {
+export function ConversationFileDropdown({ conversationId, folderId }: ConversationFileDropdownProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [files, setFiles] = useState<FolderFile[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -41,20 +42,20 @@ export function ConversationFileDropdown({ conversationId }: ConversationFileDro
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Reset state when conversation changes
+    // Reset state when conversation or folder changes
     useEffect(() => {
         setHasFetched(false);
         setFiles([]);
         setIsOpen(false);
         setError(null);
-    }, [conversationId]);
+    }, [conversationId, folderId]);
 
     const handleToggle = async () => {
         const nextState = !isOpen;
         setIsOpen(nextState);
 
         // Only fetch on open if we haven't already
-        if (nextState && !hasFetched && conversationId) {
+        if (nextState && !hasFetched && (conversationId || folderId)) {
             void fetchFiles();
         }
     };
@@ -63,7 +64,12 @@ export function ConversationFileDropdown({ conversationId }: ConversationFileDro
         setIsLoading(true);
         setError(null);
         try {
-            const resp = await fetchConversationFiles(conversationId);
+            let resp;
+            if (folderId) {
+                resp = await fetchFolderFiles(folderId);
+            } else {
+                resp = await fetchConversationFiles(conversationId);
+            }
             setFiles(resp.files || []);
             setHasFetched(true);
         } catch (err: any) {

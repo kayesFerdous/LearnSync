@@ -338,6 +338,17 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const leftWidth = isViewerActive ? `${currentRatio * 100}%` : '100%';
   const rightWidth = isViewerActive ? `${(1 - currentRatio) * 100}%` : '0%';
 
+  const getComputedFolderId = () => {
+    if (activeFolderId) return activeFolderId;
+    if (currentConversationId) {
+      const folder = folders.find(f => f.conversations.some(c => c.id === currentConversationId));
+      return folder?.id || null;
+    }
+    return null;
+  };
+
+  const computedFolderId = getComputedFolderId();
+
   return (
     <div className="absolute inset-0 flex w-full overflow-hidden">
       {/* Conversations Sidebar */}
@@ -708,7 +719,10 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
             </button>
             {viewState !== 'course-setup' && currentConversationId && (
               <div className="theme-shadow rounded-xl bg-background border border-border">
-                <ConversationFileDropdown conversationId={currentConversationId} />
+                <ConversationFileDropdown
+                  conversationId={currentConversationId}
+                  folderId={computedFolderId}
+                />
               </div>
             )}
           </div>
@@ -729,10 +743,10 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
                       <Sparkles className="h-4 w-4 text-primary" />
                       <span>AI Assistant</span>
-                      {activeFolderId && (
+                      {computedFolderId && (
                         <>
                           <span className="text-muted-foreground">in</span>
-                          <span className="font-semibold">{folders.find(f => f.id === activeFolderId)?.name}</span>
+                          <span className="font-semibold">{folders.find(f => f.id === computedFolderId)?.name}</span>
                         </>
                       )}
                     </div>
