@@ -1,6 +1,6 @@
 from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import Filter, FieldCondition, MatchValue, MatchAny
 
 from src.agents.model import AgentState
 from src.rag.retrieval import retrieve_documents
@@ -47,16 +47,25 @@ def make_rag_node(llm: BaseChatModel, rewrite_query_llm: BaseChatModel):
             filter_conditions = [
                 FieldCondition(key="metadata.user_id", match=MatchValue(value=state["user_id"]))
             ]
-            
-            if state["metadata"].get("folder_id"):
+
+            file_ids: list[str] = state["metadata"].get("file_ids", [])
+
+            if file_ids:
+                # Highest priority: scope retrieval to only the explicitly selected files.
+                # Uses "document_id" — the key stored during ingestion in _create_metadata_from_chunk.
+                filter_conditions.append(
+                    FieldCondition(key="metadata.document_id", match=MatchAny(any=file_ids))
+                )
+            elif state["metadata"].get("folder_id"):
                 filter_conditions.append(
                     FieldCondition(key="metadata.folder_id", match=MatchValue(value=state["metadata"]["folder_id"]))
                 )
-
             else:
                 filter_conditions.append(
                     FieldCondition(key="metadata.conversation_id", match=MatchValue(value=state["metadata"]["conversation_id"]))
                 )
+
+            logger.info(f"\n\nRag Node Filter Conditions: {filter_conditions}")
 
             docs = await retrieve_documents(
                 query=user_query,

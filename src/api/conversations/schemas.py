@@ -9,6 +9,7 @@ class ConversationRequest(BaseModel):
     image: str | None = None
     user_input: str | dict | None  = None
     tag: str | None = None  # Made optional for auto-routing
+    file_ids: List[str] | None = None  # Optional list of file IDs to scope RAG retrieval
 
 
 class ConversationResponse(BaseModel):
