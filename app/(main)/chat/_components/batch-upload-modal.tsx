@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { 
-  X, 
-  Upload, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  X,
+  Upload,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
   Loader2,
   File as FileIcon,
   Image as ImageIcon,
@@ -15,9 +15,9 @@ import {
   Globe
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { 
-  batchUploadFiles, 
-  validateBatchFileSize, 
+import {
+  batchUploadFiles,
+  validateBatchFileSize,
   calculateTotalSize,
   MAX_UPLOAD_SIZE,
   MAX_BATCH_SIZE,
@@ -47,9 +47,9 @@ interface BatchUploadModalProps {
   folderContext?: boolean; // If true, don't navigate on success - stay on folder page
 }
 
-export function BatchUploadModal({ 
-  isOpen, 
-  onClose, 
+export function BatchUploadModal({
+  isOpen,
+  onClose,
   onSuccess,
   onFilesProcessed,
   conversationId = null,
@@ -63,19 +63,19 @@ export function BatchUploadModal({
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   // URL processing state
   const [urlInput, setUrlInput] = useState('');
   const [urlItems, setUrlItems] = useState<UrlUploadItem[]>([]);
   const [isProcessingUrl, setIsProcessingUrl] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const pollingIntervalRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  
+
   // Track conversation ID for navigation after all files complete
   const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
   const onSuccessRef = useRef(onSuccess);
   const onFilesProcessedRef = useRef(onFilesProcessed);
-  
+
   // Keep refs updated
   React.useEffect(() => {
     onSuccessRef.current = onSuccess;
@@ -117,46 +117,49 @@ export function BatchUploadModal({
     const poll = async () => {
       try {
         const response = await fetchFileStatus(fileId);
-        
+
         setUrlItems(prev => {
-          const updated = prev.map(item => 
-            item.id === fileId 
-              ? { 
-                  ...item, 
-                  status: response.status, 
-                  error_message: response.error_message || undefined,
-                  filename: response.filename || item.filename
-                }
+          const updated = prev.map(item =>
+            item.id === fileId
+              ? {
+                ...item,
+                status: response.status,
+                error_message: response.error_message || undefined,
+                filename: response.filename || item.filename
+              }
               : item
           );
-          
-          // Check if all items are in terminal state
-          const allDone = updated.every(item => 
-            item.status === 'completed' || item.status === 'failed' || item.status === 'cancelled'
-          );
-          const hasCompleted = updated.some(item => item.status === 'completed');
-          
-          // If all done and at least one completed
-          if (allDone && hasCompleted && updated.length > 0) {
-            // Use setTimeout to avoid state update during render
-            setTimeout(() => {
-              // In folder context, just notify that processing is complete (no navigation)
-              if (folderContext) {
-                onFilesProcessedRef.current?.();
-                // Don't navigate - just keep the modal showing success
-              } else {
-                // In chat context, navigate to conversation
-                setPendingConversationId(currentId => {
-                  if (currentId && onSuccessRef.current) {
-                    onSuccessRef.current(currentId);
-                  }
-                  return null;
-                });
-              }
-            }, 500);
-          }
-          
+
           return updated;
+        });
+
+        // Trigger side-effects outside of the setState callback updater
+        setUrlItems(currentItems => {
+          const itemInList = currentItems.find(i => i.id === fileId);
+          if (itemInList) {
+            const allDone = currentItems.every(item =>
+              item.status === 'completed' || item.status === 'failed' || item.status === 'cancelled'
+            );
+            const hasCompleted = currentItems.some(item => item.status === 'completed');
+
+            if (allDone && hasCompleted && currentItems.length > 0) {
+              // Ensure we only trigger this side-effect once by using a slight timeout
+              // outside of the React render cycle
+              setTimeout(() => {
+                if (folderContext) {
+                  onFilesProcessedRef.current?.();
+                } else {
+                  setPendingConversationId(currentId => {
+                    if (currentId && onSuccessRef.current) {
+                      onSuccessRef.current(currentId);
+                    }
+                    return null;
+                  });
+                }
+              }, 0);
+            }
+          }
+          return currentItems;
         });
 
         // Stop polling ONLY on terminal states (completed, failed, cancelled)
@@ -166,7 +169,7 @@ export function BatchUploadModal({
             clearInterval(intervalId);
             pollingIntervalRef.current.delete(fileId);
           }
-          
+
           // Auto-remove cancelled items from the list
           if (response.status === 'cancelled') {
             setUrlItems(prev => prev.filter(item => item.id !== fileId));
@@ -212,11 +215,11 @@ export function BatchUploadModal({
 
     try {
       const response = await processUrl(url, conversationId, folderId);
-      
+
       // Extract filename from URL for display
       const urlObj = new URL(url);
       const filename = urlObj.pathname.split('/').pop() || urlObj.hostname;
-      
+
       // Add placeholder item with pending status
       const newItem: UrlUploadItem = {
         id: response.file_id,
@@ -224,14 +227,14 @@ export function BatchUploadModal({
         filename: filename,
         status: 'pending'
       };
-      
+
       setUrlItems(prev => [...prev, newItem]);
       setUrlInput('');
       setShowUrlInput(false);
-      
+
       // Start polling for this file
       startPolling(response.file_id);
-      
+
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to process URL';
       setError(message);
@@ -256,22 +259,22 @@ export function BatchUploadModal({
     try {
       // Call the cancel endpoint
       await cancelFileProcessing(fileId);
-      
+
       // Stop polling for this file
       const intervalId = pollingIntervalRef.current.get(fileId);
       if (intervalId) {
         clearInterval(intervalId);
         pollingIntervalRef.current.delete(fileId);
       }
-      
+
       // Remove from the UI immediately
       setUrlItems(prev => prev.filter(item => item.id !== fileId));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to cancel';
       console.error('Cancel error:', message);
       // Update the item to show the error
-      setUrlItems(prev => prev.map(item => 
-        item.id === fileId 
+      setUrlItems(prev => prev.map(item =>
+        item.id === fileId
           ? { ...item, error_message: message }
           : item
       ));
@@ -280,14 +283,14 @@ export function BatchUploadModal({
 
   const handleFileSelect = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
-    
+
     // Validate file sizes (per-file and total batch with existing files)
     const errors = validateBatchFileSize(fileArray, selectedFiles);
     if (errors.length > 0) {
       setError(errors.join('\n'));
       return;
     }
-    
+
     setError(null);
     setSelectedFiles(prev => {
       // Avoid duplicates by name
@@ -310,7 +313,7 @@ export function BatchUploadModal({
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.files.length > 0) {
       handleFileSelect(e.dataTransfer.files);
     }
@@ -352,9 +355,9 @@ export function BatchUploadModal({
           filename: file.filename,
           status: 'pending' as ProcessingStatus
         }));
-        
+
         setUrlItems(prev => [...prev, ...newUrlItems]);
-        
+
         // Start polling for each file
         result.files.forEach(file => {
           startPolling(file.file_id);
@@ -441,23 +444,23 @@ export function BatchUploadModal({
   };
 
   // Check if there are any active processing items (pending or processing)
-  const hasActiveProcessing = urlItems.some(i => 
+  const hasActiveProcessing = urlItems.some(i =>
     i.status === 'pending' || i.status === 'processing'
   );
   const hasUrlItems = urlItems.length > 0;
-  const allProcessingComplete = hasUrlItems && urlItems.every(i => 
+  const allProcessingComplete = hasUrlItems && urlItems.every(i =>
     i.status === 'completed' || i.status === 'failed' || i.status === 'cancelled'
   );
-  
+
   // Show upload components only when there's no completed processing yet
   const showUploadComponents = !allProcessingComplete;
-  
+
   // Check if there's a valid URL in the input
   const hasUrlInput = urlInput.trim().length > 0;
-  
+
   // Show footer when there are files to upload, URL items, or URL input has text
   const showFooter = selectedFiles.length > 0 || hasUrlItems || hasUrlInput;
-  
+
   // Determine what to show in the header
   const getHeaderState = () => {
     if (hasActiveProcessing) return 'processing';
@@ -469,11 +472,11 @@ export function BatchUploadModal({
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={handleClose}
     >
-      <div 
+      <div
         className="bg-background rounded-2xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 shadow-2xl border border-border/50"
         onClick={e => e.stopPropagation()}
       >
@@ -485,12 +488,12 @@ export function BatchUploadModal({
           >
             <X className="w-4 h-4" />
           </button>
-          
+
           <div className="text-center">
             <h2 className="text-lg font-semibold">
-              {headerState === 'processing' ? 'Processing Files' : 
-               headerState === 'complete' ? 'Upload Complete' : 
-               'Add Sources'}
+              {headerState === 'processing' ? 'Processing Files' :
+                headerState === 'complete' ? 'Upload Complete' :
+                  'Add Sources'}
             </h2>
             {hasUrlItems && hasActiveProcessing && (
               <p className="text-sm text-muted-foreground mt-1">
@@ -529,49 +532,49 @@ export function BatchUploadModal({
                 )}
               </div>
 
-          {/* Drop Zone - Clean */}
-          <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "rounded-xl py-10 text-center cursor-pointer transition-all duration-200 border border-dashed",
-              isDragging 
-                ? "border-primary bg-primary/5" 
-                : "border-muted-foreground/20 hover:border-muted-foreground/40 bg-muted/20 hover:bg-muted/30",
-              isUploading && "pointer-events-none opacity-50"
-            )}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) {
-                  handleFileSelect(e.target.files);
-                }
-                e.target.value = '';
-              }}
-            />
-            
-            <p className="text-muted-foreground">
-              {isDragging ? 'Drop files here' : 'or drop your files'}
-            </p>
-          </div>
+              {/* Drop Zone - Clean */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "rounded-xl py-10 text-center cursor-pointer transition-all duration-200 border border-dashed",
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/20 hover:border-muted-foreground/40 bg-muted/20 hover:bg-muted/30",
+                  isUploading && "pointer-events-none opacity-50"
+                )}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      handleFileSelect(e.target.files);
+                    }
+                    e.target.value = '';
+                  }}
+                />
 
-          {/* Quick action buttons */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-full bg-muted/50 hover:bg-muted transition-colors disabled:opacity-50"
-            >
-              <Upload className="w-4 h-4" />
-              Upload files
-            </button>
-          </div>
+                <p className="text-muted-foreground">
+                  {isDragging ? 'Drop files here' : 'or drop your files'}
+                </p>
+              </div>
+
+              {/* Quick action buttons */}
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex items-center gap-2 px-4 py-2 text-sm rounded-full bg-muted/50 hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload files
+                </button>
+              </div>
             </>
           )}
 
@@ -593,25 +596,25 @@ export function BatchUploadModal({
                   <span>Processing {processingStats.processing} item{processingStats.processing > 1 ? 's' : ''}...</span>
                 </div>
               )}
-              
+
               {/* Progress bar */}
               {urlItems.length > 0 && (
                 <div className="h-1 bg-muted rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full transition-all duration-500 rounded-full"
-                    style={{ 
+                    style={{
                       width: `${processingStats.total > 0 ? (processingStats.completed / processingStats.total) * 100 : 0}%`,
                       backgroundColor: themeColor,
                     }}
                   />
                 </div>
               )}
-              
+
               {/* Items list */}
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {/* URL Items */}
                 {urlItems.map((item) => (
-                  <div 
+                  <div
                     key={item.id}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg group hover:bg-muted/50 transition-colors"
                   >
@@ -627,7 +630,7 @@ export function BatchUploadModal({
                         <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: themeColor }} />
                       )}
                     </div>
-                    
+
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{item.filename}</p>
@@ -641,7 +644,7 @@ export function BatchUploadModal({
                         {item.status === 'failed' && item.error_message && ` - ${item.error_message}`}
                       </p>
                     </div>
-                    
+
                     {/* Remove button */}
                     <button
                       onClick={(e) => {
@@ -658,12 +661,12 @@ export function BatchUploadModal({
                     </button>
                   </div>
                 ))}
-                
+
                 {/* File Items */}
                 {selectedFiles.map((file) => {
                   const progress = getProgressStatus(file.name);
                   return (
-                    <div 
+                    <div
                       key={file.name}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg group hover:bg-muted/50 transition-colors"
                     >
@@ -682,7 +685,7 @@ export function BatchUploadModal({
                           <div className="w-2 h-2 rounded-full bg-muted-foreground/40" />
                         )}
                       </div>
-                      
+
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm truncate">{file.name}</p>
@@ -697,13 +700,13 @@ export function BatchUploadModal({
                           {progress?.status === 'uploaded' && ' • Ready'}
                           {progress?.status === 'failed' && ` • ${progress.error || 'Failed'}`}
                         </p>
-                        
+
                         {/* Progress bar for uploading */}
                         {progress?.status === 'uploading' && (
                           <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
-                            <div 
+                            <div
                               className="h-full transition-all duration-300 rounded-full"
-                              style={{ 
+                              style={{
                                 width: `${progress.progress || 0}%`,
                                 backgroundColor: themeColor,
                               }}
@@ -711,7 +714,7 @@ export function BatchUploadModal({
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Remove button (only when not uploading) */}
                       {!isUploading && (
                         <button

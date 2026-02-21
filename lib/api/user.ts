@@ -17,6 +17,15 @@ export interface UserProfile {
   settings: UserSettings;
 }
 
+export interface PublicUserProfile {
+  user_id: string;
+  username: string;
+  picture: string | null;
+  created_at: string;
+  is_admin: boolean;
+  subscribed: boolean;
+}
+
 export interface UpdateProfileRequest {
   username?: string;
   picture?: string;
@@ -144,6 +153,42 @@ export async function updateSettings(data: UpdateSettingsRequest): Promise<UserP
     }
 
     return responseData as UserProfile;
+  } catch (error) {
+    if (error instanceof UserApiError) {
+      throw error;
+    }
+    throw new UserApiError(
+      'Network error. Please check your connection.',
+      0,
+      'Network error'
+    );
+  }
+}
+
+/**
+ * Get public profile for another user
+ */
+export async function getPublicProfile(userId: string): Promise<PublicUserProfile> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      throw new UserApiError(
+        responseData.detail || 'Failed to fetch public profile',
+        response.status,
+        responseData.detail
+      );
+    }
+
+    return responseData as PublicUserProfile;
   } catch (error) {
     if (error instanceof UserApiError) {
       throw error;

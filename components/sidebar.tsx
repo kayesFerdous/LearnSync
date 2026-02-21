@@ -12,7 +12,8 @@ import {
   Shield, 
   User,
   X,
-  Clock
+  Clock,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUiStore } from '@/lib/store';
@@ -20,6 +21,7 @@ import { useUiStore } from '@/lib/store';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & insights' },
   { href: '/chat', label: 'Chat', icon: MessageSquare, description: 'AI conversations' },
+  { href: '/messaging', label: 'Messages', icon: MessageCircle, description: 'Direct messages' },
   { href: '/editor', label: 'Text Editor', icon: FileText, description: 'Create documents' },
   { href: '/calendar', label: 'Calendar', icon: Calendar, description: 'Schedule & events' },
   { href: '/routines', label: 'Class Schedule', icon: Clock, description: 'Weekly routines' },

@@ -17,8 +17,10 @@ import {
   AlertCircle,
   X,
   RefreshCw,
-  UserX
+  UserX,
+  MessageCircle
 } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { 
   getUsers, 
@@ -403,7 +405,14 @@ export default function AdminPage() {
                         <span className="text-sm text-muted-foreground whitespace-nowrap">{formatDate(user.created_at)}</span>
                       </td>
                       <td className="px-6 py-3">
-                        <div className="flex justify-center">
+                        <div className="flex justify-center gap-1">
+                          <Link
+                            href={`/messaging?userId=${user.user_id}&username=${encodeURIComponent(user.username)}&email=${encodeURIComponent(user.email)}`}
+                            className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Send message"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Link>
                           <button
                             onClick={() => openDeleteDialog(user)}
                             disabled={user.is_admin}

@@ -6,3 +6,5 @@ export { ToastContainer } from './toast-container';
 export { ResizableSplitPane } from './resizable-split-pane';
 export { ViewerContainer } from './viewer-container';
 export { CourseSetup } from './course-setup';
+export { BatchUploadModal } from './batch-upload-modal';
+export { ConversationFileDropdown } from './conversation-file-dropdown';

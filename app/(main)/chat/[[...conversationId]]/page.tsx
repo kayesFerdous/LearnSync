@@ -7,7 +7,7 @@ import { Sparkles, Plus, PanelLeftClose, PanelLeftOpen, Trash2, ChevronDown, Che
 import { useUiStore } from '@/lib/store';
 import { useChat } from '@/app/(main)/chat/_lib';
 import { useViewerState } from '@/app/(main)/chat/_lib/use-viewer-state';
-import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer, CourseSetup } from '@/app/(main)/chat/_components';
+import { ChatMessage, ChatInput, PdfViewerPanel, DeleteConfirmationDialog, ToastContainer, ViewerContainer, CourseSetup, BatchUploadModal, ConversationFileDropdown } from '@/app/(main)/chat/_components';
 import { showErrorToast, showSuccessToast } from '@/app/(main)/chat/_lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -45,6 +45,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const dividerRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
     conversationId: string | null;
@@ -249,6 +250,13 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
     showSuccessToast('Course created successfully');
   };
 
+  const handleBatchUploadSuccess = (conversationId: string) => {
+    setIsBatchModalOpen(false);
+    if (conversationId !== currentConversationId) {
+      handleConversationClick(conversationId);
+    }
+  };
+
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
@@ -329,6 +337,17 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
   const currentRatio = isDragging ? localSplitRatio : splitRatio;
   const leftWidth = isViewerActive ? `${currentRatio * 100}%` : '100%';
   const rightWidth = isViewerActive ? `${(1 - currentRatio) * 100}%` : '0%';
+
+  const getComputedFolderId = () => {
+    if (activeFolderId) return activeFolderId;
+    if (currentConversationId) {
+      const folder = folders.find(f => f.conversations.some(c => c.id === currentConversationId));
+      return folder?.id || null;
+    }
+    return null;
+  };
+
+  const computedFolderId = getComputedFolderId();
 
   return (
     <div className="absolute inset-0 flex w-full overflow-hidden">
@@ -688,14 +707,25 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
           className={`h-full flex flex-col bg-background relative ${isDragging ? '' : 'transition-all duration-300 ease-in-out'}`}
           style={{ width: leftWidth }}
         >
-          {/* Sidebar Toggle Button */}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="absolute top-4 left-4 z-20 p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
-            aria-label="Toggle sidebar"
-          >
-            {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-          </button>
+          {/* Top Left Controls */}
+          <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+            {/* Sidebar Toggle Button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-lg bg-background border border-border hover:bg-accent text-muted-foreground hover:text-foreground transition-all duration-200 theme-shadow"
+              aria-label="Toggle sidebar"
+            >
+              {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+            </button>
+            {viewState !== 'course-setup' && currentConversationId && (
+              <div className="theme-shadow rounded-xl bg-background border border-border">
+                <ConversationFileDropdown
+                  conversationId={currentConversationId}
+                  folderId={computedFolderId}
+                />
+              </div>
+            )}
+          </div>
 
           {viewState === 'course-setup' ? (
             <CourseSetup
@@ -709,14 +739,14 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
               <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-custom">
                 <div className="w-full max-w-4xl mx-auto px-2 md:px-4">
                   {/* Header */}
-                  <div className="shrink-0 py-2 text-center pt-2 md:pt-4">
+                  <div className="relative shrink-0 py-2 text-center pt-2 md:pt-4">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary text-secondary-foreground text-sm font-medium border border-border theme-shadow hover:theme-shadow-md transition-all duration-200">
                       <Sparkles className="h-4 w-4 text-primary" />
                       <span>AI Assistant</span>
-                      {activeFolderId && (
+                      {computedFolderId && (
                         <>
                           <span className="text-muted-foreground">in</span>
-                          <span className="font-semibold">{folders.find(f => f.id === activeFolderId)?.name}</span>
+                          <span className="font-semibold">{folders.find(f => f.id === computedFolderId)?.name}</span>
                         </>
                       )}
                     </div>
@@ -751,6 +781,7 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
                     onSend={sendMessage}
                     onPdfSelect={handlePdfSelect}
                     selectedPdf={viewerContent?.type === 'pdf' ? viewerContent.data : null}
+                    onOpenBatchModal={() => setIsBatchModalOpen(true)}
                   />
                 </div>
               </div>
@@ -802,6 +833,16 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         type={deleteConfirmation.type}
+      />
+
+      {/* Batch Upload Modal */}
+      <BatchUploadModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        onSuccess={handleBatchUploadSuccess}
+        folderId={null} // Explicitly null for chat context
+        conversationId={currentConversationId}
+        folderContext={false} // Force navigation on new conversation creation
       />
 
       {/* Toast Notifications */}

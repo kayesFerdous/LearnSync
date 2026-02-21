@@ -14,6 +14,15 @@ export interface LoginRequest {
 export interface AuthResponse {
   user_id: string;
   message: string;
+  requires_email_verification?: boolean;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface ResendVerificationResponse {
+  message: string;
 }
 
 export interface AuthError {
@@ -31,6 +40,23 @@ export class AuthApiError extends Error {
   }
 }
 
+type ApiResponsePayload = {
+  detail?: string;
+  message?: string;
+};
+
+async function parseJsonSafe(response: Response): Promise<ApiResponsePayload> {
+  try {
+    const data = await response.json();
+    if (typeof data === 'object' && data !== null) {
+      return data as ApiResponsePayload;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Sign up a new user
  */
@@ -45,7 +71,7 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
       body: JSON.stringify(data),
     });
 
-    const responseData = await response.json();
+    const responseData = await parseJsonSafe(response);
 
     if (!response.ok) {
       // Handle specific error cases
@@ -69,7 +95,7 @@ export async function signup(data: SignupRequest): Promise<AuthResponse> {
       throw new AuthApiError(
         responseData.detail || 'Signup failed',
         response.status,
-        responseData.detail
+        responseData.detail || 'Signup failed'
       );
     }
 
@@ -100,7 +126,7 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
       body: JSON.stringify(data),
     });
 
-    const responseData = await response.json();
+    const responseData = await parseJsonSafe(response);
 
     if (!response.ok) {
       // Handle specific error cases
@@ -115,14 +141,22 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
         throw new AuthApiError(
           'Incorrect credentials.',
           response.status,
-          responseData.detail
+          responseData.detail || 'Incorrect credentials'
+        );
+      }
+
+      if (response.status === 403) {
+        throw new AuthApiError(
+          'Email not verified. Please verify your email before signing in.',
+          response.status,
+          responseData.detail || 'Email not verified'
         );
       }
 
       throw new AuthApiError(
         responseData.detail || 'Login failed',
         response.status,
-        responseData.detail
+        responseData.detail || 'Login failed'
       );
     }
 
@@ -131,6 +165,66 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     if (error instanceof AuthApiError) {
       throw error;
     }
+    throw new AuthApiError(
+      'Network error. Please check your connection.',
+      0,
+      'Network error'
+    );
+  }
+}
+
+/**
+ * Resend verification email
+ */
+export async function resendVerification(
+  data: ResendVerificationRequest
+): Promise<ResendVerificationResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+
+    const responseData = await parseJsonSafe(response);
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        throw new AuthApiError(
+          'Please wait 60 seconds before requesting another verification email.',
+          response.status,
+          responseData.detail || 'Resend too soon'
+        );
+      }
+
+      if (response.status === 502) {
+        throw new AuthApiError(
+          'Email delivery failed. Please try again in a moment.',
+          response.status,
+          responseData.detail || 'Email delivery failed'
+        );
+      }
+
+      throw new AuthApiError(
+        responseData.detail || 'Failed to resend verification email.',
+        response.status,
+        responseData.detail || 'Failed to resend verification email.'
+      );
+    }
+
+    return {
+      message:
+        responseData.message ||
+        'If an account exists and is not verified, a verification email has been sent.',
+    };
+  } catch (error) {
+    if (error instanceof AuthApiError) {
+      throw error;
+    }
+
     throw new AuthApiError(
       'Network error. Please check your connection.',
       0,
