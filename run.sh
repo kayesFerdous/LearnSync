@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# Run database migrations
+echo "Running Database Migrations..."
+uv run alembic upgrade head
+
 # Run database initialization (Non-Alembic)
 echo "Initializing database..."
 uv run src/init_db.py
