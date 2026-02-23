@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb1 \
     && rm -rf /var/lib/apt/lists/*
 
+
 # Install deps (no venv, system install)
 RUN uv sync --locked
 
@@ -24,4 +25,5 @@ COPY . .
 
 EXPOSE 8000
 
-CMD [ "uv", "run","uvicorn", "src.main:app", "--host", "0.0.0.0",  "--port", "8000", "--workers", "1"]
+RUN chmod +x run.sh
+CMD ["./run.sh"]
