@@ -494,9 +494,9 @@ async def generate_folder_mindmap(
     mindmap = await _generate_mindmap_with_llm(files_data, context, llm)
     
     # Save to database only if we're generating for the whole folder (no specific file_ids)
-    if not file_ids:
-        await _save_mindmap_to_db(db, user_id, mindmap, folder_id=folder_id)
-        logger.info(f"Saved mindmap for folder {folder_id} to database")
+    # if not file_ids:
+    await _save_mindmap_to_db(db, user_id, mindmap, folder_id=folder_id)
+    logger.info(f"Saved mindmap for folder {folder_id} to database")
     
     return mindmap
 
