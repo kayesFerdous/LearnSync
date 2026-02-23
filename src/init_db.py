@@ -36,10 +36,10 @@ async def init_db():
     engine = create_async_engine(settings.DATABASE_URL, echo=True)
     
     async with engine.begin() as conn:
-        logger.info("Initializing tables (existing tables and data will be preserved)...")
+        logger.info("Creating tables...")
         # Create all tables defined in Base.metadata
-        # checkfirst=True ensures that existing tables are NOT dropped or overwritten
-        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+        # multiple runs are safe (checkfirst=True is default)
+        await conn.run_sync(Base.metadata.create_all)
     
     logger.info("Database initialized successfully.")
     await engine.dispose()
