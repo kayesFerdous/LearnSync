@@ -60,6 +60,7 @@ async def runner(
             "metadata": {
                 "conversation_id": thread_id,
                 "folder_id": folder_id,
+                "file_ids": payload.file_ids or [],
             }
         }
 
