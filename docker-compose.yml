@@ -3,8 +3,8 @@ services:
     build: .
     container_name: fastapi_api
     restart: always
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     env_file:
       - .env
     environment:
@@ -39,6 +39,22 @@ services:
     volumes:
       - qdrant_storage:/qdrant/storage
 
+  caddy:
+    image: caddy:latest
+    container_name: caddy_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
 volumes:
   postgres_data:
   qdrant_storage:
+  caddy_data:
+  caddy_config:
