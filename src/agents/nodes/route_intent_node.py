@@ -15,6 +15,9 @@ nodes = {
 
 def make_route_intent_node(route_intent_llm):
     async def route_intent(state: AgentState):
+        if state['file_ids']:
+            return {'tool': 'rag_node', 'metadata': state['metadata']}
+
         tag = state['tag']
         log.info(f"from the frontend tag: {tag}")
         if tag in nodes:
