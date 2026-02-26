@@ -840,8 +840,8 @@ export default function ChatPage({ params }: { params: Promise<{ conversationId?
         isOpen={isBatchModalOpen}
         onClose={() => setIsBatchModalOpen(false)}
         onSuccess={handleBatchUploadSuccess}
-        folderId={null} // Explicitly null for chat context
-        conversationId={currentConversationId}
+        folderId={computedFolderId}
+        conversationId={computedFolderId ? null : currentConversationId}
         folderContext={false} // Force navigation on new conversation creation
       />
 
