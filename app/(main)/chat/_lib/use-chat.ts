@@ -4,14 +4,14 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder, FileUploadProgress, BatchConfirmResponse } from './types';
 import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder, updateConversationTitle, updateFolder, deleteFolder, batchUploadFiles, MAX_UPLOAD_SIZE, MAX_BATCH_SIZE, calculateTotalSize } from './api';
 import { INITIAL_MESSAGE } from './constants';
+import { chatUrl } from './chat-url';
 
-export function useChat() {
+export function useChat(folderId?: string | null) {
   // Conversation thread state
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  const [viewState, setViewState] = useState<'chat' | 'course-setup'>('chat'); // New view state
+  const [viewState, setViewState] = useState<'chat' | 'course-setup'>('chat');
 
   // Chat message state
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
@@ -129,16 +129,14 @@ export function useChat() {
     }
   }, []);
 
-  const startNewChat = useCallback((folderId?: string | null) => {
+  const startNewChat = useCallback(() => {
     setCurrentConversationId(null);
     setViewState('chat');
-    setActiveFolderId(folderId || null);
     setMessages([INITIAL_MESSAGE]);
   }, []);
 
   const openCourseSetup = useCallback(() => {
     setCurrentConversationId(null);
-    setActiveFolderId(null);
     setViewState('course-setup');
     setMessages([INITIAL_MESSAGE]);
   }, []);
@@ -191,7 +189,7 @@ export function useChat() {
           // If upload created/associated with a conversation and we're not in one, redirect
           if (uploadResult.conversation_id && !currentConversationId) {
             setCurrentConversationId(uploadResult.conversation_id);
-            window.history.replaceState(null, '', `/chat/${uploadResult.conversation_id}`);
+            window.history.replaceState(null, '', chatUrl(uploadResult.conversation_id, folderId));
 
             // Load messages for that conversation
             try {
@@ -215,9 +213,9 @@ export function useChat() {
         : `${BACKEND_URL.replace('/chat_bot', '')}/conversation/`;
 
       // Append folder_id as query parameter when creating a new conversation in a folder
-      if (!currentConversationId && activeFolderId) {
+      if (!currentConversationId && folderId) {
         const separator = endpoint.includes('?') ? '&' : '?';
-        endpoint += `${separator}folder_id=${encodeURIComponent(activeFolderId)}`;
+        endpoint += `${separator}folder_id=${encodeURIComponent(folderId)}`;
       }
 
       const response = await fetch(endpoint, {
@@ -248,12 +246,9 @@ export function useChat() {
           // CRITICAL: Handle conversation creation
           newConversationId = conversationId;
           setCurrentConversationId(conversationId);
-          // Don't clear activeFolderId yet, as we might want to keep context if needed, but usually once conversation exists, folder is part of it.
-          // setActiveFolderId(null); 
 
           // Silent URL Switch: Update URL without reloading or triggering re-fetch
-          // Using window.history.replaceState to change URL to /chat/{id}
-          window.history.replaceState(null, '', `/chat/${conversationId}`);
+          window.history.replaceState(null, '', chatUrl(conversationId, folderId));
 
           // Optimistically add to sidebar (title from first 30 chars of message)
           const title = userMessage.substring(0, 30) || (file ? `📎 ${file.name}` : 'New Conversation');
@@ -267,9 +262,9 @@ export function useChat() {
             updated_at: null,
           };
 
-          if (activeFolderId) {
+          if (folderId) {
             setFolders(prev => prev.map(f => {
-              if (f.id === activeFolderId) {
+              if (f.id === folderId) {
                 return { ...f, conversations: [newConversation, ...f.conversations] };
               }
               return f;
@@ -311,7 +306,7 @@ export function useChat() {
       setAssistantStreaming(assistantId, false);
       if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [currentConversationId, activeFolderId, setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
+  }, [currentConversationId, folderId, setThinkingStatus, enqueueAssistantChunk, addInterruptToMessage, appendAssistantContent, flushPendingChunks, setAssistantStreaming]);
 
   // Handle routine approval
   const approveRoutine = useCallback(async (messageId: string, editedData: RoutineData, conversationId?: string) => {
@@ -470,7 +465,7 @@ export function useChat() {
       // If we were viewing the deleted conversation, navigate to new chat
       if (currentConversationId === conversationId) {
         startNewChat();
-        window.history.pushState(null, '', '/chat');
+        window.history.pushState(null, '', chatUrl(null, folderId));
       }
 
       return { success: true };
@@ -548,19 +543,15 @@ export function useChat() {
   }, []);
 
   // Delete folder
-  const deleteFolderHandler = useCallback(async (folderId: string): Promise<{ success: boolean; error?: string }> => {
+  const deleteFolderHandler = useCallback(async (targetFolderId: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      await deleteFolder(folderId);
+      await deleteFolder(targetFolderId);
 
       // Optimistically remove from sidebar
-      setFolders(prev => prev.filter(f => f.id !== folderId));
+      setFolders(prev => prev.filter(f => f.id !== targetFolderId));
 
-      // If we were in a conversation within this folder, what should happen?
-      // Probably nothing immediate if the conversation itself wasn't deleted (backend logic depends),
-      // but usually folder deletion cascades or un-folders conversations.
-      // Assuming cascade delete for now, or just folder removal. 
-      // Safest is to reset view if we were in that folder context specifically (e.g. course view)
-      if (activeFolderId === folderId) {
+      // If we were in this folder's context, reset chat state
+      if (folderId === targetFolderId) {
         startNewChat();
       }
 
@@ -570,7 +561,7 @@ export function useChat() {
       console.error('Delete folder error:', error);
       return { success: false, error: message };
     }
-  }, [activeFolderId, startNewChat]);
+  }, [folderId, startNewChat]);
 
   // Batch file upload handler
   const uploadBatchFiles = useCallback(async (
@@ -614,7 +605,7 @@ export function useChat() {
         // If we weren't in a conversation, redirect to the new one
         if (!currentConversationId) {
           setCurrentConversationId(convId);
-          window.history.replaceState(null, '', `/chat/${convId}`);
+          window.history.replaceState(null, '', chatUrl(convId, folderId));
 
           // Reload messages and conversations
           await loadMessages(convId);
@@ -638,8 +629,7 @@ export function useChat() {
     conversations,
     folders,
     currentConversationId,
-    activeFolderId,
-    viewState, // Export new state
+    viewState,
     isLoading,
 
     // Chat state

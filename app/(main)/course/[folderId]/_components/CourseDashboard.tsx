@@ -58,14 +58,14 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
 
     const handleUploadSuccess = useCallback(
         (conversationId: string) => {
-            router.push(`/chat/${conversationId}`);
+            router.push(`/folder/${folder.id}/chat/${conversationId}`);
         },
-        [router]
+        [router, folder.id]
     );
 
     const handleChatNavigation = useCallback(() => {
-        // Navigate to chat associated with this folder, or new chat
-        router.push(`/chat?folderId=${folder.id}`);
+        // Navigate to chat associated with this folder
+        router.push(`/folder/${folder.id}/chat`);
     }, [folder.id, router]);
 
     return (
