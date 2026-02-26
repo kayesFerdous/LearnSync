@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder, FileUploadProgress, BatchConfirmResponse } from './types';
+import type { Message, InterruptPayload, InterruptStatus, RoutineData, Conversation, Folder, FileUploadProgress } from './types';
 import { BACKEND_URL, fileToBase64, processStream, presignUpload, uploadToR2, confirmUpload, fetchConversations, fetchMessages, deleteConversation, normalizeRoutineData, createFolder, updateConversationTitle, updateFolder, deleteFolder, batchUploadFiles, MAX_UPLOAD_SIZE, MAX_BATCH_SIZE, calculateTotalSize } from './api';
 import { INITIAL_MESSAGE } from './constants';
 import { chatUrl } from './chat-url';
@@ -233,9 +233,6 @@ export function useChat(folderId?: string | null) {
         throw new Error(`Backend error (${response.status})`);
       }
 
-      // Track if we get conversation_id (only for new chats)
-      let newConversationId: string | null = null;
-
       await processStream(response, {
         onStatus: (message) => setThinkingStatus(assistantId, message),
         onChunk: (content) => {
@@ -244,7 +241,6 @@ export function useChat(folderId?: string | null) {
         },
         onConversationId: (conversationId) => {
           // CRITICAL: Handle conversation creation
-          newConversationId = conversationId;
           setCurrentConversationId(conversationId);
 
           // Silent URL Switch: Update URL without reloading or triggering re-fetch

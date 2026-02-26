@@ -199,19 +199,6 @@ export function ChatPageContent({ conversationId, folderId }: ChatPageContentPro
     }
   };
 
-  // Navigation: new chat inside a specific folder
-  const handleNewChatInFolder = (targetFolderId: string) => {
-    closeViewer();
-    if (targetFolderId === folderId) {
-      // Same folder — stay in segment
-      startNewChat();
-      window.history.pushState(null, '', chatUrl(undefined, targetFolderId));
-    } else {
-      // Different folder — cross segment
-      router.push(chatUrl(undefined, targetFolderId));
-    }
-  };
-
   // Navigation: click an existing conversation in the sidebar
   const handleConversationClick = (targetConversationId: string, targetFolderId?: string) => {
     if (targetConversationId === currentConversationId) return;
@@ -371,17 +358,17 @@ export function ChatPageContent({ conversationId, folderId }: ChatPageContentPro
     <div className="absolute inset-0 flex w-full overflow-hidden">
       {/* Conversations Sidebar */}
       <div className={cn(
-        "h-full border-r border-border/50 bg-gradient-to-b from-card to-card/80 flex flex-col overflow-hidden transition-all duration-300 ease-in-out relative",
+        "h-full border-r border-border/50 bg-linear-to-b from-card to-card/80 flex flex-col overflow-hidden transition-all duration-300 ease-in-out relative",
         sidebarOpen ? "w-72" : "w-0 border-r-0"
       )}>
         {/* Decorative top gradient */}
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-32 bg-linear-to-b from-primary/5 to-transparent pointer-events-none" />
 
         {/* Header */}
         <div className="relative p-4 border-b border-border/30 shrink-0 space-y-2">
           <button
             onClick={handleNewChat}
-            className="w-full group flex items-center justify-center gap-2.5 h-11 px-4 rounded-xl bg-gradient-to-r from-primary to-primary/90 text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            className="w-full group flex items-center justify-center gap-2.5 h-11 px-4 rounded-xl bg-linear-to-r from-primary to-primary/90 text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
           >
             <div className="p-1 rounded-lg bg-primary-foreground/20">
               <Plus className="h-4 w-4" />
@@ -560,11 +547,11 @@ export function ChatPageContent({ conversationId, folderId }: ChatPageContentPro
                         href={`/course/${folder.id}`}
                         className="flex-1 flex items-center gap-3 py-2.5 pr-2 text-sm font-medium text-foreground rounded-lg transition-colors duration-150 truncate"
                       >
-                        <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center">
+                        <div className="shrink-0 h-8 w-8 rounded-lg bg-linear-to-br from-amber-500/20 to-orange-500/10 flex items-center justify-center">
                           <FolderPlus className="h-4 w-4 text-amber-600" />
                         </div>
                         <span className="truncate flex-1">{folder.name}</span>
-                        <span className="flex-shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
+                        <span className="shrink-0 h-5 min-w-5 px-1.5 rounded-full bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
                           {folder.conversations.length}
                         </span>
                       </Link>
@@ -706,7 +693,7 @@ export function ChatPageContent({ conversationId, folderId }: ChatPageContentPro
             {/* Empty state */}
             {conversations.length === 0 && folders.length === 0 && (
               <div className="px-4 py-12 text-center">
-                <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <div className="h-16 w-16 mx-auto mb-4 rounded-2xl bg-linear-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                   <Sparkles className="h-8 w-8 text-primary" />
                 </div>
                 <p className="text-sm font-medium text-foreground mb-1">No conversations yet</p>
@@ -812,7 +799,7 @@ export function ChatPageContent({ conversationId, folderId }: ChatPageContentPro
           <div
             ref={dividerRef}
             onMouseDown={handleDividerMouseDown}
-            className={`flex-shrink-0 w-1 h-full bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 ${isDragging ? 'bg-primary' : ''}`}
+            className={`shrink-0 w-1 h-full bg-border hover:bg-primary cursor-col-resize transition-colors duration-150 ${isDragging ? 'bg-primary' : ''}`}
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize panes"
