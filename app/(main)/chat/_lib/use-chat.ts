@@ -207,10 +207,10 @@ export function useChat(folderId?: string | null) {
         }
       }
 
-      // Determine endpoint: POST /conversation/ for new chat, POST /conversation/{id} for existing
+      // Determine endpoint: POST /conversation for new chat, POST /conversation/{id} for existing
       let endpoint = currentConversationId
         ? `${BACKEND_URL.replace('/chat_bot', '')}/conversation/${currentConversationId}`
-        : `${BACKEND_URL.replace('/chat_bot', '')}/conversation/`;
+        : `${BACKEND_URL.replace('/chat_bot', '')}/conversation`;
 
       // Append folder_id as query parameter when creating a new conversation in a folder
       if (!currentConversationId && folderId) {
