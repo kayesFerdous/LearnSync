@@ -236,7 +236,7 @@ async def confirm_upload(
         message="Files queued for processing", 
         processed_files=processed_keys,
         files=response_files,
-        conversation_id=str(conversation_id)
+        conversation_id=conversation_id
     )
 
 
@@ -258,6 +258,7 @@ async def process_url(
         filename=str(process_url_req.url),
         file_path=str(process_url_req.url),
         folder_id=UUID(process_url_req.folder_id) if process_url_req.folder_id else None,
+        conversation_id=UUID(process_url_req.conversation_id) if process_url_req.conversation_id else None, 
         file_type=ModelFileType.URL
     )
 
