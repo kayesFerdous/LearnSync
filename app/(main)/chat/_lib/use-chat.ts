@@ -608,21 +608,23 @@ export function useChat() {
       );
 
       // Handle conversation creation/association
-      if (result.conversation_id) {
+      // Guard against backend returning Python's "None" string instead of null
+      const convId = result.conversation_id;
+      if (convId && convId !== 'None') {
         // If we weren't in a conversation, redirect to the new one
         if (!currentConversationId) {
-          setCurrentConversationId(result.conversation_id);
-          window.history.replaceState(null, '', `/chat/${result.conversation_id}`);
+          setCurrentConversationId(convId);
+          window.history.replaceState(null, '', `/chat/${convId}`);
 
           // Reload messages and conversations
-          await loadMessages(result.conversation_id);
+          await loadMessages(convId);
           await loadConversations();
         }
       }
 
       return {
         success: true,
-        conversationId: result.conversation_id
+        conversationId: convId || undefined
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
