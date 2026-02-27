@@ -348,9 +348,11 @@ export const batchUploadFiles = async (
   const uploadedFiles = await Promise.all(uploadPromises);
 
   // Step 3: Confirm all uploads in a single batch request
+  // folder_id and conversation_id are mutually exclusive:
+  // folder uploads go to the folder; standalone uploads go to the conversation
   const confirmRequest: BatchConfirmRequest = {
-    folder_id: folderId,
-    conversation_id: conversationId,
+    folder_id: folderId || null,
+    conversation_id: folderId ? null : conversationId,
     files: uploadedFiles
   };
 
@@ -651,12 +653,12 @@ export const processUrl = async (
   conversationId?: string | null,
   folderId?: string | null
 ): Promise<ProcessUrlResponse> => {
+  // folder_id and conversation_id are mutually exclusive
   const body: { url: string; conversation_id?: string; folder_id?: string } = { url };
-  if (conversationId) {
-    body.conversation_id = conversationId;
-  }
   if (folderId) {
     body.folder_id = folderId;
+  } else if (conversationId) {
+    body.conversation_id = conversationId;
   }
 
   const response = await fetch(`${API_BASE_URL}/uploads/process-url`, {

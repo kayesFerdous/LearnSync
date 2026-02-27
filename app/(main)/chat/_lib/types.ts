@@ -143,7 +143,7 @@ export interface BatchConfirmResponse {
   message: string;
   processed_files: string[]; // list of object_key strings (legacy)
   files: BatchConfirmFileResponse[]; // new: includes file_ids for polling
-  conversation_id: string;
+  conversation_id: string | null;
 }
 
 // Upload progress tracking

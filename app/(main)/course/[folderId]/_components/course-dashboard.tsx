@@ -130,7 +130,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
 
   const handleUploadSuccess = (conversationId: string) => {
     // Navigate to the new conversation after upload
-    router.push(`/chat/${conversationId}`);
+    router.push(`/folder/${folder.id}/chat/${conversationId}`);
     // Also refresh the files list
     fetchFolderFiles(folder.id).then(response => setFiles(response.files)).catch(console.error);
   };
@@ -187,7 +187,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
           title="New Chat"
           description="Start a new conversation context"
           themeColor={themeColor}
-          onClick={() => router.push(`/chat?folderId=${folder.id}`)}
+          onClick={() => router.push(`/folder/${folder.id}/chat`)}
         />
         <QuickActionCard
           icon={<Upload className="w-6 h-6" />}

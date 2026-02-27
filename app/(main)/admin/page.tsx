@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Users, 
   Search, 
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/lib/store';
 import { 
   getUsers, 
   deleteUser, 
@@ -32,11 +34,16 @@ import {
 } from '@/lib/api/admin';
 
 export default function AdminPage() {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const fetchUser = useAuthStore((state) => state.fetchUser);
+
   // State
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accessChecking, setAccessChecking] = useState(true);
   
   // Pagination
   const [page, setPage] = useState(0);
@@ -71,6 +78,10 @@ export default function AdminPage() {
       setTotal(response.total);
     } catch (err) {
       if (err instanceof AdminApiError) {
+        if (err.statusCode === 401 || err.statusCode === 403) {
+          router.replace('/dashboard');
+          return;
+        }
         setError(err.detail);
       } else {
         setError('Failed to fetch users');
@@ -78,11 +89,41 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, sortBy, sortOrder]);
+  }, [page, limit, search, sortBy, sortOrder, router]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    let isMounted = true;
+
+    const ensureAdminAccess = async () => {
+      if (!user) {
+        await fetchUser();
+      }
+
+      if (!isMounted) {
+        return;
+      }
+
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser?.is_admin) {
+        router.replace('/dashboard');
+        return;
+      }
+
+      setAccessChecking(false);
+    };
+
+    ensureAdminAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchUser, router, user]);
+
+  useEffect(() => {
+    if (!accessChecking) {
+      fetchUsers();
+    }
+  }, [fetchUsers, accessChecking]);
 
   // Handle search with debounce
   useEffect(() => {
@@ -126,6 +167,10 @@ export default function AdminPage() {
       closeDeleteDialog();
     } catch (err) {
       if (err instanceof AdminApiError) {
+        if (err.statusCode === 401 || err.statusCode === 403) {
+          router.replace('/dashboard');
+          return;
+        }
         setError(err.detail);
       } else {
         setError('Failed to delete user');
@@ -134,6 +179,17 @@ export default function AdminPage() {
       setIsDeleting(false);
     }
   };
+
+  if (accessChecking) {
+    return (
+      <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+        <div className="flex items-center justify-center min-h-[50vh] text-muted-foreground gap-2">
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Checking access...</span>
+        </div>
+      </div>
+    );
+  }
 
   // Pagination helpers
   const totalPages = Math.ceil(total / limit);

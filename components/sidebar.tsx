@@ -16,7 +16,7 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUiStore } from '@/lib/store';
+import { useAuthStore, useUiStore } from '@/lib/store';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & insights' },
@@ -33,6 +33,9 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarOpen, setSidebarOpen } = useUiStore();
+  const isAdmin = useAuthStore((state) => state.user?.is_admin ?? false);
+
+  const visibleNavItems = navItems.filter((item) => item.href !== '/admin' || isAdmin);
 
   return (
     <>
@@ -96,7 +99,7 @@ export function Sidebar() {
             </span>
           </div>
           
-          {navItems.map((item, index) => {
+          {visibleNavItems.map((item, index) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link

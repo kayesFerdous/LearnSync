@@ -55,9 +55,9 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
 
     const handleUploadSuccess = useCallback(
         (conversationId: string) => {
-            router.push(`/chat/${conversationId}`);
+            router.push(`/folder/${folder.id}/chat/${conversationId}`);
         },
-        [router]
+        [router, folder.id]
     );
 
     const handleFileDeleted = useCallback((fileId: string) => {
@@ -98,7 +98,7 @@ export function WorkspaceLayout({ folder }: WorkspaceLayoutProps) {
             {/* ── Bottom dock (z-30) ── */}
             <ContextualDock
                 onAddSource={() => setIsUploadModalOpen(true)}
-                onNewChat={() => router.push(`/chat?folderId=${folder.id}`)}
+                onNewChat={() => router.push(`/folder/${folder.id}/chat`)}
                 onFitView={() => {
                     window.dispatchEvent(new CustomEvent("workspace:fitView"));
                 }}

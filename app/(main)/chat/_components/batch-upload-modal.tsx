@@ -342,8 +342,10 @@ export function BatchUploadModal({
       );
 
       // Store conversation ID for later navigation (after processing completes)
-      if (result.conversation_id) {
-        setPendingConversationId(result.conversation_id);
+      // Guard against backend returning Python's "None" string instead of null
+      const returnedConvId = result.conversation_id;
+      if (returnedConvId && returnedConvId !== 'None') {
+        setPendingConversationId(returnedConvId);
       }
 
       // Convert uploaded files to URL items for polling
@@ -364,8 +366,8 @@ export function BatchUploadModal({
         });
       } else {
         // No files to poll (legacy flow) - navigate immediately
-        if (onSuccess && result.conversation_id) {
-          onSuccess(result.conversation_id);
+        if (onSuccess && returnedConvId && returnedConvId !== 'None') {
+          onSuccess(returnedConvId);
         }
       }
 
