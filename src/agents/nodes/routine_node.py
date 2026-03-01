@@ -3,6 +3,9 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from src.services.vision.schema import WeeklyRoutine
 from src.agents.model import AgentState
 from src.services.vision.extractor import image_extractor
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def make_routine_node(llm: BaseChatModel):
@@ -27,12 +30,12 @@ def make_routine_node(llm: BaseChatModel):
         if cleaned_messages:
             cleaned_messages[0].additional_kwargs['replace_history'] = True
 
-        # Debug print
+        # Debug log
         debug_msgs = [
             f"{type(m).__name__}: {str(m.content)[:50]}..." 
             for m in cleaned_messages
         ]
-        print(f"\nCleaned messages sent to state:\n {debug_msgs}")
+        logger.debug(f"Cleaned messages sent to state: {debug_msgs}")
 
         return {
             "scratchpad": state['scratchpad'],

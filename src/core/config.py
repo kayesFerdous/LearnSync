@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     OLLAMA_URL: str = "http://localhost:11434"
     OLLAMA_EMBEDDING_MODEL: str = "qwen3-embedding:0.6b"
 
+    # Session
+    SESSION_SECRET_KEY: str = "change-me-in-production"
+
     model_config = SettingsConfigDict(env_file=".env")
 
 settings = Settings() #type:ignore

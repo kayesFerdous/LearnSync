@@ -1,3 +1,12 @@
+"""
+RAG vector store module.
+
+Uses module-level sync singletons for Qdrant client and embeddings.
+These are used by background file-processing tasks (src/services/file_processing.py)
+which don't have access to app.state.  The lifespan (src/core/lifespan.py) separately
+creates async clients on app.state for request-time use.  Both sets point at the same
+Qdrant collection and embedding models.
+"""
 from typing import Optional
 
 from langchain_qdrant import QdrantVectorStore, RetrievalMode

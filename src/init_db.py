@@ -15,7 +15,7 @@ from src.db.base import Base
 from src.users.model import User, UserIdentity, UserSettings
 
 # Routines
-from src.routines.models import Routine, ClassSession
+from src.routines.model import Routine, ClassSession
 
 # Conversations & Files (Mindmap is also in conversations/model.py)
 from src.conversations.model import Conversation, Folder, File, Mindmap

@@ -1,6 +1,10 @@
 from typing import AsyncGenerator
 from langchain_core.messages import BaseMessage, HumanMessage
 from langgraph.types import Command
+from src.agents.model import AgentContext
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 async def runner( 
@@ -16,10 +20,13 @@ async def runner(
     image_data = payload.image
     user_input = payload.user_input
 
+    ctx = AgentContext(db=db)
     config = {
         "configurable": {
             "thread_id": thread_id,
-            "db": db
+            "ctx": ctx,
+            # Keep "db" for backward compatibility during transition
+            "db": db,
         }
     }
 
@@ -99,5 +106,5 @@ async def runner(
         yield {"type": "done"}
 
     except Exception as e:
-        print(f"Error in runner: {e}")
+        logger.error(f"Error in runner: {e}")
         yield {"type": "error", "message": str(e)}

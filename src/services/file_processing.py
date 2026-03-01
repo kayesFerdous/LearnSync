@@ -86,7 +86,7 @@ async def process_content(
 
         if not is_url:
             # Handle R2 Download
-            r2 = await get_r2_client()
+            r2 = get_r2_client()
             
             # Check cancellation before download
             if file_id:

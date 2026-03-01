@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import Depends, status, HTTPException, Request
+from fastapi import Depends, status, HTTPException, Request, WebSocket
 
 from src.users.model import User
 from src.db.session import get_db
 from src.core.config import settings
-from src.users.crud import get_user_by_id
+from src.users.repository import get_user_by_id
 from src.auth.service import AuthError, decode_access_token
 from src.calendar.google_client import GoogleCalendarClient
 from src.core.integrations.google.auth_utils import get_google_calendar_service
@@ -43,6 +43,32 @@ async def get_current_user(
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+async def get_current_user_ws(
+    websocket: WebSocket,
+    db: AsyncSession,
+) -> User:
+    """
+    Authenticate a WebSocket connection via cookie or query-param token.
+    Raises HTTPException(401) on failure — the caller should catch and
+    close the socket with WS_1008_POLICY_VIOLATION.
+    """
+    token = websocket.cookies.get(settings.COOKIE_NAME)
+    if not token:
+        token = websocket.query_params.get("token")
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        user_id = await decode_access_token(token)
+        user = await get_user_by_id(user_id, db)
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
+    except AuthError:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 async def is_admin(user:User =  Depends(get_current_user)) -> User:

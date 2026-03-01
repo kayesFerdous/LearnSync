@@ -2,20 +2,23 @@ from uuid import UUID
 from typing import Optional, List
 from datetime import datetime, timedelta
 import base64
+import logging
 from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from langchain_core.messages import HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from src.routines import crud, schemas
+logger = logging.getLogger(__name__)
+
+from src.routines import repository, schemas
 from src.core.integrations.google.auth_utils import get_service_and_timezone
 from src.core.integrations.google.calendar_service import (
     sync_db_routine_to_google, 
     delete_google_events_for_routine,
     get_next_weekday_date
 )
-from src.routines.models import Routine, ClassSession
+from src.routines.model import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
 from src.calendar.schemas import EventUpdate, CalendarTime
 from src.services.vision.extractor import image_extractor
@@ -80,7 +83,7 @@ async def confirm_routine_from_vision(
 
 
 async def get_my_routine(db: AsyncSession, user_id: UUID) -> Optional[Routine]:
-    return await crud.get_user_routine(db, user_id)
+    return await repository.get_user_routine(db, user_id)
 
 async def _localize_session_times(session_data, timezone_str: str):
     """
@@ -101,7 +104,7 @@ async def _localize_session_times(session_data, timezone_str: str):
 
 async def create_or_replace_routine(db: AsyncSession, user_id: UUID, routine_data: schemas.RoutineCreate) -> Routine:
     # 1. Check for existing routine
-    existing_routine = await crud.get_user_routine(db, user_id)
+    existing_routine = await repository.get_user_routine(db, user_id)
     
     # 2. Get Google Service
     service, timezone = await get_service_and_timezone(str(user_id), db)
@@ -116,10 +119,10 @@ async def create_or_replace_routine(db: AsyncSession, user_id: UUID, routine_dat
             await delete_google_events_for_routine(service, existing_routine)
         
         # We delete the old routine from DB
-        await crud.delete_routine_object(db, existing_routine)
+        await repository.delete_routine_object(db, existing_routine)
 
     # 4. Create new routine in DB
-    new_routine = await crud.create_routine_db(db, user_id, routine_data)
+    new_routine = await repository.create_routine_db(db, user_id, routine_data)
     
     # 5. Sync to Google Calendar
     if service:
@@ -132,7 +135,7 @@ async def create_or_replace_routine(db: AsyncSession, user_id: UUID, routine_dat
     return new_routine
 
 async def delete_my_routine(db: AsyncSession, user_id: UUID):
-    routine = await crud.get_user_routine(db, user_id)
+    routine = await repository.get_user_routine(db, user_id)
     if not routine:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Routine not found")
         
@@ -141,10 +144,10 @@ async def delete_my_routine(db: AsyncSession, user_id: UUID):
     if service:
         await delete_google_events_for_routine(service, routine)
         
-    await crud.delete_routine_object(db, routine)
+    await repository.delete_routine_object(db, routine)
 
 async def add_class_session(db: AsyncSession, user_id: UUID, class_data: schemas.ClassSessionCreate) -> ClassSession:
-    routine = await crud.get_user_routine(db, user_id)
+    routine = await repository.get_user_routine(db, user_id)
     if not routine:
          raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, 
@@ -167,7 +170,7 @@ async def add_class_session(db: AsyncSession, user_id: UUID, class_data: schemas
     # Localize naive datetimes
     await _localize_session_times(class_data, timezone)
 
-    new_class = await crud.add_class_to_routine_db(db, routine.id, class_data)
+    new_class = await repository.add_class_to_routine_db(db, routine.id, class_data)
     
     # Sync: Add single event
     if service:
@@ -178,7 +181,7 @@ async def add_class_session(db: AsyncSession, user_id: UUID, class_data: schemas
 
 
 async def remove_class_session(db: AsyncSession, user_id: UUID, class_id: UUID):
-    class_session = await crud.get_class_session(db, user_id, class_id)
+    class_session = await repository.get_class_session(db, user_id, class_id)
     if not class_session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class session not found")
     
@@ -192,11 +195,11 @@ async def remove_class_session(db: AsyncSession, user_id: UUID, class_id: UUID):
             except Exception:
                 pass # Ignore if not found or already deleted
 
-    await crud.delete_class_session_db(db, class_session)
+    await repository.delete_class_session_db(db, class_session)
 
 
 async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, update_data: schemas.ClassSessionUpdate) -> ClassSession:
-    class_session = await crud.get_class_session(db, user_id, class_id)
+    class_session = await repository.get_class_session(db, user_id, class_id)
     if not class_session:
          raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Class session not found")
     
@@ -213,7 +216,7 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
     # Localize naive datetimes
     await _localize_session_times(update_data, timezone)
          
-    updated_class = await crud.update_class_session_db(db, class_session, update_data)
+    updated_class = await repository.update_class_session_db(db, class_session, update_data)
     
     # Sync: Update event (if exists)
     if updated_class.google_event_id and service:
@@ -253,6 +256,6 @@ async def update_class_session(db: AsyncSession, user_id: UUID, class_id: UUID, 
             
         except Exception as e:
             # We log the error but do not fail the request
-            print(f"Failed to update Google Calendar event: {e}")
+            logger.error(f"Failed to update Google Calendar event: {e}")
              
     return updated_class

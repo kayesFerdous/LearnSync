@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import is_admin
 from src.db.session import get_db
-from src.users.crud import delete_user, get_users
+from src.users.repository import delete_user, get_users
 from .schemas import UserRead, UserDeleteRequest, UserDeleteResponse, UsersListResponse
 
 

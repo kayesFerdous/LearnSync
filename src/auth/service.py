@@ -41,7 +41,11 @@ JWT_HEADER = {"alg": ALGORITHM}
 
 
 class AuthError(Exception):
-    """Custom exception for authentication-related errors."""
+    """Custom exception for authentication-related errors.
+
+    Not an AppException subclass because it is caught and re-raised
+    as HTTPException in the API dependency layer (with WWW-Authenticate header).
+    """
     pass
 
 

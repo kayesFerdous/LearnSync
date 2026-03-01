@@ -2,7 +2,7 @@
 Response schemas for mindmap generation endpoints.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from pydantic import BaseModel, Field
 
@@ -34,7 +34,7 @@ class MindmapResponse(BaseModel):
     root: MindmapNodeResponse = Field(description="Root node of the mindmap")
     total_files: int = Field(description="Total number of files processed")
     generated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Timestamp when the mindmap was generated"
     )
     context: str = Field(description="Context information (folder name or conversation title)")
