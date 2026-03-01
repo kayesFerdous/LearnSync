@@ -3,9 +3,12 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
-from src.core.calendar_toolkit import get_current_time_context
-from src.agents.model import AgentState
+from src.core.integrations.google.calendar_service import get_current_time_context
+from src.agents.model import AgentState, AgentContext
 from src.agents.registry import build_calendar_agent
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 def make_calendar_node(llm: BaseChatModel):
     async def node(state: AgentState, config: RunnableConfig):
@@ -16,12 +19,12 @@ def make_calendar_node(llm: BaseChatModel):
 
         # Build the executor dynamically for this user
         try:
-            db: AsyncSession = config["configurable"]["db"] #type: ignore
+            ctx: AgentContext = config["configurable"]["ctx"]
             # Now receiving both the agent and the timezone efficiently
-            agent_executor, timezone = await build_calendar_agent(user_id, llm, db)
+            agent_executor, timezone = await build_calendar_agent(user_id, llm, ctx.db)
             
         except Exception as e:
-            print(f"Error building calendar agent: {e}")
+            logger.error(f"Error building calendar agent: {e}")
             return {'messages': [AIMessage(content="I'm having trouble accessing your calendar tools right now.")]}
 
         # Get the last few messages for context
@@ -51,12 +54,12 @@ def make_calendar_node(llm: BaseChatModel):
         
         try:
             result = await agent_executor.ainvoke({"input": agent_input})
-            print(f"result from the calendar_agent: {result}")
+            logger.debug(f"Calendar agent result: {result}")
             
             # Return the agent's response in the correct format for the state
             if result and 'output' in result:
                 response_message = AIMessage(content=result['output'])
-                print(f"Agent result:  {response_message}")
+                logger.debug(f"Calendar agent response: {response_message.content[:200]}")
                 return {'messages': [response_message]}
             else:
                 # Fallback if no output
@@ -66,7 +69,7 @@ def make_calendar_node(llm: BaseChatModel):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            print(f"Error in calendar_agent: {str(e)}")
+            logger.error(f"Error in calendar_agent: {e}")
             error_message = AIMessage(content="Sorry, I encountered an error while processing your calendar request.")
             return {'messages': [error_message]}
 

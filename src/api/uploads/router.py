@@ -11,14 +11,13 @@ from src.api.uploads.schemas import (
     ProcessUrlRequest, 
     BatchPresignUploadResponse,
     FileStatusResponse,
-    ProcessingStatus,
     BatchConfirmResponse,
     BatchConfirmFileResponse,
     FolderFileResponse,
     FolderFilesListResponse,
-    FileType,
     DeleteFileResponse
 )
+from src.conversations.model import ProcessingStatus, FileType
 from src.core.config import settings
 from src.api.dependencies import get_current_user
 from src.users.model import User
@@ -33,7 +32,6 @@ from src.conversations.service import (
     get_conversation_files,
     delete_file
 )
-from src.conversations.model import FileType as ModelFileType
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -63,50 +61,50 @@ ALLOWED_CONTENT_TYPES = {
 # Map content types to FileType enum
 CONTENT_TYPE_TO_FILE_TYPE = {
     # Document formats
-    "application/pdf": ModelFileType.PDF,
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ModelFileType.DOCX,
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ModelFileType.PPTX,
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ModelFileType.XLSX,
-    "text/html": ModelFileType.HTML,
-    "text/markdown": ModelFileType.MARKDOWN,
+    "application/pdf": FileType.PDF,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": FileType.DOCX,
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": FileType.PPTX,
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": FileType.XLSX,
+    "text/html": FileType.HTML,
+    "text/markdown": FileType.MARKDOWN,
     # Image formats
-    "image/png": ModelFileType.PNG,
-    "image/jpeg": ModelFileType.JPEG,
-    "image/tiff": ModelFileType.TIFF,
+    "image/png": FileType.PNG,
+    "image/jpeg": FileType.JPEG,
+    "image/tiff": FileType.TIFF,
     # Audio formats
-    "audio/wav": ModelFileType.WAV,
-    "audio/x-wav": ModelFileType.WAV,
-    "audio/mpeg": ModelFileType.MP3,
+    "audio/wav": FileType.WAV,
+    "audio/x-wav": FileType.WAV,
+    "audio/mpeg": FileType.MP3,
     # Video text tracks
-    "text/vtt": ModelFileType.VTT,
+    "text/vtt": FileType.VTT,
 }
 
 # Map file extensions to FileType enum
 EXTENSION_TO_FILE_TYPE = {
-    ".pdf": ModelFileType.PDF,
-    ".docx": ModelFileType.DOCX,
-    ".pptx": ModelFileType.PPTX,
-    ".xlsx": ModelFileType.XLSX,
-    ".html": ModelFileType.HTML,
-    ".htm": ModelFileType.HTML,
-    ".md": ModelFileType.MARKDOWN,
-    ".markdown": ModelFileType.MARKDOWN,
-    ".png": ModelFileType.PNG,
-    ".jpg": ModelFileType.JPEG,
-    ".jpeg": ModelFileType.JPEG,
-    ".tiff": ModelFileType.TIFF,
-    ".tif": ModelFileType.TIFF,
-    ".wav": ModelFileType.WAV,
-    ".mp3": ModelFileType.MP3,
-    ".vtt": ModelFileType.VTT,
+    ".pdf": FileType.PDF,
+    ".docx": FileType.DOCX,
+    ".pptx": FileType.PPTX,
+    ".xlsx": FileType.XLSX,
+    ".html": FileType.HTML,
+    ".htm": FileType.HTML,
+    ".md": FileType.MARKDOWN,
+    ".markdown": FileType.MARKDOWN,
+    ".png": FileType.PNG,
+    ".jpg": FileType.JPEG,
+    ".jpeg": FileType.JPEG,
+    ".tiff": FileType.TIFF,
+    ".tif": FileType.TIFF,
+    ".wav": FileType.WAV,
+    ".mp3": FileType.MP3,
+    ".vtt": FileType.VTT,
 }
 
 
-def get_file_type_from_filename(filename: str) -> ModelFileType:
+def get_file_type_from_filename(filename: str) -> FileType:
     """Infer FileType from filename extension."""
     import os
     ext = os.path.splitext(filename)[1].lower()
-    return EXTENSION_TO_FILE_TYPE.get(ext, ModelFileType.UNKNOWN)
+    return EXTENSION_TO_FILE_TYPE.get(ext, FileType.UNKNOWN)
 
 @router.post("/presign", response_model=BatchPresignUploadResponse)
 async def presign_upload(
@@ -198,7 +196,7 @@ async def confirm_upload(
         if file_info.content_type:
             file_type = CONTENT_TYPE_TO_FILE_TYPE.get(
                 file_info.content_type, 
-                ModelFileType.UNKNOWN
+                FileType.UNKNOWN
             )
         else:
             file_type = get_file_type_from_filename(file_info.original_filename)
@@ -259,7 +257,7 @@ async def process_url(
         file_path=str(process_url_req.url),
         folder_id=UUID(process_url_req.folder_id) if process_url_req.folder_id else None,
         conversation_id=UUID(process_url_req.conversation_id) if process_url_req.conversation_id else None, 
-        file_type=ModelFileType.URL
+        file_type=FileType.URL
     )
 
     background_tasks.add_task(
@@ -426,7 +424,7 @@ async def delete_file_endpoint(
     
     # Clean up R2 object if it's not a URL type
     # Using file_type is more robust than checking file_path string
-    if file_record.file_type != ModelFileType.URL:
+    if file_record.file_type != FileType.URL:
         try:
             r2_client = req.app.state.r2_client
             r2_client.delete_object(

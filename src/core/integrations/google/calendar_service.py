@@ -12,7 +12,7 @@ import asyncio
 import json
 
 from src.core.integrations.google.auth_utils import get_service_and_timezone
-from src.routines.models import Routine, ClassSession
+from src.routines.model import Routine, ClassSession
 from src.calendar.google_client import GoogleCalendarClient
 from src.calendar.schemas import EventCreate, CalendarTime, EventReminders
 
@@ -66,7 +66,7 @@ class SafeCalendarSearchEvents(CalendarSearchEvents):
                     })
                 calendars_info = json.dumps(data)
             except Exception as e:
-                print(f"Warning: Failed to fetch calendars_info internally: {e}")
+                logger.warning(f"Failed to fetch calendars_info internally: {e}")
                 # We can't proceed without calendar IDs
                 raise Exception("Missing calendars_info and failed to fetch it internally.")
         
@@ -99,7 +99,7 @@ async def get_users_calendar_tools(user_id: str, db: AsyncSession):
         return final_tools, timezone
         
     except Exception as e:
-        print(f"Error creating user tools: {e}")
+        logger.error(f"Error creating user tools: {e}")
         return [], "UTC"
 
 
@@ -228,4 +228,16 @@ async def delete_google_events_for_routine(service, routine: Routine):
         await client.batch_delete_events(event_ids)
     except Exception as e:
         logger.error(f"Failed to batch delete events for routine {routine.title}: {e}")
+
+
+async def get_current_time_context(timezone: str = "Asia/Dhaka") -> str:
+    """Returns a clear time context string for the calendar agent."""
+    try:
+        tz = ZoneInfo(timezone)
+        now = datetime.now(tz)
+        date_time = now.strftime("%A, %Y-%m-%d %H:%M:%S")
+        return f"Time zone: {timezone}, Current Date and Time: {date_time}"
+    except Exception:
+        now = datetime.now(ZoneInfo("UTC"))
+        return f"Current Date: {now.strftime('%Y-%m-%d')} (UTC)"
 

@@ -2,6 +2,9 @@ from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from src.agents.model import AgentState
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def make_chat_node(llm: BaseChatModel):
@@ -26,12 +29,12 @@ def make_chat_node(llm: BaseChatModel):
 
             response = await llm.ainvoke(prompt_messages)
             
-            print(f"\n\n\nLLM response: \n{response.content}\n\n\n")
+            logger.debug(f"Chat node LLM response: {response.content[:200]}")
 
             return {'messages': [AIMessage(content=response.content)]}
 
         except Exception as e:
-            print(f"Error while calling the chat_node: {str(e)}")
+            logger.error(f"Error in chat_node: {e}")
             error_response = AIMessage(content="Sorry, I encountered an error.")
             return {'messages': [error_response]}
 

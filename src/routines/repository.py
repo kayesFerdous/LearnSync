@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.routines.models import Routine, ClassSession
+from src.routines.model import Routine, ClassSession
 from src.routines.schemas import RoutineCreate, ClassSessionCreate, ClassSessionUpdate
 
 async def get_user_routine(db: AsyncSession, user_id: UUID) -> Optional[Routine]:

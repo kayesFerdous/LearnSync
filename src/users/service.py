@@ -4,10 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.auth.schemas import SignupRequest, LoginRequest
+from src.auth.schemas import SignupData, LoginData
 from src.core.config import settings
-from src.services.brevo_email import EmailDeliveryException, send_verification_email
-from src.users.crud import (
+from src.services.brevo_email import send_verification_email
+from src.users.repository import (
     create_email_verification_token,
     create_user,
     get_email_verification_token_by_hash,
@@ -20,38 +20,18 @@ from src.users.crud import (
 )
 from src.users.schemas import UserCreate
 from src.auth.service import get_password_hash, verify_password
+from src.core.exceptions import (
+    EmailNotVerifiedException,
+    EmailVerificationDeliveryException,
+    EmailVerificationResendTooSoonException,
+    EmailVerificationTokenExpiredException,
+    EmailVerificationTokenInvalidException,
+    InvalidCredentialsException,
+    UserAlreadyExistsException,
+)
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
-
-class EmptyTokenException(Exception):
-    pass
-
-class InvalidCredentialsException(Exception):
-    pass
-
-class UserAlreadyExistsException(Exception):
-    pass
-
-
-class EmailNotVerifiedException(Exception):
-    pass
-
-
-class EmailVerificationTokenInvalidException(Exception):
-    pass
-
-
-class EmailVerificationTokenExpiredException(Exception):
-    pass
-
-
-class EmailVerificationResendTooSoonException(Exception):
-    pass
-
-
-class EmailVerificationDeliveryException(Exception):
-    pass
 
 
 def _hash_token(raw_token: str) -> str:
@@ -101,12 +81,12 @@ async def create_and_send_email_verification(
             username=username,
             verification_url=_build_verification_url(raw_token),
         )
-    except EmailDeliveryException as e:
+    except EmailVerificationDeliveryException:
         logger.error("Failed to send verification email", exc_info=True)
-        raise EmailVerificationDeliveryException("Failed to send verification email") from e
+        raise
 
 
-async def authenticate_user(login_data: LoginRequest, db: AsyncSession):
+async def authenticate_user(login_data: LoginData, db: AsyncSession):
     # 1. Get user by email (we need to join with identity to check password)
     user = await get_user_by_email_with_identity(login_data.email, db)
     
@@ -158,7 +138,7 @@ async def get_or_create_user(token: dict, db: AsyncSession) -> str | None:
         raise
 
 
-async def create_user_by_email(user_info: SignupRequest, db: AsyncSession):
+async def create_user_by_email(user_info: SignupData, db: AsyncSession):
     # 1. Check if user already exists
     existing_user_id = await get_user_id(user_info.email, db)
     if existing_user_id:

@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     app.state.gemini_llm = await setup_gemini_llm(model="gemini-2.5-flash", max_tokens=900000)
     app.state.gemini_llm_temp_0 = await setup_gemini_llm(temperature=0, max_tokens=900000)
     app.state.route_intent_llm = await setup_route_intent_llm()
-    app.state.r2_client = await get_r2_client()
+    app.state.r2_client = get_r2_client()
 
     # Qdrant Client (async)
     app.state.qdrant_client = AsyncQdrantClient(url=settings.QDRANT_URL)

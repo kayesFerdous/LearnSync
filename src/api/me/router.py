@@ -5,7 +5,7 @@ from src.api.dependencies import get_current_user
 from src.api.me.schemas import UserResponse, UserSettings, UserSettingsUpdate, UserUpdate
 from src.users.model import User
 from src.db.session import get_db
-from src.users.crud import update_user_settings as crud_update_user_settings, update_user_profile
+from src.users.repository import update_user_settings as crud_update_user_settings, update_user_profile
 
 router = APIRouter(prefix="/me", tags=["User Info"])
 

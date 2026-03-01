@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from authlib.integrations.base_client.errors import OAuthError
 from fastapi import APIRouter, Depends, Request, Response, status, HTTPException, Query
 
-from src.users.service import (
+from src.core.exceptions import (
     EmailNotVerifiedException,
     EmailVerificationDeliveryException,
     EmailVerificationResendTooSoonException,
@@ -12,6 +12,8 @@ from src.users.service import (
     EmailVerificationTokenInvalidException,
     InvalidCredentialsException,
     UserAlreadyExistsException,
+)
+from src.users.service import (
     authenticate_user,
     create_and_send_email_verification,
     create_user_by_email,
@@ -62,41 +64,32 @@ async def signup(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Note: create_user_by_email returns a User object. 
         new_user = await create_user_by_email(user_info, db)
 
-        if new_user:
-            await create_and_send_email_verification(
-                email=new_user.email,
-                username=new_user.username,
-                db=db,
-                enforce_cooldown=False,
+        if not new_user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not create account",
             )
 
-            return SignupResponse(
-                user_id=new_user.user_id,
-                message="Signup successful. Please check your email to verify your account.",
-            )
+        await create_and_send_email_verification(
+            email=new_user.email,
+            username=new_user.username,
+            db=db,
+            enforce_cooldown=False,
+        )
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not create account",
+        return SignupResponse(
+            user_id=new_user.user_id,
+            message="Signup successful. Please check your email to verify your account.",
         )
-    except UserAlreadyExistsException as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except EmailVerificationDeliveryException as e:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(e),
-        )
+    except (UserAlreadyExistsException, EmailVerificationDeliveryException):
+        raise  # handled by global AppException handler
     except Exception as e:
         log.error(f"Signup error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal signup error"
+            detail="Internal signup error",
         )
 
 @router.post(
@@ -111,10 +104,10 @@ async def login_email(
 ):
     try:
         user = await authenticate_user(login_data, db)
-        
+
         user_id = user.user_id
         jwt_token = await create_access_token(str(user_id))
-        
+
         response.set_cookie(
             key=settings.COOKIE_NAME,
             value=jwt_token,
@@ -123,30 +116,18 @@ async def login_email(
             max_age=60 * 60 * 24 * 7,
             secure=COOKIE_SECURE,
         )
-        
-        # We need to fetch the user again to return details, or just return basic info.
-        # authenticate_user only returned ID. Let's trust the input email.
+
         return AuthResponse(
             user_id=user_id,
             message="Login successful",
         )
-        
-    except InvalidCredentialsException as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except EmailNotVerifiedException as e:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e),
-        )
+    except (InvalidCredentialsException, EmailNotVerifiedException):
+        raise  # handled by global AppException handler
     except Exception as e:
         log.error(f"Login error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Internal login error"
+            detail="Internal login error",
         )
 
 
@@ -164,16 +145,8 @@ async def resend_verification(
         return MessageResponse(
             message="If an account exists and is not verified, a verification email has been sent.",
         )
-    except EmailVerificationResendTooSoonException as e:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(e),
-        )
-    except EmailVerificationDeliveryException as e:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(e),
-        )
+    except (EmailVerificationResendTooSoonException, EmailVerificationDeliveryException):
+        raise  # handled by global AppException handler
     except Exception as e:
         log.error(f"Resend verification error: {e}", exc_info=True)
         raise HTTPException(

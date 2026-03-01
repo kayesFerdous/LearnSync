@@ -5,7 +5,7 @@ from typing import List
 from src.db.session import get_db
 from src.api.dependencies import get_current_user
 from src.users.model import User
-from src.users.crud import get_users, get_user_by_id
+from src.users.repository import get_users, get_user_by_id
 from src.users.schemas import UserRead, UserPublic
 
 router = APIRouter(prefix="/users", tags=["Users"])

@@ -1,83 +1,20 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict
+from typing import List
 from uuid import UUID
 import json
-from datetime import datetime
 
 from src.db.session import get_db
 from src.users.model import User
-from src.users.crud import get_user_by_id
-from src.auth.service import decode_access_token
-from src.core.config import settings
-from src.api.dependencies import get_current_user
+from src.api.dependencies import get_current_user, get_current_user_ws
 
-from src.messaging.service import create_message, get_chat_history, get_recent_contacts, mark_messages_as_read
+from src.messaging.service import create_message, get_chat_history, get_recent_contacts, mark_messages_as_read, manager
 from src.api.messaging.schemas import MessageCreate, MessageResponse, ChatHistoryResponse, ContactResponse
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/messaging", tags=["Messaging"])
-
-class ConnectionManager:
-    def __init__(self):
-        # user_id -> list of websockets
-        self.active_connections: Dict[UUID, List[WebSocket]] = {}
-
-    async def connect(self, websocket: WebSocket, user_id: UUID):
-        try:
-            # Check if connection is already accepted
-            # websocket.client_state is getting trickier to check directly in recent Starlette, 
-            # but usually we should call accept(). If already accepted, it might error.
-            # Safe to call accept() here.
-            await websocket.accept()
-        except RuntimeError:
-            pass # Already accepted
-            
-        if user_id not in self.active_connections:
-            self.active_connections[user_id] = []
-        self.active_connections[user_id].append(websocket)
-
-    def disconnect(self, websocket: WebSocket, user_id: UUID):
-        if user_id in self.active_connections:
-            if websocket in self.active_connections[user_id]:
-                self.active_connections[user_id].remove(websocket)
-            if not self.active_connections[user_id]:
-                del self.active_connections[user_id]
-
-    async def send_personal_message(self, message: dict, user_id: UUID):
-        if user_id in self.active_connections:
-            # Send to all active connections for this user (e.g. multiple tabs)
-            # Iterate over a copy to safe remove if needed
-            for connection in self.active_connections[user_id][:]:
-                try:
-                    await connection.send_json(message)
-                except (RuntimeError, WebSocketDisconnect):
-                    # Connection likely closed
-                    if user_id in self.active_connections and connection in self.active_connections[user_id]:
-                        self.active_connections[user_id].remove(connection)
-
-manager = ConnectionManager()
-
-async def get_current_user_ws(
-    websocket: WebSocket,
-    db: AsyncSession
-) -> User:
-    token = websocket.cookies.get(settings.COOKIE_NAME)
-    # Also check query param for flexibility
-    if not token:
-        token = websocket.query_params.get("token")
-        
-    if not token:
-        # We can't close here if we want to return None/raise, standard pattern for dependency
-        raise HTTPException(status_code=401, detail="Unauthorized")
-        
-    try:
-        user_id = await decode_access_token(token)
-        user = await get_user_by_id(user_id, db)
-        if not user:
-             raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except Exception:
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
 @router.websocket("/ws")
 async def websocket_endpoint(
@@ -140,7 +77,7 @@ async def websocket_endpoint(
             except json.JSONDecodeError:
                 pass
             except Exception as e:
-                print(f"WS Error processing message: {e}")
+                logger.error(f"WS Error processing message: {e}")
                 
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.user_id)

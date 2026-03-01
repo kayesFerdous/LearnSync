@@ -5,11 +5,14 @@ from langchain_core.runnables import RunnableConfig
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from langchain_core.messages import AIMessage, SystemMessage
 
-from src.agents.model import AgentState
+from src.agents.model import AgentState, AgentContext
 from src.services.vision.schema import ApprovedWeeklyRoutine
-from src.routines.models import ClassSession, Routine
+from src.routines.model import ClassSession, Routine
 from src.core.integrations.google.auth_utils import get_service_and_timezone
 from src.core.integrations.google.calendar_service import sync_db_routine_to_google, delete_google_events_for_routine
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def make_routine_approval_node():
@@ -18,19 +21,20 @@ def make_routine_approval_node():
         Extract routine and interrupt for human approval
         """
         extracted_routine = state['scratchpad'].get('extracted_routine')
-        print("\n\nextracted routine:\n", extracted_routine)
+        logger.debug(f"Extracted routine: {extracted_routine}")
 
         user_dicision = interrupt({
             "type": "routine_approval_required",
             "extracted_data": extracted_routine,
         })
 
-        print(f'\nuser decision: {user_dicision}\n')
+        logger.info(f"User decision received: approved={user_dicision.get('approved') if isinstance(user_dicision, dict) else user_dicision}")
 
         messages = []
 
         if isinstance(user_dicision, dict) and user_dicision.get('approved'):
-            db: AsyncSession = config["configurable"]["db"] #type: ignore
+            ctx: AgentContext = config["configurable"]["ctx"]
+            db = ctx.db
             user_id = state['user_id']
             
             # Get Google Service once
@@ -76,11 +80,11 @@ def make_routine_approval_node():
                 if service:
                     # Use the DB sync function to save IDs
                     await sync_db_routine_to_google(service, new_routine, all_classes, timezone, db)
-                    print(f"Successfully synced routine to Google Calendar for user {user_id}")
+                    logger.info(f"Successfully synced routine to Google Calendar for user {user_id}")
                 else:
-                    print(f"Skipping Google Calendar sync: No service found for user {user_id}")
+                    logger.warning(f"Skipping Google Calendar sync: No service found for user {user_id}")
             except Exception as e:
-                print(f"Failed to sync routine to Google Calendar: {e}")
+                logger.error(f"Failed to sync routine to Google Calendar: {e}")
 
             # Construct routine data to embed in message
             routine_data = {

@@ -1,11 +1,51 @@
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Dict, List
 from uuid import UUID
+from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, desc, func
 from sqlalchemy.orm import selectinload
 
 from src.messaging.model import Message
 from src.users.model import User
+
+
+class ConnectionManager:
+    """Manages active WebSocket connections per user."""
+
+    def __init__(self):
+        # user_id -> list of websockets (supports multiple tabs)
+        self.active_connections: Dict[UUID, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: UUID):
+        try:
+            await websocket.accept()
+        except RuntimeError:
+            pass  # Already accepted
+
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, user_id: UUID):
+        if user_id in self.active_connections:
+            if websocket in self.active_connections[user_id]:
+                self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def send_personal_message(self, message: dict, user_id: UUID):
+        if user_id in self.active_connections:
+            for connection in self.active_connections[user_id][:]:
+                try:
+                    await connection.send_json(message)
+                except (RuntimeError, WebSocketDisconnect):
+                    if user_id in self.active_connections and connection in self.active_connections[user_id]:
+                        self.active_connections[user_id].remove(connection)
+
+
+# Module-level singleton so all routes share the same manager
+manager = ConnectionManager()
 
 async def create_message(
     db: AsyncSession, 
@@ -138,7 +178,7 @@ async def mark_messages_as_read(
     if not unread_messages:
         return
         
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for msg in unread_messages:
         msg.read_at = now
         

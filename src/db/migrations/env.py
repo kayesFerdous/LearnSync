@@ -30,7 +30,7 @@ from src.users import model
 from src.conversations import model as conversations_model
 from src.quizzes import model as quiz_model
 from src.messaging import model as messaging_model
-from src.routines import models as routines_models
+from src.routines import model as routines_models
 # from src.services.vision import models as vision_models
 target_metadata = Base.metadata
 

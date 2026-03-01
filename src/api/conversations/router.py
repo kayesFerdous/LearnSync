@@ -1,12 +1,13 @@
 import json
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query, Body
 from fastapi.responses import StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.agents.runner import runner
+from src.core.logging_config import get_logger
 from src.api.conversations.schemas import (
     ConversationRequest, 
     FolderCreate, 
@@ -31,6 +32,7 @@ from src.conversations.service import (
     delete_folder
 )
 
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/conversation",
@@ -79,7 +81,7 @@ async def stream_generator(
         ):
             yield f"data: {json.dumps(jsonable_encoder(chunk))}\n\n"
     except Exception as e:
-        print(f"Error in chat stream: {str(e)}")
+        logger.error(f"Error in chat stream: {e}")
         error_packet = {"type": "error", "payload": "Stream interrupted"}
         yield f"data: {json.dumps(jsonable_encoder(error_packet))}\n\n"
 
@@ -97,7 +99,6 @@ async def create_conversation_chat(
     Optional 'folder_id' query param to assign the conversation to a folder.
     """
     try:
-        print("folder er under a new conversation create hoise")
         parsed_folder_id = UUID(folder_id) if folder_id else None
         # Create the conversation in the DB first
         thread_id: str = await create_conversation(db, user.user_id, parsed_folder_id)
@@ -112,7 +113,7 @@ async def create_conversation_chat(
             }
         )
     except Exception as e:
-        print(f"Error creating conversation: {str(e)}")
+        logger.error(f"Error creating conversation: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -151,7 +152,7 @@ async def continue_conversation_chat(
             }
         )
     except Exception as e:
-        print(f"Error processing message: {str(e)}")
+        logger.error(f"Error processing message: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -212,7 +213,7 @@ async def delete_conversation(
         if hasattr(workflow.checkpointer, "adelete_thread"):
             await workflow.checkpointer.adelete_thread(thread_id=conversation_id)
     except Exception as e:
-        print(f"Error deleting workflow state for thread {conversation_id}: {str(e)}")
+        logger.error(f"Error deleting workflow state for thread {conversation_id}: {e}")
 
     return Response(status_code=204)
 
@@ -334,14 +335,14 @@ async def generate_folder_mindmap_endpoint(
         return MindmapResponse(
             root=MindmapNodeResponse(**mindmap.model_dump()),
             total_files=mindmap.metadata.get("file_count", 0),
-            generated_at=datetime.utcnow(),
+            generated_at=datetime.now(timezone.utc),
             context=mindmap.title
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error generating folder mindmap: {str(e)}")
+        logger.error(f"Error generating folder mindmap: {e}")
         raise HTTPException(status_code=500, detail="Error generating mindmap")
 
 
@@ -397,14 +398,14 @@ async def generate_conversation_mindmap_endpoint(
         return MindmapResponse(
             root=MindmapNodeResponse(**mindmap.model_dump()),
             total_files=mindmap.metadata.get("file_count", 0),
-            generated_at=datetime.utcnow(),
+            generated_at=datetime.now(timezone.utc),
             context=mindmap.title
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error generating conversation mindmap: {str(e)}")
+        logger.error(f"Error generating conversation mindmap: {e}")
         raise HTTPException(status_code=500, detail="Error generating mindmap")
 
 
@@ -443,14 +444,14 @@ async def get_folder_mindmap_endpoint(
         return MindmapResponse(
             root=MindmapNodeResponse(**mindmap.model_dump()),
             total_files=mindmap.metadata.get("file_count", 0),
-            generated_at=datetime.utcnow(),
+            generated_at=datetime.now(timezone.utc),
             context=mindmap.title
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error retrieving folder mindmap: {str(e)}")
+        logger.error(f"Error retrieving folder mindmap: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving mindmap")
 
 
@@ -489,12 +490,12 @@ async def get_conversation_mindmap_endpoint(
         return MindmapResponse(
             root=MindmapNodeResponse(**mindmap.model_dump()),
             total_files=mindmap.metadata.get("file_count", 0),
-            generated_at=datetime.utcnow(),
+            generated_at=datetime.now(timezone.utc),
             context=mindmap.title
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error retrieving conversation mindmap: {str(e)}")
+        logger.error(f"Error retrieving conversation mindmap: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving mindmap")

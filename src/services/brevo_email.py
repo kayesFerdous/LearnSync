@@ -1,13 +1,10 @@
 import httpx
 
 from src.core.config import settings
+from src.core.exceptions import EmailVerificationDeliveryException as EmailDeliveryException
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
-
-
-class EmailDeliveryException(Exception):
-    pass
 
 
 def _build_verification_email_html(username: str, verification_url: str) -> str:

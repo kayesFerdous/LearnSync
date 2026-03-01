@@ -1,9 +1,12 @@
 import asyncio
+import logging
 from typing import Any, Dict, List, Optional, Union, Sequence
 from datetime import datetime
 from pydantic import BaseModel
 
 from .schemas import Event, EventCreate, EventUpdate
+
+logger = logging.getLogger(__name__)
 
 class GoogleCalendarClient:
     """
@@ -57,7 +60,7 @@ class GoogleCalendarClient:
 
             return await asyncio.to_thread(_do_list)
         except Exception as e:
-            print(f"Error listing events: {e}")
+            logger.error(f"Error listing events: {e}")
             raise e
 
     async def create_event(self, event_data: Union[EventCreate, Dict[str, Any]], calendar_id: str = 'primary') -> Event:
@@ -79,7 +82,7 @@ class GoogleCalendarClient:
 
             return await asyncio.to_thread(_do_create)
         except Exception as e:
-            print(f"Error creating event: {e}")
+            logger.error(f"Error creating event: {e}")
             raise e
 
     async def batch_create_events(self, events_data: Sequence[Union[EventCreate, Dict[str, Any]]], calendar_id: str = 'primary') -> List[Optional[Event]]:
@@ -93,7 +96,7 @@ class GoogleCalendarClient:
                 
                 def callback(request_id, response, exception):
                     if exception:
-                        print(f"Error in batch item {request_id}: {exception}")
+                        logger.error(f"Error in batch item {request_id}: {exception}")
                     else:
                         # Request ID is usually "1", "2", etc. corresponding to order added?
                         # Actually googleapiclient might randomize IDs or use custom ones.
@@ -114,7 +117,7 @@ class GoogleCalendarClient:
                     def make_callback(index):
                         def _cb(request_id, response, exception):
                             if exception:
-                                print(f"Error in batch item {index}: {exception}")
+                                logger.error(f"Error in batch item {index}: {exception}")
                             else:
                                 created_events[index] = Event.model_validate(response)
                         return _cb
@@ -129,7 +132,7 @@ class GoogleCalendarClient:
 
             return await asyncio.to_thread(_do_batch)
         except Exception as e:
-            print(f"Error in batch creation: {e}")
+            logger.error(f"Error in batch creation: {e}")
             raise e
 
     async def batch_delete_events(self, event_ids: List[str], calendar_id: str = 'primary') -> None:
@@ -147,7 +150,7 @@ class GoogleCalendarClient:
                     def make_callback(eid):
                         def _cb(request_id, response, exception):
                             if exception:
-                                print(f"Error deleting event {eid}: {exception}")
+                                logger.error(f"Error deleting event {eid}: {exception}")
                         return _cb
 
                     batch.add(
@@ -159,7 +162,7 @@ class GoogleCalendarClient:
 
             await asyncio.to_thread(_do_batch_delete)
         except Exception as e:
-            print(f"Error in batch deletion: {e}")
+            logger.error(f"Error in batch deletion: {e}")
             raise e
 
     async def update_event(
@@ -187,7 +190,7 @@ class GoogleCalendarClient:
 
             return await asyncio.to_thread(_do_update)
         except Exception as e:
-            print(f"Error updating event: {e}")
+            logger.error(f"Error updating event: {e}")
             raise e
 
     async def patch_event(
@@ -215,7 +218,7 @@ class GoogleCalendarClient:
 
             return await asyncio.to_thread(_do_patch)
         except Exception as e:
-            print(f"Error patching event: {e}")
+            logger.error(f"Error patching event: {e}")
             raise e
 
     async def delete_event(self, event_id: str, calendar_id: str = 'primary') -> None:
@@ -231,7 +234,7 @@ class GoogleCalendarClient:
 
             await asyncio.to_thread(_do_delete)
         except Exception as e:
-            print(f"Error deleting event: {e}")
+            logger.error(f"Error deleting event: {e}")
             raise e
 
     async def get_event(self, event_id: str, calendar_id: str = 'primary') -> Event:
@@ -248,5 +251,5 @@ class GoogleCalendarClient:
 
             return await asyncio.to_thread(_do_get)
         except Exception as e:
-            print(f"Error getting event: {e}")
+            logger.error(f"Error getting event: {e}")
             raise e
