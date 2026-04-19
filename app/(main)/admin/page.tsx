@@ -269,9 +269,9 @@ export default function AdminPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">
-                  {users.filter(u => u.subscribed).length}
+                  {users.filter(u => !u.is_admin).length}
                 </p>
-                <p className="text-sm text-muted-foreground">Subscribed</p>
+                <p className="text-sm text-muted-foreground">Members</p>
               </div>
             </div>
           </div>
@@ -446,13 +446,9 @@ export default function AdminPage() {
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600">
                               Admin
                             </span>
-                          ) : user.subscribed ? (
-                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600">
-                              Pro
-                            </span>
                           ) : (
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
-                              Free
+                              User
                             </span>
                           )}
                         </div>

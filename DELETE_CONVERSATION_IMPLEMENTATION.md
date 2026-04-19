@@ -23,7 +23,7 @@ Successfully implemented the "Delete Conversation" feature for the chat applicat
 - **toast.ts**: Simple event-driven toast utility
   - `showToast()`, `showSuccessToast()`, `showErrorToast()`, `showInfoToast()`
   - Supports duration and auto-dismiss
-  - Uses subscription pattern for state management
+  - Uses a listener pattern for state management
   
 - **toast-container.tsx**: React component to display toasts
   - Shows success (green), error (red), and info (blue) notifications

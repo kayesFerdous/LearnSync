@@ -12,7 +12,6 @@ import {
   Check,
   X,
   Loader2,
-  ExternalLink,
   Sparkles,
   Globe,
   Palette,
@@ -171,16 +170,6 @@ export default function ProfilePage() {
                   Admin
                 </span>
               )}
-              {user.subscribed ? (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/20 text-primary text-xs font-semibold backdrop-blur-sm border border-primary/30">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Pro
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/80 text-muted-foreground text-xs font-semibold backdrop-blur-sm border border-border">
-                  Free Plan
-                </span>
-              )}
             </div>
           </div>
 
@@ -298,7 +287,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-card rounded-xl p-4 border border-border theme-shadow">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
@@ -307,18 +296,6 @@ export default function ProfilePage() {
               <div>
                 <p className="text-sm text-muted-foreground">Account Type</p>
                 <p className="font-semibold text-foreground">{user.is_admin ? 'Admin' : 'User'}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-card rounded-xl p-4 border border-border theme-shadow">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Subscription</p>
-                <p className="font-semibold text-foreground">{user.subscribed ? 'Pro' : 'Free'}</p>
               </div>
             </div>
           </div>
@@ -347,33 +324,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-
-        {/* Upgrade CTA (for non-subscribed users) */}
-        {!user.subscribed && (
-          <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl border border-primary/20 p-6 overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-primary/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-            
-            <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="p-3 rounded-xl bg-primary/10 text-primary">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-foreground">Upgrade to Pro</h3>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    Unlock unlimited features, priority support, and advanced AI capabilities.
-                  </p>
-                </div>
-              </div>
-              <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors shrink-0">
-                <Sparkles className="h-4 w-4" />
-                Upgrade Now
-                <ExternalLink className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* User ID (for debugging/support) */}
         <div className="flex items-center justify-center">

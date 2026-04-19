@@ -12,7 +12,6 @@ export interface UserProfile {
   email: string;
   picture: string | null;
   is_admin: boolean;
-  subscribed: boolean;
   created_at: string;
   settings: UserSettings;
 }
@@ -23,7 +22,6 @@ export interface PublicUserProfile {
   picture: string | null;
   created_at: string;
   is_admin: boolean;
-  subscribed: boolean;
 }
 
 export interface UpdateProfileRequest {

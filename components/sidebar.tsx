@@ -167,13 +167,13 @@ export function Sidebar() {
                 <Sparkles className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">Pro Features</p>
-                <p className="text-[10px] text-muted-foreground">Unlock more</p>
+                <p className="text-sm font-semibold text-foreground">Workspace Tip</p>
+                <p className="text-[10px] text-muted-foreground">Plan your day in Calendar</p>
               </div>
             </div>
-            <button className="w-full mt-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold rounded-lg transition-colors shadow-lg shadow-primary/20">
-              Upgrade Now
-            </button>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Keep classes, routines, and chats aligned by updating your schedule regularly.
+            </p>
           </div>
         </div>
       </aside>
