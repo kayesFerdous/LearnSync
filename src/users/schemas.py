@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserSettings(BaseModel):
     timezone: str = "UTC"
     theme: str | None = "dark"
+    font: str = "system"
+
+    model_config = ConfigDict(from_attributes=True)
 
 # --- User Identity Schemas ---
 
@@ -28,6 +31,8 @@ class UserIdentityCreate(UserIdentityBase):
 class UserIdentityRead(UserIdentityBase):
     is_email_verified: bool = False
     email_verified_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 # ... (rest of the code)
 class UserBase(BaseModel):

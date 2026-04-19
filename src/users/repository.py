@@ -1,6 +1,6 @@
 from uuid import UUID
 from datetime import datetime, timezone
-from sqlalchemy import and_, delete, select, or_, asc, desc, update
+from sqlalchemy import and_, delete, select, or_, asc, desc, update, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
@@ -19,18 +19,15 @@ async def get_users(
     search: str | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc"
-) -> list[User]:
+) -> tuple[list[User], int]:
     """
     Fetch basic user info with pagination, search, and sorting.
     Optimized: No relationship loading (settings/identity).
+    Returns (users, total_count).
     """
     try:
-        # Efficient: SELECT * FROM users
-        # noload: Explicitly prevents N+1 lazy loading when schema accesses these fields
-        query = select(User).options(
-            noload(User.settings),
-            noload(User.identity)
-        )
+        # Build the base query for filtering
+        base_query = select(User)
 
         # Apply search filter
         if search:
@@ -38,7 +35,18 @@ async def get_users(
                 User.username.ilike(f"%{search}%"),
                 User.email.ilike(f"%{search}%")
             )
-            query = query.where(search_filter)
+            base_query = base_query.where(search_filter)
+
+        # Get total count
+        count_query = select(func.count()).select_from(base_query.subquery())
+        total_count_result = await db.execute(count_query)
+        total_count = total_count_result.scalar_one()
+
+        # Apply options, sorting and pagination to the main query
+        query = base_query.options(
+            noload(User.settings),
+            noload(User.identity)
+        )
 
         # Apply sorting
         valid_sort_fields = {
@@ -59,7 +67,9 @@ async def get_users(
         query = query.offset(skip).limit(limit)
 
         result = await db.execute(query)
-        return list(result.scalars().all())
+        users = list(result.scalars().all())
+        
+        return users, total_count
 
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
