@@ -3,13 +3,10 @@
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { 
-  Bell, 
-  Calendar as CalendarIcon, 
   User, 
   Palette, 
   Settings2,
   Mail,
-  Shield,
   LogOut
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -40,63 +37,6 @@ function SettingsSection({
         {children}
       </div>
     </section>
-  );
-}
-
-function SettingsItem({
-  icon: Icon,
-  title,
-  description,
-  children,
-  onClick
-}: {
-  icon: React.ElementType;
-  title: string;
-  description: string;
-  children?: React.ReactNode;
-  onClick?: () => void;
-}) {
-  return (
-    <div 
-      className={cn(
-        "flex items-center justify-between group",
-        onClick && "cursor-pointer"
-      )} 
-      onClick={onClick}
-    >
-      <div className="flex items-center gap-4">
-        <div className="p-2 rounded-lg bg-secondary text-muted-foreground group-hover:text-foreground transition-colors">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">{title}</h3>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function Switch({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        onCheckedChange(!checked);
-      }}
-      className={cn(
-        "h-6 w-11 rounded-full relative transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary",
-        checked ? "bg-primary" : "bg-secondary"
-      )}
-    >
-      <div
-        className={cn(
-          "h-4 w-4 rounded-full absolute top-1 shadow-sm transition-all duration-200 bg-white",
-          checked ? "right-1" : "left-1 bg-muted-foreground"
-        )}
-      />
-    </button>
   );
 }
 
@@ -135,7 +75,7 @@ function FontSelector() {
       if (updated?.settings?.font) {
         setSelectedFont(updated.settings.font as FontId);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to save font');
       setSelectedFont(currentFont);
     } finally {
@@ -230,10 +170,6 @@ function ProfileCard() {
 }
 
 export default function SettingsPage() {
-  // Local state for toggles (mocking functionality)
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [calendarSyncEnabled, setCalendarSyncEnabled] = useState(true);
-
   return (
     <div className="container mx-auto p-4 md:p-6 max-w-7xl animate-in fade-in duration-500">
       <div className="max-w-3xl mx-auto space-y-8">
@@ -284,47 +220,6 @@ export default function SettingsPage() {
           <div className="-mt-2"> {/* Minor adjust to align with other items padding if needed */}
              <TimezoneSelector /> 
           </div>
-          
-          <div className="h-px bg-border" />
-
-          {/* Notifications */}
-          <SettingsItem 
-            icon={Bell} 
-            title="Email Notifications" 
-            description="Receive updates about your routine and tasks."
-            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-          >
-            <Switch 
-              checked={notificationsEnabled} 
-              onCheckedChange={setNotificationsEnabled} 
-            />
-          </SettingsItem>
-          
-          <div className="h-px bg-border" />
-
-          {/* Calendar Sync */}
-          <SettingsItem 
-             icon={CalendarIcon} 
-             title="Calendar Storage" 
-             description="Sync your schedule with Google Calendar."
-             onClick={() => setCalendarSyncEnabled(!calendarSyncEnabled)}
-          >
-            <Switch 
-              checked={calendarSyncEnabled} 
-              onCheckedChange={setCalendarSyncEnabled} 
-            />
-          </SettingsItem>
-
-           <div className="h-px bg-border" />
-           
-           <SettingsItem 
-             icon={Shield} 
-             title="Security" 
-             description="Manage password and 2FA settings."
-             onClick={() => {}} // Placeholder
-           >
-             <button className="text-sm font-medium text-primary hover:underline">Manage</button>
-           </SettingsItem>
 
         </SettingsSection>
         
