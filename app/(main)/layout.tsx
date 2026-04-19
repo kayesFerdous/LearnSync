@@ -2,10 +2,11 @@
 
 import { Sidebar } from "@/components/sidebar";
 import { TopBar } from "@/components/top-bar";
-import { useUiStore } from "@/lib/store";
+import { useAuthStore, useUiStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 export default function MainLayout({
   children,
@@ -13,8 +14,11 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const { sidebarOpen } = useUiStore();
+  const { user, isAuthenticated, fetchUser } = useAuthStore();
   const pathname = usePathname();
+  const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const isMessagingPage = pathname.startsWith("/messaging");
 
   // Wait for Zustand to hydrate from localStorage
@@ -22,8 +26,50 @@ export default function MainLayout({
     setIsHydrated(true);
   }, []);
 
-  if (!isHydrated) {
-    // Prevent flash of wrong content during hydration
+  useEffect(() => {
+    let cancelled = false;
+
+    const validateAuth = async () => {
+      if (!isHydrated) {
+        return;
+      }
+
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(resolve, 5000);
+      });
+
+      await Promise.race([fetchUser(), timeoutPromise]);
+
+      if (!cancelled) {
+        setAuthChecked(true);
+      }
+    };
+
+    void validateAuth();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchUser, isHydrated]);
+
+  useEffect(() => {
+    if (authChecked && !user && !isAuthenticated) {
+      router.replace('/auth');
+    }
+  }, [authChecked, isAuthenticated, router, user]);
+
+  if (!isHydrated || !authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm">Loading workspace…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user && !isAuthenticated) {
     return null;
   }
 
