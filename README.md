@@ -14,6 +14,7 @@
 - **Lazy Conversation Creation**: Conversations are created automatically when you send your first message
 - **Conversation Management**: Delete conversations with a confirmation dialog to prevent accidental deletion
 - **Smart Navigation**: Switch between conversations seamlessly with highlighted active conversation indicators
+- **History Load Reliability**: Conversation loading is deduplicated and race-safe to prevent duplicate requests and stale thread rendering
 
 #### Intelligent Routine Generation
 - **AI Schedule Extraction**: Upload images of class schedules or routines, and the AI extracts structured data
@@ -66,6 +67,7 @@
 - **Quick Actions Hub**: One-click access to common tasks for each course
 - **Customizable Identity**: Personalize course icons, themes, and colors
 - **Interactive Previews**: Mini-map previews of your course knowledge graph
+- **Viewport-Fitted Layout**: Panels are constrained to screen height with internal scrolling to avoid content falling below view
 
 ---
 
@@ -160,31 +162,34 @@
 
 ### 📊 Dashboard
 
-#### Quick Overview
-- **Personalized Greeting**: Welcome message with user identification
-- **System Status**: Real-time status indicator
-- **User Avatar**: Visual profile representation with online status
+#### Live Daily Command Center
+- **Personalized Greeting**: Dynamic greeting by time of day and user profile
+- **Real-Time Data Widgets**: Dashboard fetches live data from calendar, routine, messaging, and chat services
+- **Manual Refresh**: One-click refresh to reload all dashboard panels
 
-#### Quick Actions
-- **One-Click Access**: Launch common tasks instantly
-  - Start new chat conversation
-  - Create calendar event
-  - View activity log
-  - Create quick task
+#### Action Hub
+- **Working Quick Actions**: Buttons navigate directly to live workflows
+  - New Chat
+  - Add Event
+  - Messages
+  - Class Schedule
 
-#### Upcoming Events Widget
-- **Event Timeline**: See your next scheduled events at a glance
-- **Event Cards**: Each event displays:
-  - Date and time
-  - Event title
-  - Duration
-  - Tags and categories (Work, Online, etc.)
-- **Visual Calendar Icons**: Month/day display for quick recognition
+#### Today Plan Panel
+- **Upcoming Events**: Next events are loaded from calendar APIs
+- **Next Class Preview**: Shows the next routine class based on weekday/time
+- **Timezone-Aware Display**: Times are rendered using user timezone settings when available
+- **Empty-State Guidance**: Clear prompts when no events or routine data exists
 
-#### Statistics
-- **Learning Streak**: Track consecutive days of activity
-- **Progress Metrics**: Monitor your productivity trends
-- **Achievement Tracking**: Visual representation of your progress
+#### Attention Panel
+- **Unread Message Count**: Aggregated unread thread count from messaging contacts
+- **Unread Contact Highlights**: Top contacts requiring reply are surfaced first
+- **Conversation Activity Snapshot**: Total AI conversation count and most recent activity time
+
+#### Live Metrics
+- **Events This Week**: Count of current-week scheduled events
+- **Classes Today**: Routine classes scheduled for the current weekday
+- **Weekly Class Count**: Total classes in the current routine
+- **Unread Threads**: Number of contacts with unread messages
 
 ---
 
