@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -25,18 +25,30 @@ import {
   FileText,
   FileDown,
   ChevronDown,
+  Languages,
   Heading1,
   Heading2,
   Heading3,
   Quote,
   Minus,
 } from 'lucide-react';
+import type { FileChild, ParagraphChild } from 'docx';
 import { cn } from '@/lib/utils';
+
+type TranslateApiResponse = {
+  text?: string;
+  detail?: string;
+};
 
 export default function EditorPage() {
   const [title, setTitle] = useState('Untitled Document');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedText, setSelectedText] = useState('');
+  const [selectionRange, setSelectionRange] = useState<{ from: number; to: number } | null>(null);
+  const [isTranslatingSelection, setIsTranslatingSelection] = useState(false);
+  const [isTranslatingAll, setIsTranslatingAll] = useState(false);
+  const [translationError, setTranslationError] = useState('');
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -65,6 +77,95 @@ export default function EditorPage() {
     },
   });
 
+  const requestTranslation = useCallback(async (text: string) => {
+    const response = await fetch('/editor/translate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    const responseData = (await response.json().catch(() => ({}))) as TranslateApiResponse;
+
+    if (!response.ok || typeof responseData.text !== 'string') {
+      throw new Error(responseData.detail || 'Failed to translate text.');
+    }
+
+    return responseData.text;
+  }, []);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const syncSelectionState = () => {
+      const { from, to } = editor.state.selection;
+      const selectionText = editor.state.doc.textBetween(from, to, ' ').trim();
+
+      if (from === to || !selectionText) {
+        setSelectedText('');
+        setSelectionRange(null);
+        return;
+      }
+
+      setSelectedText(selectionText);
+      setSelectionRange({ from, to });
+    };
+
+    syncSelectionState();
+    editor.on('selectionUpdate', syncSelectionState);
+
+    return () => {
+      editor.off('selectionUpdate', syncSelectionState);
+    };
+  }, [editor]);
+
+  const translateSelection = useCallback(async () => {
+    if (!editor || !selectionRange || !selectedText) return;
+
+    setTranslationError('');
+    setIsTranslatingSelection(true);
+
+    try {
+      const translatedText = await requestTranslation(selectedText);
+
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(selectionRange)
+        .insertContent(translatedText)
+        .run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Translation failed.';
+      setTranslationError(message);
+    } finally {
+      setIsTranslatingSelection(false);
+    }
+  }, [editor, requestTranslation, selectedText, selectionRange]);
+
+  const translateFullText = useCallback(async () => {
+    if (!editor) return;
+
+    const fullText = editor.getText().trim();
+    if (!fullText) {
+      setTranslationError('Nothing to translate yet.');
+      return;
+    }
+
+    setTranslationError('');
+    setIsTranslatingAll(true);
+
+    try {
+      const translatedText = await requestTranslation(fullText);
+      editor.chain().focus().selectAll().insertContent(translatedText).run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Translation failed.';
+      setTranslationError(message);
+    } finally {
+      setIsTranslatingAll(false);
+    }
+  }, [editor, requestTranslation]);
+
   const exportToPDF = useCallback(async () => {
     if (!editor) return;
     setIsExporting(true);
@@ -76,7 +177,6 @@ export default function EditorPage() {
       const container = document.createElement('div');
       container.innerHTML = `
         <div style="font-family: 'Times New Roman', serif; padding: 40px;">
-          <h1 style="margin-bottom: 24px; font-size: 24px; font-weight: bold;">${title}</h1>
           ${content}
         </div>
       `;
@@ -103,24 +203,18 @@ export default function EditorPage() {
     setIsExporting(true);
     
     try {
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
       const { saveAs } = await import('file-saver');
       
       const htmlContent = editor.getHTML();
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = htmlContent;
       
-      const children: any[] = [
-        new Paragraph({
-          text: title,
-          heading: HeadingLevel.TITLE,
-          spacing: { after: 400 },
-        }),
-      ];
+      const children: FileChild[] = [];
       
       // Parse HTML content to docx paragraphs
-      const parseNode = (node: Node): any[] => {
-        const paragraphs: any[] = [];
+      const parseNode = (node: Node): FileChild[] => {
+        const paragraphs: FileChild[] = [];
         
         if (node.nodeType === Node.TEXT_NODE) {
           return [];
@@ -131,7 +225,7 @@ export default function EditorPage() {
           const tagName = element.tagName.toLowerCase();
           
           if (tagName === 'p') {
-            const textRuns: any[] = [];
+            const textRuns: ParagraphChild[] = [];
             element.childNodes.forEach(child => {
               if (child.nodeType === Node.TEXT_NODE) {
                 textRuns.push(new TextRun({ text: child.textContent || '' }));
@@ -202,7 +296,7 @@ export default function EditorPage() {
       const doc = new Document({
         sections: [{
           properties: {},
-          children: children.length > 1 ? children : [
+          children: children.length > 0 ? children : [
             ...children,
             new Paragraph({ text: '' }),
           ],
@@ -239,12 +333,31 @@ export default function EditorPage() {
           className="text-2xl font-bold bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground focus:ring-0 w-full max-w-md"
           placeholder="Document title..."
         />
-        
-        {/* Export Button */}
-        <div className="relative">
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={translateFullText}
+            disabled={isTranslatingAll || isTranslatingSelection || isExporting}
+            className="flex items-center gap-2 px-4 py-2 border border-border bg-card text-card-foreground rounded-xl font-medium text-sm hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {isTranslatingAll ? (
+              <>
+                <div className="h-4 w-4 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+                Translating...
+              </>
+            ) : (
+              <>
+                <Languages className="h-4 w-4" />
+                Translate Full Text
+              </>
+            )}
+          </button>
+
+          {/* Export Button */}
+          <div className="relative">
           <button
             onClick={() => setShowExportMenu(!showExportMenu)}
-            disabled={isExporting}
+            disabled={isExporting || isTranslatingAll || isTranslatingSelection}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl font-medium text-sm hover:opacity-90 transition-opacity theme-shadow disabled:opacity-50"
           >
             {isExporting ? (
@@ -260,9 +373,9 @@ export default function EditorPage() {
               </>
             )}
           </button>
-          
+
           {showExportMenu && !isExporting && (
-            <div className="absolute right-0 top-full mt-2 bg-card border border-border rounded-xl theme-shadow-lg overflow-hidden z-50 min-w-[160px]">
+            <div className="absolute right-0 top-full mt-2 bg-card border border-border rounded-xl theme-shadow-lg overflow-hidden z-50 min-w-40">
               <button
                 onClick={exportToPDF}
                 className="flex items-center gap-3 w-full px-4 py-3 text-sm text-left hover:bg-accent transition-colors"
@@ -279,8 +392,15 @@ export default function EditorPage() {
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
+
+      {translationError && (
+        <div className="shrink-0 mb-3 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+          {translationError}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="shrink-0 flex flex-wrap items-center gap-1 p-2 bg-card border border-border rounded-xl mb-4 theme-shadow">
@@ -436,6 +556,30 @@ export default function EditorPage() {
             <Redo className="h-4 w-4" />
           </ToolbarButton>
         </ToolbarGroup>
+
+        {selectedText && (
+          <>
+            <ToolbarDivider />
+            <button
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={translateSelection}
+              disabled={isTranslatingSelection || isTranslatingAll || isExporting}
+              className="ml-1 flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold bg-accent text-accent-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {isTranslatingSelection ? (
+                <>
+                  <div className="h-3.5 w-3.5 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />
+                  Translating Selection...
+                </>
+              ) : (
+                <>
+                  <Languages className="h-3.5 w-3.5" />
+                  Translate Selection
+                </>
+              )}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Editor */}
