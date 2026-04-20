@@ -20,6 +20,8 @@ export default function MainLayout({
   const [isHydrated, setIsHydrated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const isMessagingPage = pathname.startsWith("/messaging");
+  const isCoursePage = pathname.startsWith("/course");
+  const isViewportLockedPage = isMessagingPage || isCoursePage;
 
   // Wait for Zustand to hydrate from localStorage
   useEffect(() => {
@@ -77,14 +79,14 @@ export default function MainLayout({
     <div
       className={cn(
         "bg-background",
-        isMessagingPage ? "h-screen overflow-hidden" : "min-h-screen",
+        isViewportLockedPage ? "h-screen overflow-hidden" : "min-h-screen",
       )}
     >
       <Sidebar />
       <main
         className={cn(
           "flex flex-col transition-all duration-300 ease-out",
-          isMessagingPage ? "h-screen overflow-hidden" : "min-h-screen",
+          isViewportLockedPage ? "h-screen overflow-hidden" : "min-h-screen",
           sidebarOpen ? "md:ml-72" : "md:ml-0",
         )}
       >
@@ -92,7 +94,7 @@ export default function MainLayout({
         <div
           className={cn(
             "flex-1 relative min-h-0",
-            isMessagingPage ? "overflow-hidden" : "overflow-auto",
+            isViewportLockedPage ? "overflow-hidden" : "overflow-auto",
           )}
         >
           {children}
