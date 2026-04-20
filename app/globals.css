@@ -108,6 +108,49 @@
 }
 
 /* ===========================================
+   THEME: LearnSync Editorial
+   =========================================== */
+[data-theme="learnsync"] {
+  --background: #F7F6F2;
+  --foreground: #0F0F12;
+  --card: #FFFFFF;
+  --card-foreground: #0F0F12;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F0F12;
+  --primary: #0F1118;
+  --primary-foreground: #F7F6F2;
+  --secondary: #EAF1F7;
+  --secondary-foreground: #1E4060;
+  --muted: #EFECE6;
+  --muted-foreground: #6B6671;
+  --accent: #2A5C8A;
+  --accent-foreground: #F7F6F2;
+  --destructive: #D85A3F;
+  --destructive-foreground: #FFFFFF;
+  --border: #DEDAD2;
+  --input: #D6D2CA;
+  --ring: #2A5C8A;
+  --radius: 1rem;
+
+  --theme-shadow: 0 2px 8px rgb(15 15 18 / 0.08);
+  --theme-shadow-md: 0 12px 30px -16px rgb(15 15 18 / 0.24);
+  --theme-shadow-lg: 0 24px 60px -24px rgb(15 15 18 / 0.3);
+}
+
+[data-theme="learnsync"] body {
+  background-image:
+    radial-gradient(ellipse 72% 46% at 88% 16%, rgb(42 92 138 / 0.10) 0%, transparent 62%),
+    radial-gradient(ellipse 48% 60% at 8% 82%, rgb(232 115 74 / 0.08) 0%, transparent 58%);
+}
+
+[data-theme="learnsync"] h1,
+[data-theme="learnsync"] h2,
+[data-theme="learnsync"] h3 {
+  font-family: var(--font-playfair-display, "Times New Roman", serif);
+  letter-spacing: -0.02em;
+}
+
+/* ===========================================
    THEME: Neobrutalism (PrivFi Style)
    =========================================== */
 [data-theme="neobrutalism"] {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Mono } from "next/font/google";
+import { Playfair_Display, Space_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/components/query-provider";
@@ -8,6 +8,12 @@ const spaceMono = Space_Mono({
   weight: ['400', '700'],
   subsets: ["latin"],
   variable: "--font-space-mono",
+});
+
+const playfairDisplay = Playfair_Display({
+  weight: ['700', '900'],
+  subsets: ["latin"],
+  variable: "--font-playfair-display",
 });
 
 export const metadata: Metadata = {
@@ -22,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning className={`${spaceMono.variable} antialiased bg-background text-foreground`}>
+      <body suppressHydrationWarning className={`${spaceMono.variable} ${playfairDisplay.variable} antialiased bg-background text-foreground`}>
         <QueryProvider>
           <ThemeProvider>
             {children}
