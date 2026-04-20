@@ -6,7 +6,6 @@ export interface User {
   email: string;
   picture: string | null;
   is_admin: boolean;
-  subscribed: boolean;
   created_at: string;
   updated_at: string;
 }

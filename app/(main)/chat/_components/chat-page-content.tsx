@@ -144,10 +144,10 @@ export function ChatPageContent({ conversationId, folderId }: ChatPageContentPro
 
   // Initial load from URL params (Deep Linking)
   useEffect(() => {
-    if (conversationId && conversationId !== currentConversationId) {
+    if (conversationId) {
       loadMessages(conversationId);
     }
-  }, [conversationId, currentConversationId, loadMessages]);
+  }, [conversationId, loadMessages]);
 
   // Update breadcrumb overrides for folder and conversation
   useEffect(() => {

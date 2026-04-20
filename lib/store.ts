@@ -50,7 +50,6 @@ interface User {
   email: string;
   picture: string | null;
   is_admin: boolean;
-  subscribed: boolean;
   created_at: string;
   updated_at: string | null;
   settings: UserSettings;
@@ -59,6 +58,7 @@ interface User {
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  authHydrated: boolean;
   login: (user: User) => void;
   logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
@@ -70,6 +70,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
+      authHydrated: false,
       login: (user) => {
         const normalizedUser = user && user.settings ? {
           ...user,
@@ -259,6 +260,8 @@ export const useAuthStore = create<AuthState>()(
             useFontStore.getState().setFont(state.user.settings.font as FontId);
           }
         }
+
+        set({ authHydrated: true });
       },
     }
   )

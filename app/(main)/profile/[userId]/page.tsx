@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Calendar, Crown, Loader2, MessageCircle, Sparkles, User } from 'lucide-react';
+import { Calendar, Crown, Loader2, MessageCircle, User } from 'lucide-react';
 import { useAuthStore } from '@/lib/store';
 import {
   getPublicProfile,
@@ -134,12 +134,6 @@ export default function PublicProfilePage() {
                     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-600 border border-amber-500/30 font-medium">
                       <Crown className="h-3.5 w-3.5" />
                       Admin
-                    </span>
-                  )}
-                  {profile.subscribed && (
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/20 text-primary border border-primary/30 font-medium">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Pro
                     </span>
                   )}
                 </div>

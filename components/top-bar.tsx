@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { UserSearch } from "@/components/user-search";
 
 export function TopBar() {
-  const { user, isAuthenticated, logout, fetchUser } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const { breadcrumbOverrides, sidebarOpen, toggleSidebar } = useUiStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
@@ -19,13 +19,6 @@ export function TopBar() {
   useEffect(() => {
     setImageError(false);
   }, [user?.picture]);
-
-  // Only fetch user if not already loaded (handles page refresh without localStorage)
-  useEffect(() => {
-    if (!user && !isAuthenticated) {
-      fetchUser();
-    }
-  }, []);
 
   // Generate breadcrumbs from pathname
   const segments = pathname.split('/').filter(Boolean);
@@ -44,7 +37,7 @@ export function TopBar() {
   });
 
   return (
-    <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 h-16 flex items-center px-4 justify-between sticky top-0 z-40 w-full">
+    <header className="border-b border-border/50 bg-background/80 backdrop-blur-xl supports-backdrop-filter:bg-background/60 h-16 flex items-center px-4 justify-between sticky top-0 z-40 w-full">
       <div className="flex items-center gap-3">
         {/* Hamburger Menu Button */}
         <button
@@ -104,7 +97,7 @@ export function TopBar() {
                 isProfileOpen && "bg-accent"
               )}
             >
-              <div className="flex flex-col items-end hidden sm:flex">
+              <div className="hidden sm:flex flex-col items-end">
                 <span className="text-sm font-medium text-foreground">{user.username || 'User'}</span>
                 <span className="text-[10px] text-muted-foreground">Online</span>
               </div>
@@ -119,7 +112,7 @@ export function TopBar() {
                       onError={() => setImageError(true)}
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
+                    <div className="h-full w-full flex items-center justify-center bg-linear-to-br from-primary/20 to-primary/5">
                       <span className="text-lg font-bold text-primary">
                         {(user.username || 'User').charAt(0).toUpperCase()}
                       </span>

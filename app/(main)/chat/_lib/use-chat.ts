@@ -21,6 +21,7 @@ export function useChat(folderId?: string | null) {
   const abortRef = useRef<AbortController | null>(null);
   const pendingChunkRef = useRef('');
   const flushRafRef = useRef<number | null>(null);
+  const latestLoadRequestRef = useRef(0);
 
   // Load conversations on mount
   useEffect(() => {
@@ -115,16 +116,20 @@ export function useChat(folderId?: string | null) {
   }, []);
 
   const loadMessages = useCallback(async (conversationId: string) => {
+    const requestId = ++latestLoadRequestRef.current;
     setIsLoading(true);
     try {
       const data = await fetchMessages(conversationId);
+      if (requestId !== latestLoadRequestRef.current) return;
       // Clear and set messages, stripping INITIAL_MESSAGE
       setMessages(data);
       setCurrentConversationId(conversationId);
     } catch (error) {
+      if (requestId !== latestLoadRequestRef.current) return;
       console.error('Failed to load messages:', error);
       setMessages([]);
     } finally {
+      if (requestId !== latestLoadRequestRef.current) return;
       setIsLoading(false);
     }
   }, []);
