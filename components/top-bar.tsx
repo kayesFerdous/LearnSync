@@ -1,10 +1,11 @@
 "use client";
 
 import { useAuthStore, useUiStore } from "@/lib/store";
-import { User, LogIn, LogOut, ChevronRight, Home, Menu, PanelLeftClose, PanelLeft } from "lucide-react";
-import { useState, useEffect } from "react";
+import { User, LogIn, LogOut, ChevronRight, Home, PanelLeftClose, PanelLeft } from "lucide-react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { UserSearch } from "@/components/user-search";
 
@@ -13,12 +14,9 @@ export function TopBar() {
   const { breadcrumbOverrides, sidebarOpen, toggleSidebar } = useUiStore();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const pathname = usePathname();
-  const [imageError, setImageError] = useState(false);
-
-  // Reset image error state when user picture changes
-  useEffect(() => {
-    setImageError(false);
-  }, [user?.picture]);
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const profileImageSrc = user?.picture?.trim() ?? '';
+  const shouldShowProfileImage = Boolean(profileImageSrc) && failedImageSrc !== profileImageSrc;
 
   // Generate breadcrumbs from pathname
   const segments = pathname.split('/').filter(Boolean);
@@ -67,7 +65,7 @@ export function TopBar() {
             <Home className="h-4 w-4" />
           </Link>
           {breadcrumbs.length > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground/40" />}
-          {breadcrumbs.map((crumb, index) => (
+          {breadcrumbs.map((crumb) => (
             <div key={crumb.href} className="flex items-center gap-2">
               {crumb.isLast ? (
                 <span className="font-medium text-foreground px-2 py-1 rounded-lg bg-accent/50">{crumb.label}</span>
@@ -103,13 +101,16 @@ export function TopBar() {
               </div>
               <div className="relative">
                 <div className="h-9 w-9 rounded-xl overflow-hidden border-2 border-border/50 bg-muted flex items-center justify-center ring-2 ring-transparent hover:ring-primary/20 transition-all">
-                  {user.picture && user.picture.trim() !== '' && !imageError ? (
-                    <img
-                      src={user.picture}
-                      alt={user.username}
-                      className="h-full w-full object-cover"
+                  {shouldShowProfileImage ? (
+                    <Image
+                      src={profileImageSrc}
+                      alt={user.username || 'User'}
+                      fill
+                      sizes="36px"
+                      className="object-cover"
                       referrerPolicy="no-referrer"
-                      onError={() => setImageError(true)}
+                      unoptimized
+                      onError={() => setFailedImageSrc(profileImageSrc)}
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center bg-linear-to-br from-primary/20 to-primary/5">
