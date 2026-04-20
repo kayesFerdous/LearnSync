@@ -219,6 +219,7 @@ export default function HomePage() {
   const spot1Ref    = useRef<HTMLDivElement>(null);
   const spot2Ref    = useRef<HTMLDivElement>(null);
   const spot3Ref    = useRef<HTMLDivElement>(null);
+  const openAppRef  = useRef<HTMLDivElement>(null);
   const ctaRef      = useRef<HTMLDivElement>(null);
 
   useReveal(previewRef);
@@ -226,6 +227,7 @@ export default function HomePage() {
   useReveal(spot1Ref);
   useReveal(spot2Ref, 100);
   useReveal(spot3Ref, 200);
+  useReveal(openAppRef);
   useReveal(ctaRef);
 
   // Stagger feature cards
@@ -338,6 +340,23 @@ export default function HomePage() {
         .ls-visual { border-radius:20px;overflow:hidden;box-shadow:0 20px 80px rgba(15,15,18,.12);border:1px solid rgba(15,15,18,.08);background:#fff;transition:transform .4s; }
         .ls-visual:hover { transform:translateY(-8px) rotate(.5deg); }
 
+        .ls-open-shell { border:1.5px solid rgba(15,15,18,.08); border-radius:24px; background:#fff; padding:2rem; box-shadow:0 20px 70px rgba(15,15,18,.08); position:relative; overflow:hidden; }
+        .ls-open-shell::before { content:''; position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 12% 10%, rgba(42,92,138,.08), transparent 48%), radial-gradient(circle at 90% 80%, rgba(232,115,74,.08), transparent 42%); }
+        .ls-open-head { position:relative; margin-bottom:1.6rem; }
+        .ls-open-title { font-family:'Playfair Display',serif; font-size:clamp(1.9rem,4.2vw,2.8rem); font-weight:900; letter-spacing:-.03em; margin-bottom:.7rem; }
+        .ls-open-sub { color:#64616d; max-width:560px; line-height:1.7; }
+        .ls-open-grid { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        .ls-open-card { border:1px solid rgba(15,15,18,.08); border-radius:16px; background:rgba(247,246,242,.72); padding:1.2rem; backdrop-filter:blur(2px); }
+        .ls-open-kicker { font-family:'DM Mono',monospace; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:.6rem; }
+        .ls-open-card-title { font-family:'Playfair Display',serif; font-size:1.35rem; font-weight:700; margin-bottom:.5rem; }
+        .ls-open-copy { font-size:.92rem; color:#5f5b67; line-height:1.6; margin-bottom:1rem; }
+        .ls-open-actions { display:flex; gap:.7rem; flex-wrap:wrap; }
+        .ls-open-chip { font-family:'DM Mono',monospace; font-size:.7rem; color:#777; border:1px solid rgba(15,15,18,.12); border-radius:100px; padding:.22rem .58rem; background:#fff; }
+
+        @media (max-width: 900px) {
+          .ls-open-grid { grid-template-columns:1fr; }
+        }
+
         .ls-testi-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:1.5px;background:rgba(247,246,242,.05);border:1.5px solid rgba(247,246,242,.05);border-radius:20px;overflow:hidden; }
         .ls-testi-card { background:rgba(247,246,242,.03);padding:2.5rem;transition:background .3s; }
         .ls-testi-card:hover { background:rgba(247,246,242,.06); }
@@ -367,8 +386,9 @@ export default function HomePage() {
           <ul className="ls-nav-links">
             <li><a href="#features">Features</a></li>
             <li><a href="#spotlight">How it works</a></li>
+            <li><a href="#open-app">Open app</a></li>
           </ul>
-          <Link href="/auth" className="ls-nav-cta">Get started free →</Link>
+          <Link href="/dashboard" className="ls-nav-cta">Get started free →</Link>
         </nav>
 
         {/* HERO */}
@@ -390,7 +410,7 @@ export default function HomePage() {
               An intelligent workspace that brings your calendar, AI tutor, courses, and documents into one beautiful platform.
             </p>
             <div className="ls-hero-actions">
-              <Link href="/auth"      className="ls-btn-primary">Start for free →</Link>
+              <Link href="/dashboard"      className="ls-btn-primary">Start for free →</Link>
               {/* <a    href="#spotlight" className="ls-btn-secondary">See how it works</a> */}
             </div>
           </div>
@@ -490,6 +510,38 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* OPEN APP */}
+        <section style={{ padding: '2rem 4rem 6rem' }} id="open-app">
+          <div className="ls-reveal" ref={openAppRef}>
+            <div className="ls-open-shell">
+              <div className="ls-open-head">
+                <div className="ls-label">Quick access</div>
+                <h2 className="ls-open-title">Open the app and pick up where you left off.</h2>
+                <p className="ls-open-sub">Jump straight into your dashboard, chat context, calendar events, and current study flow in one click.</p>
+              </div>
+              <div className="ls-open-grid">
+                <div className="ls-open-card">
+                  <div className="ls-open-kicker">Returning learner</div>
+                  <h3 className="ls-open-card-title">Open your workspace</h3>
+                  <p className="ls-open-copy">Already have an account? Go directly to your app and continue your routine.</p>
+                  <div className="ls-open-actions">
+                    <Link href="/dashboard" className="ls-btn-primary">Open app →</Link>
+                  </div>
+                </div>
+                <div className="ls-open-card">
+                  <div className="ls-open-kicker">New here</div>
+                  <h3 className="ls-open-card-title">Create your free account</h3>
+                  <p className="ls-open-copy">Start with AI chat, mind maps, quizzes, and calendar planning in minutes.</p>
+                  <div className="ls-open-actions">
+                    <Link href="/dashboard" className="ls-btn-secondary">Get started</Link>
+                    <span className="ls-open-chip">No credit card</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA */}
         <section style={{ padding: '8rem 4rem', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 50%,rgba(42,92,138,.07) 0%,transparent 70%)' }} />
@@ -500,7 +552,7 @@ export default function HomePage() {
               Join students who have already synchronized their academic life with LearnSync. Free to start, always.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <Link href="/auth"     className="ls-btn-primary"   style={{ fontSize: '1.05rem', padding: '1rem 2.5rem' }}>Create free account →</Link>
+              <Link href="/dashboard"     className="ls-btn-primary"   style={{ fontSize: '1.05rem', padding: '1rem 2.5rem' }}>Create free account →</Link>
               <a    href="#features" className="ls-btn-secondary" style={{ fontSize: '1.05rem', padding: '1rem 2.5rem' }}>Explore features</a>
             </div>
           </div>
