@@ -4,7 +4,7 @@
 // 2. Create theme config in THEMES object
 // 3. Add CSS variables in globals.css under [data-theme="your-theme-id"]
 
-export type ThemeId = 'default' | 'neobrutalism' | 'forest' | 'ocean' | 'dark';
+export type ThemeId = 'default' | 'learnsync' | 'neobrutalism' | 'forest' | 'ocean' | 'dark';
 
 export interface ThemeConfig {
   id: ThemeId;
@@ -44,6 +44,25 @@ export const THEMES: Record<ThemeId, ThemeConfig> = {
       shadow: 'shadow-sm',
       shadowHover: 'shadow-md',
       buttonEffect: 'opacity',
+      fontWeight: 'font-medium',
+    },
+  },
+  learnsync: {
+    id: 'learnsync',
+    name: 'LearnSync Editorial',
+    description: 'Warm paper tones with deep ink and signature blue-orange accents',
+    preview: {
+      primary: '#0F1118',
+      secondary: '#EAF1F7',
+      accent: '#E8734A',
+      background: '#F7F6F2',
+    },
+    styles: {
+      borderRadius: 'rounded-2xl',
+      borderWidth: 'border',
+      shadow: 'shadow-md',
+      shadowHover: 'shadow-lg',
+      buttonEffect: 'translate',
       fontWeight: 'font-medium',
     },
   },

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore, useUiStore } from '@/lib/store';
+import { AppLogo } from '@/components/app-logo';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & insights' },
@@ -67,19 +68,22 @@ export function Sidebar() {
         <div className="relative flex items-center justify-between h-16 px-5 border-b border-border/50">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="h-10 w-10 flex items-center justify-center text-primary-foreground bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 rounded-full border-2 border-card" />
+              <AppLogo
+                showWordmark={false}
+                width={112}
+                height={42}
+                iconClassName="h-[42px] w-auto"
+              />
+              {/* <div className="absolute -bottom15 -right-0.5 h-3 w-3 bg-green-500 rounded-full border-2 border-card" /> */}
             </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            {/* <div className="flex flex-col">
+              <span className="text-lg font-bold bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
                 LearnSync
               </span>
               <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                 Learning Platform
               </span>
-            </div>
+            </div> */}
           </div>
           
           {/* Close button - mobile only */}

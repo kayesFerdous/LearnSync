@@ -69,11 +69,11 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
     }, [folder.id, router]);
 
     return (
-        <div className="min-h-full bg-slate-50 p-6 md:p-8 pb-10 font-sans text-slate-900">
-            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
+        <div className="h-full bg-slate-50 p-6 md:p-8 font-sans text-slate-900 overflow-auto lg:overflow-hidden">
+            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-full lg:min-h-0">
 
                 {/* ── Left Column: Course Identity + Quick Actions (3 cols) ── */}
-                <div className="lg:col-span-3 h-full flex flex-col gap-6">
+                <div className="lg:col-span-3 h-full min-h-0 flex flex-col gap-6">
                     {/* Top Portion (4/7) */}
                     <div className="flex-[5] min-h-0">
                         <CourseInfoCard
@@ -103,7 +103,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
                 </div>
 
                 {/* ── Center Stage: Map Preview (6 cols) ── */}
-                <div className="lg:col-span-6 h-full flex flex-col">
+                <div className="lg:col-span-6 h-full min-h-0 flex flex-col">
                     <MapPreview
                         folderId={folder.id}
                         files={files}
@@ -111,7 +111,7 @@ export function CourseDashboard({ folder }: CourseDashboardProps) {
                 </div>
 
                 {/* ── Right Column: Resources Hub (3 cols) ── */}
-                <div className="lg:col-span-3 h-full">
+                <div className="lg:col-span-3 h-full min-h-0">
                     <ResourcesHub
                         files={files}
                         conversations={folder.conversations || []}

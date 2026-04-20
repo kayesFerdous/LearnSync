@@ -50,7 +50,7 @@ export function ResourcesHub({ files = [], conversations = [], quizzes = [] }: R
     const { loadQuiz } = useQuizStore();
     // Mock Quizzes for visual parity with request
     return (
-        <div className="h-full flex flex-col gap-4">
+        <div className="h-full min-h-0 flex flex-col gap-4">
 
             {/* 1. Recent Chats Section (1/3) */}
             <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
