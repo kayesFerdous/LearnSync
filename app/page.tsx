@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
+import { AppLogo } from '@/components/app-logo';
 
 /* ─────────────────────────────────────────────
    DATA
@@ -274,8 +275,7 @@ export default function HomePage() {
         .ls-visible { opacity:1 !important; transform:none !important; }
 
         .ls-nav { position:fixed; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:1.1rem 3.5rem; background:rgba(247,246,242,.88); backdrop-filter:blur(14px); border-bottom:1px solid rgba(15,15,18,.07); animation:lsSlideDown .6s ease both; }
-        .ls-nav-logo { font-family:'Playfair Display',serif; font-size:1.35rem; font-weight:900; letter-spacing:-.02em; }
-        .ls-nav-logo span { color:var(--accent); }
+        .ls-nav-brand { display:inline-flex; align-items:center; text-decoration:none; }
         .ls-nav-links { display:flex; gap:2.2rem; list-style:none; margin:0; padding:0; }
         .ls-nav-links a { font-size:.875rem; font-weight:500; color:var(--muted); text-decoration:none; transition:color .2s; }
         .ls-nav-links a:hover { color:var(--ink); }
@@ -363,8 +363,7 @@ export default function HomePage() {
 
         .ls-cta-title { font-family:'Playfair Display',serif;font-size:clamp(3rem,6vw,5rem);font-weight:900;line-height:1;letter-spacing:-.04em;margin-bottom:1.4rem; }
         .ls-cta-title em { font-style:italic;color:var(--accent2); }
-        .ls-footer-logo { font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:900;color:var(--paper); }
-        .ls-footer-logo span { color:var(--accent2); }
+        .ls-footer-brand { display:inline-flex; align-items:center; }
 
         @keyframes lsSlideDown   { from{transform:translateY(-100%);opacity:0} to{transform:none;opacity:1} }
         @keyframes lsFadeUp      { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none} }
@@ -382,7 +381,15 @@ export default function HomePage() {
 
         {/* NAV */}
         <nav className="ls-nav">
-          <div className="ls-nav-logo">Learn<span>Sync</span></div>
+          <Link href="/" className="ls-nav-brand" aria-label="LearnSync home">
+            <AppLogo
+              width={128}
+              height={48}
+              showWordmark={false}
+              priority
+              iconClassName="h-12 w-auto"
+            />
+          </Link>
           <ul className="ls-nav-links">
             <li><a href="#features">Features</a></li>
             <li><a href="#spotlight">How it works</a></li>
@@ -560,7 +567,14 @@ export default function HomePage() {
 
         {/* FOOTER */}
         <footer style={{ background: 'var(--ink)', color: 'rgba(247,246,242,.4)', padding: '3rem 4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div className="ls-footer-logo">Learn<span>Sync</span></div>
+          <div className="ls-footer-brand">
+            <AppLogo
+              width={116}
+              height={44}
+              showWordmark={false}
+              iconClassName="h-11 w-auto"
+            />
+          </div>
           <p style={{ fontSize: '.8rem' }}>© 2026 LearnSync. Built for curious minds.</p>
           <p style={{ fontFamily: "'DM Mono',monospace", fontSize: '.7rem' }}>v1.0 · Next.js </p>
         </footer>

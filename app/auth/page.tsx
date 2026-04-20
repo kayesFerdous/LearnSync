@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, MousePointer2, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signup, login, resendVerification, AuthApiError } from '@/lib/api/auth';
 import { useAuthStore } from '@/lib/store';
+import { AppLogo } from '@/components/app-logo';
 
 const PENDING_VERIFICATION_EMAIL_KEY = 'pending_verification_email';
 
@@ -160,8 +161,14 @@ export default function AuthPage() {
 
                     {/* Top Icon */}
                     <div className="flex justify-center mb-6">
-                        <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center border border-zinc-800 shadow-inner">
-                            <MousePointer2 className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
+                        <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-800 shadow-inner">
+                            <AppLogo
+                                showWordmark={false}
+                                width={92}
+                                height={34}
+                                priority
+                                iconClassName="h-8 w-auto"
+                            />
                         </div>
                     </div>
 

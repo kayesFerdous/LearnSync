@@ -19,6 +19,11 @@ const playfairDisplay = Playfair_Display({
 export const metadata: Metadata = {
   title: "LearnSync",
   description: "Your learning companion",
+  icons: {
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+  },
 };
 
 export default function RootLayout({

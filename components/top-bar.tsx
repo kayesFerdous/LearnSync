@@ -8,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { UserSearch } from "@/components/user-search";
+import { AppLogo } from "@/components/app-logo";
 
 export function TopBar() {
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -58,6 +59,14 @@ export function TopBar() {
 
         {/* Divider */}
         <div className="h-6 w-px bg-border/50 hidden sm:block" />
+
+        <Link
+          href="/dashboard"
+          className="hidden sm:flex items-center rounded-xl p-1.5 hover:bg-accent/50 transition-colors"
+          aria-label="Open dashboard"
+        >
+          <AppLogo showWordmark={false} width={74} height={28} iconClassName="h-7 w-auto" />
+        </Link>
 
         {/* Breadcrumbs */}
         <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
