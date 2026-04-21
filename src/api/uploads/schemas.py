@@ -58,7 +58,7 @@ class BatchConfirmResponse(BaseModel):
     message: str
     processed_files: list[str] # legacy
     files: list[BatchConfirmFileResponse]
-    conversation_id: str
+    conversation_id: Optional[str] = None
 
 
 class FolderFileResponse(BaseModel):
