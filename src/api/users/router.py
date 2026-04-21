@@ -40,5 +40,5 @@ async def search_users(
     """
     Search for users by username or email.
     """
-    users = await get_users(db, skip=skip, limit=limit, search=search)
+    users, _ = await get_users(db, skip=skip, limit=limit, search=search)
     return users

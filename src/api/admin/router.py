@@ -27,7 +27,7 @@ async def get_all_users(
     Get all users with pagination, search, and sorting options.
     Only accessible by admins.
     """
-    users = await get_users(
+    users, total = await get_users(
         db=db,
         skip=skip,
         limit=limit,
@@ -37,7 +37,7 @@ async def get_all_users(
     )
     return UsersListResponse(
         users=[UserRead.model_validate(u) for u in users],
-        total=len(users),
+        total=total,
         skip=skip,
         limit=limit
     )

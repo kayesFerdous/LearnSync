@@ -1,4 +1,4 @@
-from uuid import UUID, uuid4
+from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
@@ -8,11 +8,14 @@ from src.conversations.model import Conversation, File, Folder, ProcessingStatus
 async def create_conversation(
     db: AsyncSession, 
     user_id: UUID,
-    folder_id: UUID | None = None
+    title: str | None = None,
+    folder_id: UUID | None = None,
 ) -> str:
     new_conv = Conversation(
         user_id=user_id,
-        folder_id=folder_id
+        folder_id=folder_id,
+        title=title,
+
     )
     db.add(new_conv)
     await db.commit()

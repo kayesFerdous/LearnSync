@@ -101,7 +101,12 @@ async def create_conversation_chat(
     try:
         parsed_folder_id = UUID(folder_id) if folder_id else None
         # Create the conversation in the DB first
-        thread_id: str = await create_conversation(db, user.user_id, parsed_folder_id)
+        thread_id: str = await create_conversation(
+            db,
+            user.user_id,
+            title=payload.message[:50] if payload.message else None,
+            folder_id=parsed_folder_id,
+        )
         
         return StreamingResponse(
             stream_generator(request, payload, thread_id, str(user.user_id), db, send_metadata_header=True, folder_id=folder_id),
