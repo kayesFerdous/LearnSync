@@ -1,0 +1,583 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --shadow-sm: var(--theme-shadow);
+  --shadow-md: var(--theme-shadow-md);
+  --shadow-lg: var(--theme-shadow-lg);
+}
+
+/* ===========================================
+   THEME: Default (Clean & Minimal)
+   =========================================== */
+@layer base {
+
+  /* Smooth theme transitions */
+  :root.theme-transition,
+  :root.theme-transition * {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-timing-function: ease-in-out;
+    transition-duration: 300ms;
+  }
+
+  /* Font tokens */
+  :root {
+    --font-system: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --app-font: var(--font-system);
+  }
+
+  [data-font="system"] {
+    --app-font: var(--font-system);
+  }
+
+  [data-font="space-mono"] {
+    --app-font: var(--font-space-mono, "Space Mono", monospace);
+  }
+
+  body {
+    font-family: var(--app-font);
+    @apply bg-background text-foreground;
+  }
+
+  :root,
+  [data-theme="default"] {
+    --background: #FFFFFF;
+    --foreground: #0A0A0E;
+    --card: #FFFFFF;
+    --card-foreground: #0A0A0E;
+    --popover: #FFFFFF;
+    --popover-foreground: #0A0A0E;
+    --primary: #1A1A2E;
+    --primary-foreground: #FAFAFA;
+    --secondary: #F5F5F7;
+    --secondary-foreground: #1A1A2E;
+    --muted: #F5F5F7;
+    --muted-foreground: #757575;
+    --accent: #F5F5F7;
+    --accent-foreground: #1A1A2E;
+    --destructive: #FF3C3C;
+    --destructive-foreground: #FAFAFA;
+    --border: #E5E5E7;
+    --input: #E5E5E7;
+    --ring: #0A0A0E;
+    --radius: 0.75rem;
+
+    /* Theme-specific shadows */
+    --theme-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --theme-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --theme-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+}
+
+/* ===========================================
+   THEME: LearnSync Editorial
+   =========================================== */
+[data-theme="learnsync"] {
+  --background: #F7F6F2;
+  --foreground: #0F0F12;
+  --card: #FFFFFF;
+  --card-foreground: #0F0F12;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F0F12;
+  --primary: #0F1118;
+  --primary-foreground: #F7F6F2;
+  --secondary: #EAF1F7;
+  --secondary-foreground: #1E4060;
+  --muted: #EFECE6;
+  --muted-foreground: #6B6671;
+  --accent: #2A5C8A;
+  --accent-foreground: #F7F6F2;
+  --destructive: #D85A3F;
+  --destructive-foreground: #FFFFFF;
+  --border: #DEDAD2;
+  --input: #D6D2CA;
+  --ring: #2A5C8A;
+  --radius: 1rem;
+
+  --theme-shadow: 0 2px 8px rgb(15 15 18 / 0.08);
+  --theme-shadow-md: 0 12px 30px -16px rgb(15 15 18 / 0.24);
+  --theme-shadow-lg: 0 24px 60px -24px rgb(15 15 18 / 0.3);
+}
+
+[data-theme="learnsync"] body {
+  background-image:
+    radial-gradient(ellipse 72% 46% at 88% 16%, rgb(42 92 138 / 0.10) 0%, transparent 62%),
+    radial-gradient(ellipse 48% 60% at 8% 82%, rgb(232 115 74 / 0.08) 0%, transparent 58%);
+}
+
+[data-theme="learnsync"] h1,
+[data-theme="learnsync"] h2,
+[data-theme="learnsync"] h3 {
+  font-family: var(--font-playfair-display, "Times New Roman", serif);
+  letter-spacing: -0.02em;
+}
+
+/* ===========================================
+   THEME: Neobrutalism (PrivFi Style)
+   =========================================== */
+[data-theme="neobrutalism"] {
+  --background: #FFFFFF;
+  --foreground: #000000;
+  --card: #FFFFFF;
+  --card-foreground: #000000;
+  --popover: #FFFFFF;
+  --popover-foreground: #000000;
+  --primary: #F3540F;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEEEEE;
+  --secondary-foreground: #000000;
+  --muted: #EEEEEE;
+  --muted-foreground: #666666;
+  --accent: #F3540F;
+  --accent-foreground: #FFFFFF;
+  --destructive: #FF3333;
+  --destructive-foreground: #FFFFFF;
+  --border: #000000;
+  --input: #000000;
+  --ring: #F3540F;
+  --radius: 0rem;
+
+  --theme-shadow: 4px 4px 0px #000000;
+  --theme-shadow-md: 6px 6px 0px #000000;
+  --theme-shadow-lg: 8px 8px 0px #000000;
+}
+
+[data-theme="neobrutalism"] body {
+  background-image:
+    linear-gradient(to right, #f0f0f0 1px, transparent 1px),
+    linear-gradient(to bottom, #f0f0f0 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ===========================================
+   THEME: Forest
+   =========================================== */
+[data-theme="forest"] {
+  --background: #FAFAF5;
+  --foreground: #0F1F14;
+  --card: #FCFCF8;
+  --card-foreground: #0F1F14;
+  --popover: #FCFCF8;
+  --popover-foreground: #0F1F14;
+  --primary: #22C55E;
+  --primary-foreground: #FFFFFF;
+  --secondary: #DCFCE7;
+  --secondary-foreground: #166534;
+  --muted: #F0F4E8;
+  --muted-foreground: #666666;
+  --accent: #FBBF24;
+  --accent-foreground: #0F1F14;
+  --destructive: #FF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #D1E8CE;
+  --input: #D1E8CE;
+  --ring: #22C55E;
+  --radius: 0.75rem;
+
+  --theme-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --theme-shadow-md: 0 4px 6px -1px rgb(34 197 94 / 0.15);
+  --theme-shadow-lg: 0 10px 25px -5px rgb(34 197 94 / 0.2);
+}
+
+/* ===========================================
+   THEME: Ocean
+   =========================================== */
+[data-theme="ocean"] {
+  --background: #F8FAFC;
+  --foreground: #0A2B42;
+  --card: #FFFFFF;
+  --card-foreground: #0A2B42;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A2B42;
+  --primary: #0EA5E9;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E0F2FE;
+  --secondary-foreground: #0C4A6E;
+  --muted: #E0F7FF;
+  --muted-foreground: #5A7C95;
+  --accent: #F0ABFC;
+  --accent-foreground: #0A2B42;
+  --destructive: #FF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: #D9E8F0;
+  --input: #D9E8F0;
+  --ring: #0EA5E9;
+  --radius: 1rem;
+
+  --theme-shadow: 0 2px 4px 0 rgb(14 165 233 / 0.1);
+  --theme-shadow-md: 0 4px 12px -2px rgb(14 165 233 / 0.15);
+  --theme-shadow-lg: 0 12px 24px -4px rgb(14 165 233 / 0.2);
+}
+
+/* ===========================================
+   THEME: Dark (Docker Desktop inspired)
+   =========================================== */
+[data-theme="dark"] {
+  --background: #11181a;
+  --foreground: #E8F2F9;
+  --card: #0A0C10;
+  --card-foreground: #E8F2F9;
+  --popover: #121D2E;
+  --popover-foreground: #E8F2F9;
+  --primary: #0073EB;
+  --primary-foreground: #0E1620;
+  --secondary: #1A2635;
+  --secondary-foreground: #E8F2F9;
+  --muted: #1A2635;
+  --muted-foreground: #7E9AB5;
+  --accent: #005183;
+  --accent-foreground: #E8F2F9;
+  --destructive: #E04646;
+  --destructive-foreground: #E8F2F9;
+  --border: #2D3B4F;
+  --input: #172230;
+  --ring: #4FD1C5;
+  --radius: 0.5rem;
+
+  --theme-shadow: 0 2px 8px 0 rgb(0 0 0 / 0.4);
+  --theme-shadow-md: 0 4px 16px -2px rgb(0 0 0 / 0.5);
+  --theme-shadow-lg: 0 12px 32px -4px rgb(0 0 0 / 0.6);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* ===========================================
+   Theme-aware utility classes
+   =========================================== */
+@layer utilities {
+
+  /* Shadow utilities that adapt to theme */
+  .theme-shadow {
+    box-shadow: var(--theme-shadow);
+  }
+
+  .theme-shadow-md {
+    box-shadow: var(--theme-shadow-md);
+  }
+
+  .theme-shadow-lg {
+    box-shadow: var(--theme-shadow-lg);
+  }
+}
+
+/* ===========================================
+   Smooth hover transitions for interactive elements
+   =========================================== */
+@layer base {
+
+  a,
+  button,
+  [role="button"] {
+    transition-property: background-color, color, border-color, opacity;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+  }
+
+  .theme-shadow,
+  .theme-shadow-md,
+  .theme-shadow-lg {
+    transition-property: box-shadow, background-color;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+  }
+}
+
+/* ===========================================
+   Neobrutalism-specific styles (only when theme is active)
+   =========================================== */
+[data-theme="neobrutalism"] .neo-btn {
+  border: 2px solid var(--border);
+  box-shadow: var(--theme-shadow);
+  font-weight: 700;
+  transform: translate(0, 0);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+[data-theme="neobrutalism"] .neo-btn:hover {
+  box-shadow: 2px 2px 0px var(--border);
+  transform: translate(1px, 1px);
+}
+
+[data-theme="neobrutalism"] .neo-btn:active {
+  box-shadow: 0px 0px 0px var(--border);
+  transform: translate(3px, 3px);
+}
+
+/* Neobrutalism button push effect - applies to all buttons */
+[data-theme="neobrutalism"] button,
+[data-theme="neobrutalism"] [role="button"],
+[data-theme="neobrutalism"] a[class*="bg-primary"] {
+  transform: translate(0, 0);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+[data-theme="neobrutalism"] button:hover,
+[data-theme="neobrutalism"] [role="button"]:hover,
+[data-theme="neobrutalism"] a[class*="bg-primary"]:hover {
+  transform: translate(1px, 1px);
+}
+
+[data-theme="neobrutalism"] button:active,
+[data-theme="neobrutalism"] [role="button"]:active,
+[data-theme="neobrutalism"] a[class*="bg-primary"]:active {
+  transform: translate(2px, 2px);
+}
+
+/* Buttons with theme-shadow get enhanced push effect */
+[data-theme="neobrutalism"] button.theme-shadow,
+[data-theme="neobrutalism"] [role="button"].theme-shadow {
+  box-shadow: 3px 3px 0px var(--border);
+  transform: translate(0, 0);
+}
+
+[data-theme="neobrutalism"] button.theme-shadow:hover,
+[data-theme="neobrutalism"] [role="button"].theme-shadow:hover {
+  box-shadow: 2px 2px 0px var(--border);
+  transform: translate(1px, 1px);
+}
+
+[data-theme="neobrutalism"] button.theme-shadow:active,
+[data-theme="neobrutalism"] [role="button"].theme-shadow:active {
+  box-shadow: 0px 0px 0px var(--border);
+  transform: translate(3px, 3px);
+}
+
+/* ===========================================
+   TipTap Editor Styles
+   =========================================== */
+.tiptap {
+  >*+* {
+    margin-top: 0.75em;
+  }
+
+  h1 {
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    color: var(--foreground);
+  }
+
+  h2 {
+    font-size: 1.5em;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 0.8em;
+    margin-bottom: 0.4em;
+    color: var(--foreground);
+  }
+
+  h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    line-height: 1.4;
+    margin-top: 0.6em;
+    margin-bottom: 0.3em;
+    color: var(--foreground);
+  }
+
+  p {
+    line-height: 1.6;
+    color: var(--foreground);
+  }
+
+  ul,
+  ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+
+  ol {
+    list-style-type: decimal;
+  }
+
+  li {
+    margin: 0.25em 0;
+    color: var(--foreground);
+  }
+
+  blockquote {
+    border-left: 3px solid var(--primary);
+    padding-left: 1em;
+    margin: 1em 0;
+    font-style: italic;
+    color: var(--muted-foreground);
+  }
+
+  mark {
+    background-color: #FFFF99;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+
+  hr {
+    border: none;
+    border-top: 2px solid var(--border);
+    margin: 1.5em 0;
+  }
+
+  code {
+    background-color: var(--muted);
+    border-radius: 4px;
+    padding: 0.2em 0.4em;
+    font-size: 0.9em;
+    font-family: monospace;
+  }
+
+  pre {
+    background-color: var(--muted);
+    border-radius: 8px;
+    padding: 1em;
+    overflow-x: auto;
+
+    code {
+      background: none;
+      padding: 0;
+    }
+  }
+}
+
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
+/* ===========================================
+   FullCalendar - Uses theme-aware border
+   =========================================== */
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: var(--border);
+}
+
+.fc-scrollgrid {
+  border-color: var(--border) !important;
+}
+
+@layer utilities {
+  .scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background-color: var(--foreground);
+    opacity: 0.5;
+  }
+
+  /* Thin scrollbar for sidebar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .scrollbar-thin:hover {
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+  }
+
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+  }
+
+  /* ===========================================
+     Spatial Workspace Utilities
+     =========================================== */
+  .glass-panel {
+    background: color-mix(in srgb, var(--card) 80%, transparent);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    box-shadow:
+      0 4px 24px -4px rgb(0 0 0 / 0.08),
+      0 0 0 1px rgb(255 255 255 / 0.05) inset;
+  }
+
+  .dot-grid-bg {
+    background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.4;
+  }
+}
+

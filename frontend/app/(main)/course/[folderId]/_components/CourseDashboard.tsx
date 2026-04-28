@@ -1,0 +1,158 @@
+"use client";
+
+import React, { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useUiStore } from "@/lib/store";
+import { useQuizStore } from "@/stores/use-quiz-store";
+import { updateFolder, fetchFolderFiles, fetchQuizzes } from "@/app/(main)/chat/_lib/api";
+import type { CourseFolder } from "./course-dashboard";
+import { CourseInfoCard } from "@/components/course/CourseInfoCard";
+import { MapPreview } from "@/components/course/MapPreview";
+import { ResourcesHub } from "@/components/course/ResourcesHub";
+import { QuickActions } from "@/components/course/QuickActions";
+import { BatchUploadModal } from "@/app/(main)/chat/_components";
+import QuizConfigModal from "@/components/quiz/QuizConfigModal";
+import QuizOverlay from "@/components/quiz/QuizOverlay";
+import { FolderFile } from "@/app/(main)/chat/_lib/types";
+
+import { CourseSettingsModal } from "@/components/course/CourseSettingsModal";
+
+interface CourseDashboardProps {
+    folder: CourseFolder;
+}
+
+export function CourseDashboard({ folder }: CourseDashboardProps) {
+    const router = useRouter();
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [files, setFiles] = useState<FolderFile[]>([]);
+    const [quizzes, setQuizzes] = useState<any[]>([]);
+
+    // Initial folder state
+    const [folderName, setFolderName] = useState(folder.name);
+    const [folderIcon, setFolderIcon] = useState<string | undefined>(folder.icon);
+    const [folderTheme, setFolderTheme] = useState<string | undefined>(folder.theme);
+
+    const themeColor = folderTheme || folder.color || "#3b82f6";
+
+    // Quiz Store
+    const { status: quizStatus, exitQuiz } = useQuizStore();
+
+    // Set breadcrumb override
+    const { setBreadcrumbOverride } = useUiStore();
+    useEffect(() => {
+        setBreadcrumbOverride(folder.id, folderName);
+    }, [folder.id, folderName, setBreadcrumbOverride]);
+
+    // Fetch files and quizzes
+    useEffect(() => {
+        fetchFolderFiles(folder.id)
+            .then((res) => setFiles(res.files))
+            .catch(console.error);
+
+        fetchQuizzes(folder.id)
+            .then(setQuizzes)
+            .catch(console.error);
+    }, [folder.id]);
+
+    const handleUploadSuccess = useCallback(
+        (conversationId: string) => {
+            router.push(`/folder/${folder.id}/chat/${conversationId}`);
+        },
+        [router, folder.id]
+    );
+
+    const handleChatNavigation = useCallback(() => {
+        // Navigate to chat associated with this folder
+        router.push(`/folder/${folder.id}/chat`);
+    }, [folder.id, router]);
+
+    return (
+        <div className="h-full bg-slate-50 p-6 md:p-8 font-sans text-slate-900 overflow-auto lg:overflow-hidden">
+            <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-full lg:min-h-0">
+
+                {/* ── Left Column: Course Identity + Quick Actions (3 cols) ── */}
+                <div className="lg:col-span-3 h-full min-h-0 flex flex-col gap-6">
+                    {/* Top Portion (4/7) */}
+                    <div className="flex-[5] min-h-0">
+                        <CourseInfoCard
+                            title={folderName}
+                            icon={folderIcon}
+                            themeColor={themeColor}
+                            totalFiles={files.length}
+                            onEdit={() => setIsSettingsOpen(true)}
+                        />
+                    </div>
+                    {/* Bottom Portion (3/7) */}
+                    <div className="flex-[3] min-h-0 hidden lg:block">
+                        <QuickActions
+                            onGenerateQuiz={() => setIsQuizModalOpen(true)}
+                            onUploadFile={() => setIsUploadModalOpen(true)}
+                            onChat={handleChatNavigation}
+                        />
+                    </div>
+                    {/* Mobile Only: Show Quick Actions below */}
+                    <div className="block lg:hidden">
+                        <QuickActions
+                            onGenerateQuiz={() => setIsQuizModalOpen(true)}
+                            onUploadFile={() => setIsUploadModalOpen(true)}
+                            onChat={handleChatNavigation}
+                        />
+                    </div>
+                </div>
+
+                {/* ── Center Stage: Map Preview (6 cols) ── */}
+                <div className="lg:col-span-6 h-full min-h-0 flex flex-col">
+                    <MapPreview
+                        folderId={folder.id}
+                        files={files}
+                    />
+                </div>
+
+                {/* ── Right Column: Resources Hub (3 cols) ── */}
+                <div className="lg:col-span-3 h-full min-h-0">
+                    <ResourcesHub
+                        files={files}
+                        conversations={folder.conversations || []}
+                        quizzes={quizzes}
+                    />
+                </div>
+            </div>
+
+            {/* ── Modals ── */}
+            <BatchUploadModal
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onSuccess={handleUploadSuccess}
+                folderId={folder.id}
+                themeColor={themeColor}
+            />
+
+            <QuizConfigModal
+                isOpen={isQuizModalOpen}
+                onClose={() => setIsQuizModalOpen(false)}
+                folderId={folder.id}
+            />
+
+            <QuizOverlay
+                isOpen={quizStatus !== 'idle'}
+                onClose={exitQuiz}
+            />
+
+            <CourseSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                folderId={folder.id}
+                initialName={folderName}
+                initialIcon={folderIcon}
+                initialColor={themeColor}
+                onUpdate={(data) => {
+                    setFolderName(data.name);
+                    setFolderIcon(data.icon);
+                    setFolderTheme(data.color);
+                }}
+            />
+        </div>
+    );
+}

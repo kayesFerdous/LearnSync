@@ -1,0 +1,398 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { signup, login, resendVerification, AuthApiError } from '@/lib/api/auth';
+import { useAuthStore } from '@/lib/store';
+import { AppLogo } from '@/components/app-logo';
+
+const PENDING_VERIFICATION_EMAIL_KEY = 'pending_verification_email';
+
+export default function AuthPage() {
+    const router = useRouter();
+    const authStore = useAuthStore();
+
+    const [isLogin, setIsLogin] = useState(true);
+    const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isResending, setIsResending] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const [verificationPending, setVerificationPending] = useState(false);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+    // Form state
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [username, setUsername] = useState('');
+
+    useEffect(() => {
+        console.log('[Auth Page] NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+    }, []);
+
+    useEffect(() => {
+        if (cooldownSeconds <= 0) {
+            return;
+        }
+
+        const timer = setInterval(() => {
+            setCooldownSeconds((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [cooldownSeconds]);
+
+    const setPendingVerificationEmail = (value: string) => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, value);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        if (!email.trim() || cooldownSeconds > 0) {
+            return;
+        }
+
+        setErrorMessage('');
+        setSuccessMessage('');
+        setIsResending(true);
+
+        try {
+            const response = await resendVerification({ email });
+            setSuccessMessage(response.message || 'Verification email sent.');
+            setCooldownSeconds(60);
+        } catch (error) {
+            if (error instanceof AuthApiError) {
+                setErrorMessage(error.message);
+                if (error.statusCode === 429) {
+                    setCooldownSeconds(60);
+                }
+            } else {
+                setErrorMessage('Unable to resend verification email. Please try again.');
+            }
+        } finally {
+            setIsResending(false);
+        }
+    };
+
+    const handleGoogleLogin = () => {
+        window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/login/google`;
+    };
+
+    const handleEmailAuth = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setErrorMessage('');
+        setSuccessMessage('');
+
+        // Client-side validation
+        if (!isLogin) {
+            if (password !== confirmPassword) {
+                setErrorMessage('Passwords do not match.');
+                return;
+            }
+            if (password.length < 8 || password.length > 72) {
+                setErrorMessage('Password must be between 8 and 72 characters.');
+                return;
+            }
+            if (!username.trim()) {
+                setErrorMessage('Username is required.');
+                return;
+            }
+        }
+
+        setIsLoading(true);
+
+        try {
+            if (isLogin) {
+                // Login
+                await login({ email, password });
+                // Fetch user details after successful auth to get full user object including picture
+                await authStore.fetchUser();
+                router.push('/dashboard');
+            } else {
+                // Signup
+                const response = await signup({ username, email, password });
+                if (response.requires_email_verification) {
+                    setPendingVerificationEmail(email);
+                    setVerificationPending(true);
+                    setSuccessMessage(response.message || 'Signup successful. Please verify your email.');
+                    setCooldownSeconds(60);
+                    return;
+                }
+
+                await authStore.fetchUser();
+                router.push('/dashboard');
+            }
+        } catch (error) {
+            if (error instanceof AuthApiError) {
+                if (isLogin && error.statusCode === 403) {
+                    setVerificationPending(true);
+                    setPendingVerificationEmail(email);
+                    setErrorMessage('Email not verified yet. Please verify your email, then sign in.');
+                } else {
+                    setErrorMessage(error.message);
+                }
+            } else {
+                setErrorMessage('An unexpected error occurred. Please try again.');
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen w-full bg-[#0A0A0E] flex items-center justify-center p-4 relative overflow-hidden font-sans text-zinc-300">
+            {/* Background effects */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-4xl opacity-20 pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl mix-blend-screen animate-pulse" style={{ animationDuration: '4s' }}></div>
+            </div>
+
+            <div className="w-full max-w-120 z-10">
+                <div className="bg-[#121217] border border-zinc-800/50 rounded-3xl shadow-2xl overflow-hidden p-8">
+
+                    {/* Top Icon */}
+                    <div className="flex justify-center mb-6">
+                        <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-800 shadow-inner">
+                            <AppLogo
+                                showWordmark={false}
+                                width={92}
+                                height={34}
+                                priority
+                                iconClassName="h-8 w-auto"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Header */}
+                    <div className="text-center mb-8">
+                        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
+                            {isLogin ? 'Sign in to LearnSync' : 'Create your account'}
+                        </h1>
+                        <p className="text-zinc-500 text-sm">
+                            {isLogin ? 'New to the workspace? ' : 'Already have an account? '}
+                            <button
+                                onClick={() => {
+                                    setIsLogin(!isLogin);
+                                    setVerificationPending(false);
+                                    setErrorMessage('');
+                                    setSuccessMessage('');
+                                }}
+                                className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors cursor-pointer"
+                            >
+                                {isLogin ? 'Create an account' : 'Sign in'}
+                            </button>
+                        </p>
+                    </div>
+
+                    {/* Error Message */}
+                    {errorMessage && (
+                        <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-3 flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                            <p className="text-sm text-red-500">{errorMessage}</p>
+                        </div>
+                    )}
+
+                    {/* Success Message */}
+                    {successMessage && (
+                        <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-xl p-3 flex items-start gap-2 mt-3">
+                            <Mail className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <p className="text-sm text-emerald-300">{successMessage}</p>
+                        </div>
+                    )}
+
+                    {verificationPending && (
+                        <div className="bg-zinc-900/70 border border-zinc-700 rounded-xl p-4 mt-4 space-y-3">
+                            <p className="text-sm text-zinc-300">
+                                Check your inbox for a verification link to finish setting up your account.
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleResendVerification}
+                                    disabled={isResending || cooldownSeconds > 0 || !email.trim()}
+                                    className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800/60 disabled:text-zinc-500 disabled:cursor-not-allowed text-xs text-zinc-200 transition-colors"
+                                >
+                                    {isResending
+                                        ? 'Sending...'
+                                        : cooldownSeconds > 0
+                                            ? `Resend in ${cooldownSeconds}s`
+                                            : 'Resend verification email'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsLogin(true);
+                                        setVerificationPending(false);
+                                        setErrorMessage('');
+                                        setSuccessMessage('');
+                                    }}
+                                    className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+                                >
+                                    Back to sign in
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Form */}
+                    <form onSubmit={handleEmailAuth} className="space-y-5">
+                        {!isLogin && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider ml-1">Username</label>
+                                <div className="relative group">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
+                                        placeholder="Kalam"
+                                        required={!isLogin}
+                                        maxLength={150}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider ml-1">Work Email</label>
+                            <div className="relative group">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">
+                                    <Mail className="w-4 h-4" />
+                                </div>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
+                                    placeholder="you@studio.dev"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center ml-1">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Password</label>
+                                {isLogin && (
+                                    <Link href="#" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+                                        Forgot?
+                                    </Link>
+                                )}
+                            </div>
+                            <div className="relative group">
+                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">
+                                    <Lock className="w-4 h-4" />
+                                </div>
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 pr-14 p-3 placeholder-zinc-600 transition-all outline-none"
+                                    placeholder="Enter your password"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-zinc-300 font-medium transition-colors cursor-pointer"
+                                >
+                                    {showPassword ? "Hide" : "Show"}
+                                </button>
+                            </div>
+                        </div>
+
+                        {!isLogin && (
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider ml-1">Confirm Password</label>
+                                <div className="relative group">
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600">
+                                        <Lock className="w-4 h-4" />
+                                    </div>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="w-full bg-[#1A1A20] border border-zinc-800/50 text-zinc-300 text-sm rounded-xl focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 block pl-10 p-3 placeholder-zinc-600 transition-all outline-none"
+                                        placeholder="Confirm your password"
+                                        required={!isLogin}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={isLoading || (verificationPending && !isLogin)}
+                            className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-500/50 disabled:cursor-not-allowed text-zinc-950 font-semibold py-3 px-4 rounded-xl shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] transition-all duration-200 mt-2 cursor-pointer flex items-center justify-center gap-2"
+                        >
+                            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                            {isLoading
+                                ? 'Please wait...'
+                                : (isLogin
+                                    ? 'Continue to dashboard'
+                                    : (verificationPending ? 'Check your email' : 'Create account'))}
+                        </button>
+                    </form>
+
+                    {/* Divider */}
+                    <div className="relative my-8">
+                        <div className="absolute inset-0 flex items-center">
+                            {/* <div className="w-full border-t border-zinc-800"></div> */}
+                        </div>
+                        <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-medium">
+                            <span className="text-zinc-600">Or</span>
+                        </div>
+                    </div>
+
+                    {/* Social Login - Only Google */}
+                    <div className="grid grid-cols-1 gap-3">
+                        <button
+                            onClick={handleGoogleLogin}
+                            className="flex items-center justify-center w-full bg-[#1A1A20] hover:bg-[#202025] border border-zinc-800/50 rounded-xl py-3 transition-colors cursor-pointer group"
+                        >
+                            <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" viewBox="0 0 24 24">
+                                <path
+                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                    fill="#4285F4"
+                                />
+                                <path
+                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                    fill="#34A853"
+                                />
+                                <path
+                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                    fill="#FBBC05"
+                                />
+                                <path
+                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                    fill="#EA4335"
+                                />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {/* Footer Terms */}
+                    <div className="mt-8 text-center">
+                        <p className="text-[10px] text-zinc-600 leading-relaxed">
+                            By continuing, you agree to the NeonGrid <Link href="#" className="text-zinc-400 hover:text-zinc-300">Terms</Link> and <Link href="#" className="text-zinc-400 hover:text-zinc-300">Privacy Policy</Link>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
