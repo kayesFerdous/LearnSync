@@ -1,0 +1,43 @@
+[project]
+name = "chatbot-with-tool"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiosqlite>=0.21.0",
+    "colorlog>=6.10.1",
+    "fastapi>=0.118.0",
+    # "langchain-chroma>=0.2.6",
+    "langchain-core>=0.3.78",
+    "langchain-google-community[calendar]>=2.0.10",
+    "langchain-google-genai>=2.1.12",
+    "langchain-groq>=0.3.8",
+    "langgraph>=0.6.8",
+    "langgraph-checkpoint-sqlite>=2.0.11",
+    "litellm>=1.80.5",
+    "memorisdk>=2.3.3",
+    "pydantic-settings>=2.11.0",
+    "python-multipart>=0.0.20",
+    # "supabase>=2.24.0",
+    "uvicorn[standard]>=0.37.0",
+    "python-pptx>=0.6.23",
+    "boto3>=1.42.17",
+    "authlib>=1.6.6",
+    "psycopg[binary,pool]>=3.3.2",
+    "alembic>=1.17.2",
+    "asyncpg>=0.31.0",
+    "sqlalchemy[asyncio]>=2.0.43",
+    "itsdangerous>=2.2.0",
+    "passlib[bcrypt]>=1.7.4",
+    "pydantic[email]>=2.11.10",
+    "langgraph-checkpoint-postgres>=3.0.3",
+    "langchain-docling>=1.1.0",
+    "flashrank>=0.2.10",
+    "langchain-qdrant>=0.2.1",
+    "langchain-ollama>=0.3.10",
+    "fastembed>=0.7.4",
+    "email-validator>=2.3.0",
+    "disposable-email-domains>=0.0.161",
+    "httpx>=0.28.1",
+]

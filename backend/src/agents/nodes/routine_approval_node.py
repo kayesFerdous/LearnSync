@@ -1,0 +1,117 @@
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from langgraph.types import interrupt
+from langchain_core.runnables import RunnableConfig
+from sqlalchemy.ext.asyncio.session import AsyncSession
+from langchain_core.messages import AIMessage, SystemMessage
+
+from src.agents.model import AgentState, AgentContext
+from src.services.vision.schema import ApprovedWeeklyRoutine
+from src.routines.model import ClassSession, Routine
+from src.core.integrations.google.auth_utils import get_service_and_timezone
+from src.core.integrations.google.calendar_service import sync_db_routine_to_google, delete_google_events_for_routine
+from src.core.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
+def make_routine_approval_node():
+    async def routine_approval_node(state: AgentState, config: RunnableConfig):
+        """
+        Extract routine and interrupt for human approval
+        """
+        extracted_routine = state['scratchpad'].get('extracted_routine')
+        logger.debug(f"Extracted routine: {extracted_routine}")
+
+        user_dicision = interrupt({
+            "type": "routine_approval_required",
+            "extracted_data": extracted_routine,
+        })
+
+        logger.info(f"User decision received: approved={user_dicision.get('approved') if isinstance(user_dicision, dict) else user_dicision}")
+
+        messages = []
+
+        if isinstance(user_dicision, dict) and user_dicision.get('approved'):
+            ctx: AgentContext = config["configurable"]["ctx"]
+            db = ctx.db
+            user_id = state['user_id']
+            
+            # Get Google Service once
+            service, timezone = await get_service_and_timezone(user_id, db)
+
+            # Check if user already has a routine and delete it (replace logic)
+            stmt = select(Routine).where(Routine.user_id == user_id).options(selectinload(Routine.classes))
+            result = await db.execute(stmt)
+            existing_routine = result.scalars().first()
+
+            if existing_routine:
+                # Cleanup Google Calendar events for the old routine
+                if service:
+                    await delete_google_events_for_routine(service, existing_routine)
+                
+                await db.delete(existing_routine)
+                await db.flush() # Ensure deletion happens before insertion
+
+            approved_routine = ApprovedWeeklyRoutine.model_validate(user_dicision.get("data")) 
+            # Create and add the parent Routine first
+            new_routine = Routine(title=approved_routine.title, user_id=user_id)
+            db.add(new_routine)
+            await db.flush() # Generates the ID for new_routine
+
+            all_classes: list[ClassSession] = []
+            for single_class in approved_routine.classes:
+                new_class = ClassSession(
+                    day=single_class.day, 
+                    start_time=single_class.start.dateTime,
+                    end_time=single_class.end.dateTime,
+                    course_name=single_class.course_name,
+                    routine_id=new_routine.id,
+                    recurrence=single_class.recurrence
+                )
+                all_classes.append(new_class)
+            
+            db.add_all(all_classes)
+            await db.commit()
+            await db.refresh(new_routine, attribute_names=["classes"])
+            
+            # Sync to Google Calendar
+            try:
+                if service:
+                    # Use the DB sync function to save IDs
+                    await sync_db_routine_to_google(service, new_routine, all_classes, timezone, db)
+                    logger.info(f"Successfully synced routine to Google Calendar for user {user_id}")
+                else:
+                    logger.warning(f"Skipping Google Calendar sync: No service found for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to sync routine to Google Calendar: {e}")
+
+            # Construct routine data to embed in message
+            routine_data = {
+                "title": approved_routine.title,
+                "classes": [
+                    {
+                        "day": c.day, 
+                        "start": c.start_time.isoformat() if c.start_time else None, 
+                        "end": c.end_time.isoformat() if c.end_time else None, 
+                        "course": c.course_name
+                    } 
+                    for c in all_classes
+                ]
+            }
+
+            # Embed routine data in the message using additional_kwargs
+            messages.append(AIMessage(
+                content="The routine has been approved, saved to the database, and synced to Google Calendar.",
+                additional_kwargs={
+                    "routine_approved": True,
+                    "routine_data": routine_data
+                }
+            ))
+
+        else:
+            messages.append(SystemMessage(content="The routine has been rejected."))
+
+        return {"messages": messages}
+
+    return routine_approval_node
