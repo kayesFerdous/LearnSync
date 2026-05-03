@@ -69,7 +69,8 @@ The system is organized as a clear frontend/backend split. The frontend communic
 
 - Frontend: Next.js, React, TypeScript, Tailwind, Zustand, TanStack Query
 - Backend: FastAPI, Python, SQLAlchemy (async), LangGraph, LangChain
-- AI: Google Gemini, Groq, Ollama (configurable providers)
+- AI: Google Gemini, Groq, Ollama
+- Hosting: Microsoft Azure
 
 ## Local setup (developer)
 
@@ -106,6 +107,7 @@ Minimum variables (see `backend/.env.example`):
 - `R2_ACCESS_KEY` / `R2_SECRET_KEY` / `R2_BUCKET`
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
 - `QDRANT_URL` / `QDRANT_API_KEY`
+
 
 ## API overview
 
