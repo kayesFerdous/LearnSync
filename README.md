@@ -3,7 +3,7 @@
 
 <div align="center">
 <p align="center">
-	<img src="frontend/public/logo.png" alt="LearnSync" width="120" />
+	<img src="frontend/public/logo.png" alt="LearnSync" width="220" />
 	<h1 align="center">LearnSync</h1>
 </p>
 
