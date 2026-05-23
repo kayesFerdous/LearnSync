@@ -11,7 +11,17 @@
 [![Backend](https://img.shields.io/badge/Backend-FastAPI-lightgrey.svg)](backend)
 [![Languages](https://img.shields.io/badge/Tech-TS%20%7C%20Python-%23007ACC)](#)
 
-LearnSync is a full-stack AI-powered learning and productivity platform combining a modern Next.js frontend with a FastAPI backend. It provides AI chat, course workspaces, quizzes, calendar sync, routine extraction, and file-based knowledge indexing.
+LearnSync is a full-stack AI-powered learning and productivity platform combining a Next.js frontend with a FastAPI backend. It provides multi-turn AI chat, document workspaces, quiz generation, Google Calendar synchronization, routine extraction from images, and file-based knowledge retrieval.
+
+### 🎯 Technical Reviewer Navigation
+To audit the codebase structure and review the system's outputs, use the direct shortcuts below:
+* **[🔎 End-to-End RAG Trace & Logs](#rag-trace)** — Step-by-step example tracing parsing, query expansion, metadata filters, and retrieval scoring.
+* **[📸 Core Workspace Screenshots](#interface-showcase)** — Visual interfaces displaying active RAG chats and key user workspaces.
+* **[📂 Complete 11+ Screen Gallery](#complete-gallery)** — Collapsed index containing quizzes, settings, editors, and administrative panels.
+* **[🏗️ Full-Stack System Architecture Diagram](#system-architecture)** — High-level layout of user, worker, and storage layers.
+* **[💻 Direct Code Links](#rag-code-links)** — Link directly to the Python implementation files (Ingestion, Scoping, and Retrieval).
+
+---
 
 ## Quick links
 
@@ -29,58 +39,60 @@ LearnSync is a full-stack AI-powered learning and productivity platform combinin
 - Rich text editor (Tiptap) and translation utilities
 - JWT cookie auth + Google OAuth, admin and user settings
 
-## 🚀 Recruiter Spotlight: Production-Grade RAG Engine
+---
 
-LearnSync features a modern, industry-grade **Retrieval-Augmented Generation (RAG)** engine built to solve real-world retrieval issues like semantic dilution, context loss, data fragmentation, and exact-keyword search failures. 
+<h2 id="rag-architecture">🧠 Retrieval-Augmented Generation (RAG) Architecture</h2>
 
-Rather than using basic, naive langchain wrappers, LearnSync implements a high-performance, layout-aware pipeline:
+LearnSync implements a custom **Retrieval-Augmented Generation (RAG)** pipeline designed to address core document retrieval limitations, such as layout preservation during parsing, chunk semantic context-loss, and multi-turn conversational query ambiguity.
+
+Instead of treating text as a flat character string, the architecture integrates deep-learning document analysis with structured vector storage:
 
 ```mermaid
 graph TD
-    A[User File Upload] -->|Direct pre-signed upload| B[(Cloudflare R2)]
-    B -->|Asynchronous task trigger| C[Background Worker]
-    C -->|Layout-aware deep parsing| D[IBM Docling Converter]
-    D -->|Structural splitting| E[Hybrid Chunker]
-    E -->|Hierarchical breadcrumb enrichment| F[Contextual Prepender]
-    F -->|Dense + Sparse vectors indexing| G[(Qdrant Vector DB)]
+    A[File Upload] -->|R2 Pre-signed Upload| B[(Cloudflare R2)]
+    B -->|Async Event Task| C[Background Worker]
+    C -->|IBM Docling Parser| D[Document Layout Converter]
+    D -->|Hybrid Chunker| E[Structure-Aware Splitting]
+    E -->|Breadcrumb Extraction| F[Context Prepender]
+    F -->|Dense + Sparse Embeddings| G[(Qdrant Vector DB)]
     
-    H[User Search Query] -->|Multi-turn history expansion| I[LLM Query Rewriter]
-    I -->|High-speed security filter| J[Metadata Scoper]
-    J -->|Dual hybrid match| G
-    G -->|Dense Embedding Ollama| K[Semantic Match]
-    G -->|Sparse BM25 FastEmbed| L[Keyword Match]
-    K & L -->|RRF Fusion / Scoring| M[Top-K Augmented Context]
-    M -->|Synthesized response + Citations| N[Main LLM Inference]
+    H[User Search Query] -->|Multi-Turn History Expansion| I[LLM Query Rewriter]
+    I -->|Security & Access Controls| J[Qdrant Metadata Filter]
+    J -->|Dense + Sparse Fusion Search| G
+    G -->|Ollama Embeddings| K[Dense Match]
+    G -->|FastEmbed BM25| L[Sparse Match]
+    K & L -->|RRF Fusion / Scoring| M[Context Assembly]
+    M -->|Prompt Context + Citations| N[LLM Inference]
 ```
 
-### The 6 Technical Pillars of the LearnSync RAG Engine
+<h3 id="rag-code-links">Core Technical Implementation</h3>
 
-Browse the direct implementation files to review the production-level code patterns:
+You can review the direct implementation patterns in the following files:
 
-1. **Layout-Aware Deep Parsing (IBM Docling)** 
-   * **Source:** [ingestion.py (L76-104)](backend/src/rag/ingestion.py#L76-L104)
-   * **Mechanism:** Naive PDF parsers discard layout, column flows, and table structures. LearnSync utilizes **IBM's Docling** (`DocumentConverter`), employing deep-learning layout models to reconstruct the structural layout of documents before chunking.
-2. **Structure-Preserving Hybrid Chunking**
-   * **Source:** [ingestion.py (L91-101)](backend/src/rag/ingestion.py#L91-L101)
-   * **Mechanism:** Leverages Docling's `HybridChunker` to respect native boundaries (headers, lists, tables). This stops data fragmentation (like cutting a table row in half) and intelligently groups small chunks under a token-informed budget (up to 500 tokens).
-3. **Contextual Breadcrumb Enrichment**
-   * **Source:** [ingestion.py (L12-73)](backend/src/rag/ingestion.py#L12-L73)
-   * **Mechanism:** Solves the *"lost in chunking"* problem. During ingestion, it recursively extracts a chunk's hierarchical position (e.g., `Syllabus > Chapter 3 > Grading Criteria`) and prepends it to the chunk content prior to embedding. This maintains context even when the retrieved text is highly specific.
+1. **Layout-Aware Document Ingestion (IBM Docling)** 
+   * **Source File:** [ingestion.py (L76-104)](backend/src/rag/ingestion.py#L76-L104)
+   * **Implementation:** Text-based parsers discard layout formatting and column flow. LearnSync utilizes **IBM's Docling** (`DocumentConverter`), employing deep-learning layout models to reconstruct the structural layout (e.g. multi-column alignment, lists, tables) of documents before chunking.
+2. **Structure-Preserving Chunking**
+   * **Source File:** [ingestion.py (L91-101)](backend/src/rag/ingestion.py#L91-L101)
+   * **Implementation:** Leverages Docling's `HybridChunker` to respect native document boundaries (headers, lists, tables). This prevents splitting key items (like single table cells or list nodes) in half, grouping adjacent text nodes up to a 500-token threshold.
+3. **Contextual Enrichment**
+   * **Source File:** [ingestion.py (L12-73)](backend/src/rag/ingestion.py#L12-L73)
+   * **Implementation:** Resolves mid-document context loss (the *"lost in chunking"* problem). During ingestion, it recursively extracts a chunk's hierarchical section breadcrumbs (e.g. `Syllabus > Chapter 3 > Grading Criteria`) and prepends this trail directly to the chunk's content before computing embeddings.
 4. **Multi-Turn Query Rewriting & Expansion**
-   * **Source:** [rag_node.py (L12-38)](backend/src/agents/nodes/rag_node.py#L12-L38)
-   * **Mechanism:** Converts conversational multi-turn queries (e.g., *"how is it graded?"*) into a retrieval-focused search query by expanding the query with context and history (e.g., *"CS101 grading breakdown percentage syllabus assignments exams"*).
-5. **Secure, Scoped Metadata Filtering**
-   * **Source:** [rag_node.py (L47-74)](backend/src/agents/nodes/rag_node.py#L47-L74)
-   * **Mechanism:** Applies high-speed **Qdrant native field filtering** (`Filter`, `MatchAny`, `MatchValue`) at search time. This ensures total data isolation, restricting the RAG scope to the user's specific `user_id` and selected `file_ids`, `folder_id`, or current conversation.
-6. **Dual-Engine Hybrid Search (Dense + Sparse)**
-   * **Source:** [store.py (L53-66)](backend/src/rag/store.py#L53-L66) & [retrieval.py (L7-23)](backend/src/rag/retrieval.py#L7-L23)
-   * **Mechanism:** Fuses semantic similarity with keyword match. Combines **Dense Vector Search** (`OllamaEmbeddings`) for synonyms and conceptual matching, with **Sparse Vector Search** (`FastEmbedSparse` with `Qdrant/bm25`) for matching exact IDs, technical jargon, and codes.
+   * **Source File:** [rag_node.py (L12-38)](backend/src/agents/nodes/rag_node.py#L12-L38)
+   * **Implementation:** Converts conversational shorthand (e.g. *"how is it graded?"*) into a standalone retrieval vector search query by prompting a dedicated LLM thread with the user query and the last three turns of conversation history.
+5. **Metadata-Scoped Vector Filtering**
+   * **Source File:** [rag_node.py (L47-74)](backend/src/agents/nodes/rag_node.py#L47-L74)
+   * **Implementation:** Restricts vector queries at search time using Qdrant field conditions (`metadata.user_id` and selected `file_ids`, `folder_id`, or `conversation_id`) to ensure data isolation.
+6. **Dense + Sparse Hybrid Search**
+   * **Source File:** [store.py (L53-66)](backend/src/rag/store.py#L53-L66) & [retrieval.py (L7-23)](backend/src/rag/retrieval.py#L7-L23)
+   * **Implementation:** Configures a Qdrant `HYBRID` vector store blending Dense Search (`OllamaEmbeddings` for conceptual semantics) and Sparse Search (`FastEmbedSparse` with BM25 for exact terms/IDs).
 
 ---
 
-### 🔎 Concrete RAG Execution Trace (End-to-End Inputs/Outputs)
+<h2 id="rag-trace">🔎 RAG Execution Trace (Inputs & Outputs)</h2>
 
-Here is a dry-run trace demonstrating how a complex document layout is ingested, retrieved, and synthesized into a precise response:
+This dry-run trace demonstrates how a complex document layout is ingested, scoped, retrieved, and synthesized into a response:
 
 #### 1. Ingestion Phase (Document Parsing & Enrichment)
 * **Uploaded File:** `LLM_Agents_Overview.pdf`
@@ -148,7 +160,7 @@ Here is a dry-run trace demonstrating how a complex document layout is ingested,
 
 ---
 
-## 🏗️ Architecture & Core Components
+<h2 id="system-architecture">🏗️ System Architecture & Components</h2>
 
 LearnSync is organized as a clear, decoupled full-stack system. The React frontend interacts with the FastAPI backend via cookie-authenticated REST APIs and Server-Sent Events (SSE) for AI streaming.
 
@@ -160,7 +172,7 @@ LearnSync is organized as a clear, decoupled full-stack system. The React fronte
 
 ---
 
-## 📸 Interactive Visual Interface
+<h2 id="interface-showcase">📸 User Interface Showcase</h2>
 
 Here are the primary workspaces of LearnSync. Review the full design specs in `frontend/outputs/`:
 
@@ -170,26 +182,26 @@ Here are the primary workspaces of LearnSync. Review the full design specs in `f
 ### RAG-Powered AI Chat (Active Ingestion & Source Citations)
 ![Chat](frontend/outputs/conversation_with_llm.png)
 
-<details>
+<details id="complete-gallery">
 <summary>📂 Click to expand the Complete Application Gallery (11+ additional screens)</summary>
 <br>
 
 A closer look at the premium, responsive UI elements implemented throughout LearnSync:
 
-| Section | Interface Description | Screenshot |
-| :--- | :--- | :--- |
-| **Course Workspace** | Dynamic study folder containing modules, AI summaries, and files. | ![Course workspace](frontend/outputs/course.png) |
-| **Interactive Mind Maps** | Auto-generated modular mind maps representing document structures. | ![Mind map](frontend/outputs/mindmap.png) |
-| **AI Quiz Generation** | Configure custom difficulty, count, and topic targets. | ![New quiz modal](frontend/outputs/new_quiz.png) |
-| **Interactive Quiz Interface** | Live testing playground with timing constraints. | ![Quiz view](frontend/outputs/quiz.png) |
-| **Immediate Quiz Feedback** | Detailed corrections showing explanation logs and correct answers. | ![Quiz feedback](frontend/outputs/quiz_wrong.png) |
-| **Google Calendar Hub** | Standard calendar sync displaying extracted routines. | ![Calendar view](frontend/outputs/calendar.png) |
-| **Class Schedule Extract** | Weekly schedule view loaded asynchronously from user inputs. | ![Class schedule](frontend/outputs/class_schedule.png) |
-| **Rich Document Editor** | Tiptap-powered editor containing translate, format, and expand tools. | ![Editor](frontend/outputs/text_editor.png) |
-| **Peer Chat Messenger** | Real-time direct message client with peer context syncing. | ![Chat (people)](frontend/outputs/chat_with_people.png) |
-| **Administrative Panel** | User overview list, token trackers, and diagnostic panels. | ![Admin panel](frontend/outputs/admin_pannel.png) |
-| **Profile Settings** | Manage credentials and adjust visual display parameters. | ![Profile](frontend/outputs/profile.png) |
-| **System Settings** | Toggle custom themes, font faces, and localized clock limits. | ![Settings](frontend/outputs/settings.png) |
+| Section | Screenshot |
+| :--- | :--- |
+| **Course Workspace** (Modules, AI Summaries & Files) | ![Course workspace](frontend/outputs/course.png) |
+| **Interactive Mind Maps** (Document Structure Visualizer) | ![Mind map](frontend/outputs/mindmap.png) |
+| **AI Quiz Configuration** (Difficulty & Scope Controls) | ![New quiz modal](frontend/outputs/new_quiz.png) |
+| **Interactive Quiz Interface** (Timed Testing Playground) | ![Quiz view](frontend/outputs/quiz.png) |
+| **Immediate Quiz Feedback** (Detailed Corrections & Explanations) | ![Quiz feedback](frontend/outputs/quiz_wrong.png) |
+| **Google Calendar Hub** (Syncing Extracted Routines) | ![Calendar view](frontend/outputs/calendar.png) |
+| **Class Schedule Extraction** (Asynchronous Weekly View) | ![Class schedule](frontend/outputs/class_schedule.png) |
+| **Rich Text Editor** (Tiptap-Powered Editing & Translation Tools) | ![Editor](frontend/outputs/text_editor.png) |
+| **Peer Chat Messenger** (Real-Time Messaging Workspace) | ![Chat (people)](frontend/outputs/chat_with_people.png) |
+| **Administrative Diagnostic Panel** (User Tracking & Token Metrics) | ![Admin panel](frontend/outputs/admin_pannel.png) |
+| **Profile Settings** (Credential Management) | ![Profile](frontend/outputs/profile.png) |
+| **System Settings** (Visual Customization & Locale Limits) | ![Settings](frontend/outputs/settings.png) |
 
 </details>
 
