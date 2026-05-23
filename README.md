@@ -1,6 +1,7 @@
 
 <!-- Improved top-level README designed for clarity and professionalism. -->
 
+<div align="center">
 <p align="center">
 	<img src="frontend/public/logo.png" alt="LearnSync" width="120" />
 	<h1 align="center">LearnSync</h1>
@@ -10,6 +11,8 @@
 [![Frontend](https://img.shields.io/badge/Frontend-Next.js-blue.svg)](frontend)
 [![Backend](https://img.shields.io/badge/Backend-FastAPI-lightgrey.svg)](backend)
 [![Languages](https://img.shields.io/badge/Tech-TS%20%7C%20Python-%23007ACC)](#)
+
+</div>
 
 LearnSync is a full-stack AI-powered learning and productivity platform combining a Next.js frontend with a FastAPI backend. It provides multi-turn AI chat, document workspaces, quiz generation, Google Calendar synchronization, routine extraction from images, and file-based knowledge retrieval.
 
